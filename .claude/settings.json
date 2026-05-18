@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(docker compose:*)",
+      "Bash(docker stats:*)",
+      "Bash(sort -t'%' -k4 -rn)",
+      "Bash(docker top:*)",
+      "Bash(netstat -tnp)",
+      "Bash(docker system:*)",
+      "Bash(du -sh /var/lib/docker/volumes/*)",
+      "Bash(du -sh /opt/docker/*/)",
+      "Bash(docker volume:*)",
+      "Bash(docker image:*)",
+      "Bash(docker builder:*)",
+      "Bash(docker restart:*)",
+      "Bash(grep -rn 'CMD-SHELL.*pg_isready' /opt/docker/apps/*/compose.yaml)",
+      "Bash(find /opt/docker/data/mediafusion/db -name PG_VERSION -exec cat {} \\\\;)",
+      "Bash(find /opt/docker/data/mediafusion/postgres -name PG_VERSION -exec echo {} \\\\; -exec cat {} \\\\;)",
+      "Read(//var/lib/docker/volumes/2abee450e749f54ee02ce40a895a7ada3b29ed08e4b0b0f2ff4a51347221d883/**)",
+      "Bash(sudo ls:*)",
+      "Bash(docker run:*)",
+      "Bash(grep -rn 'image:.*postgres:latest' /opt/docker/apps/*/compose.yaml)",
+      "Bash(grep -rn 'image:.*redis:latest\\\\|image:.*redis$' /opt/docker/apps/*/compose.yaml)",
+      "Bash(grep -rn 'image:.*traefik:v3$' /opt/docker/apps/*/compose.yaml)",
+      "Bash(grep -rn 'image:.*:latest\\\\|image:.*[^:]$' /opt/docker/apps/*/compose.yaml)"
+    ]
+  }
+}
