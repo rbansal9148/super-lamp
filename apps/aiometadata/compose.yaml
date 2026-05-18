@@ -82,7 +82,7 @@ services:
       - all
 
   aiometadata_redis:
-    mem_limit: 256m
+    mem_limit: 1280m
     image: redis:8.6.3
     container_name: aiometadata_redis
     restart: unless-stopped

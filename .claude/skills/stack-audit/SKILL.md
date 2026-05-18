@@ -22,31 +22,30 @@ bash /opt/docker/.claude/skills/stack-audit/audit.sh --json    # machine-readabl
 
 ### When you (the model) are running `/stack-audit`
 
-Always run the deterministic bash audit first — it's fast and ~zero token cost. Then, **for a full audit**, also dispatch the 10-POV multi-agent pass below. The two are complementary: the bash audit catches codified issues with high precision; the agents discover unknown-unknowns and propose new check scripts.
+**Default path is purely deterministic.** Run `bash audit.sh` and present the output as-is. No LLM judgement, no parallel agents, no editorial layer — the bash checks already encode the rules. This makes audit results reproducible run-to-run and free of model variance.
 
-Skip the multi-agent pass for narrow asks ("check disk space", "is bitmagnet healthy") — only run it when the user wants a thorough audit ("audit", "full audit", "what's wrong with the stack", "improvements?", "research more").
+If a finding looks wrong, **fix the check script** (so the next run produces the right answer) rather than overriding it case-by-case in your response.
 
-#### The 10 POVs to dispatch in parallel
+### Discovery mode (opt-in only — `--discover` or "expand the audit")
 
-Use the `Agent` tool with `subagent_type: Explore`, `run_in_background: true`, and dispatch all 10 in a single message. Each prompt must:
-1. Brief the agent on the bitmagnet_vpn bug class (see "Bug-class reference" below) so it understands the kind of latent issue we're hunting.
-2. Assign one of the 10 lenses below.
-3. Demand concrete file:line findings in /opt/docker NOW (not hypothetical).
-4. Demand a deterministic detection snippet suitable for `checks/`.
-5. Cap output at ~350 words.
+Use the 10-POV agent dispatch **only** when the user explicitly asks to *expand check coverage* — phrases like "what is the audit missing?", "find new bug classes", "do analysis 10 times". Do not run it as part of a routine audit; it's a development workflow for the skill itself, not part of the audit output.
 
-| # | Lens | Looks for |
+When in discovery mode, the agents' job is to **propose new check scripts**, not produce findings. The deliverable from each agent is a concrete bash/python detection snippet that can drop into `checks/`. Findings the agents surface incidentally should be promoted into the next bash check, not reported directly — that's the principle that keeps the skill deterministic over time.
+
+Lenses (use one per agent, dispatch all 10 in a single message via `Agent` tool with `subagent_type: Explore`):
+
+| # | Lens | What it should propose a check for |
 |---|------|-----------|
-| 1 | Security | weak creds, exposed ports, missing authelia, root containers, RW docker.sock |
-| 2 | Performance | missing mem_limit/cpus, healthcheck thrash, duplicate workloads, unbounded logs |
-| 3 | Reliability/DR | missing healthchecks, no backups, no restart policy, broken depends_on |
-| 4 | Config hygiene | inconsistent TZ/PUID, dead blocks, duplicate keys, `:latest` tags |
-| 5 | Networking | services that should be behind gluetun, DNS leaks, proxy chain breakage |
-| 6 | Observability | log rotation gaps, missing metrics, beszel/uptime-kuma blind spots |
-| 7 | Supply chain | image age, EOL versions, abandoned upstreams, watchtower scope |
-| 8 | Data integrity | postgres tuning, redis persistence, mixed pg majors, missing checksums |
-| 9 | Architecture/sprawl | overlapping services, kill candidates, consolidation opportunities |
-| 10 | Storage/cost | postgres bloat, orphan data dirs, log file runaways, docker overlay size |
+| 1 | Security | weak creds, exposed ports, missing authelia, RW docker.sock |
+| 2 | Performance | missing mem_limit/cpus, healthcheck thrash, log unbounded |
+| 3 | Reliability/DR | missing healthchecks, no backups, no restart policy |
+| 4 | Config hygiene | inconsistent TZ/PUID, duplicate keys, `:latest` tags |
+| 5 | Networking | services that should be behind gluetun, DNS leaks |
+| 6 | Observability | log rotation, missing metrics, blind spots |
+| 7 | Supply chain | image age, EOL versions, watchtower scope |
+| 8 | Data integrity | postgres tuning, redis persistence, missing checksums |
+| 9 | Architecture/sprawl | overlapping services (subjective — usually NOT codifiable) |
+| 10 | Storage/cost | bloat, orphan dirs, log runaways |
 
 #### Bug-class reference for agent briefings
 
@@ -54,7 +53,7 @@ Use this exact paragraph (verbatim or summarized) in each agent prompt so they s
 
 > **The bitmagnet_vpn bug class**: A service can run for weeks with a latent config bug. The container holds the env from its last successful start; the compose file has since drifted. The bug only surfaces on the next recreate. Example: `apps/bitmagnet/compose.yaml` loaded `gluetun/.env` but not `gluetun/config.env` after the env-split refactor — `VPN_TYPE=wireguard` (in config.env) was missing from the rendered config, but the running container still had it from before the split. The recreate dropped the var, defaulted to OpenVPN, and crashed.
 
-When consolidating agent findings, **filter false positives** before adopting checks: subagents often have buggy path resolution, wrong env-var assumptions, or hardcode values that aren't true on this host. Cross-verify before promoting a finding to a check script.
+**Filter false positives before adopting:** subagents often have buggy path resolution, hardcoded assumptions (`/data/docker` vs `/opt/docker/data`), or treat intentional patterns (`environment:` block overriding env_file) as bugs. Verify each proposed check produces ≥1 true positive and 0 false positives on the current state before adding it to `checks/`.
 
 Each check script in `checks/` runs independently and emits findings in this format:
 
