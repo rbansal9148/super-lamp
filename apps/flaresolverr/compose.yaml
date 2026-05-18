@@ -1,0 +1,17 @@
+services:
+  flaresolverr:
+    container_name: flaresolverr
+    image: 'ghcr.io/flaresolverr/flaresolverr:latest'
+    expose:
+      - 8191
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=Asia/Kolkata
+      - PROXY_URL=http://gluetun:8080
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

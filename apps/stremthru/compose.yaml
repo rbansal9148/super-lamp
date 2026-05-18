@@ -1,0 +1,125 @@
+services:
+  stremthru:
+    image: muniftanjim/stremthru@sha256:39bb8d623c82fd9113eb02c9bb130649b7b41b82b1991bbd87384291a39afd35
+    container_name: stremthru
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    mem_limit: 1g
+    expose:
+      - 8080
+    env_file:
+      - .env
+      - config.env
+    volumes:
+      - ${DOCKER_DATA_DIR}/stremthru:/app/data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/v0/health >/dev/null"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.stremthru.rule=Host(`${STREMTHRU_HOSTNAME?}`)"
+      - "traefik.http.routers.stremthru.entrypoints=websecure"
+      - "traefik.http.routers.stremthru.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.stremthru.middlewares=authelia@docker"
+      - "traefik.http.services.stremthru.loadbalancer.server.port=8080"
+    profiles:
+      - stremthru
+      - all
+
+  stremthru_prune:
+    image: postgres:18.3
+    container_name: stremthru_prune
+    restart: unless-stopped
+    depends_on:
+      stremthru_postgres:
+        condition: service_healthy
+    environment:
+      - PGPASSWORD=81d508541173a46f9c679290960e5a3892f089e228405ceb
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        while true; do
+          echo "[$$(date -u +%FT%TZ)] pruning torrent_stream older than 90 days (batched)"
+          for i in 1 2 3 4 5; do
+            DEL=$$(psql -h stremthru_postgres -U stremthru -d stremthru -At -c "WITH d AS (DELETE FROM torrent_stream WHERE (h,p) IN (SELECT h,p FROM torrent_stream WHERE uat < NOW() - INTERVAL '90 days' LIMIT 50000) RETURNING 1) SELECT count(*) FROM d;" 2>&1)
+            echo "[$$(date -u +%FT%TZ)] batch=$$i deleted=$$DEL"
+            [ "$$DEL" = "0" ] && break
+            sleep 10
+          done
+          psql -h stremthru_postgres -U stremthru -d stremthru -c "VACUUM torrent_stream;" || true
+          sleep 86400
+        done
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+        max-file: "1"
+    profiles:
+      - stremthru
+      - all
+
+  stremthru_postgres:
+    image: postgres:18.3
+    container_name: stremthru_postgres
+    volumes:
+      - ${DOCKER_DATA_DIR}/stremthru/db:/var/lib/postgresql/data
+    shm_size: 2g
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    mem_limit: 7g
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_preload_libraries=pg_stat_statements"
+      - "-c"
+      - "pg_stat_statements.track=top"
+      - "-c"
+      - "shared_buffers=3GB"
+      - "-c"
+      - "effective_cache_size=8GB"
+      - "-c"
+      - "maintenance_work_mem=256MB"
+      - "-c"
+      - "checkpoint_completion_target=0.9"
+      - "-c"
+      - "wal_buffers=8MB"
+      - "-c"
+      - "random_page_cost=1.1"
+      - "-c"
+      - "effective_io_concurrency=200"
+      - "-c"
+      - "work_mem=8MB"
+      - "-c"
+      - "max_connections=100"
+      - "-c"
+      - "log_min_duration_statement=1000"
+      - "-c"
+      - "autovacuum_vacuum_scale_factor=0.05"
+      - "-c"
+      - "autovacuum_analyze_scale_factor=0.05"
+      - "-c"
+      - "autovacuum_naptime=30s"
+    environment:
+      - POSTGRES_PASSWORD=81d508541173a46f9c679290960e5a3892f089e228405ceb
+      - POSTGRES_DB=stremthru
+      - POSTGRES_USER=stremthru
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U stremthru -d stremthru"]
+      interval: 10s
+      start_period: 20s
+    profiles:
+      - stremthru
+      - all

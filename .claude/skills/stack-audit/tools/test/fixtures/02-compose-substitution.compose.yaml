@@ -1,0 +1,9 @@
+services:
+  authelia:
+    image: authelia/authelia
+    environment:
+      TZ: ${TZ:-Etc/UTC}
+      TEMPLATE_DOMAIN: ${DOMAIN?}
+      TEMPLATE_AUTHELIA_HOSTNAME: ${AUTHELIA_HOSTNAME?}
+      TEMPLATE_WEBAUTHN_DISPLAY: ${WEBAUTHN_DISPLAY_NAME?}
+    profiles: [authelia]

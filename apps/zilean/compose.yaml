@@ -1,0 +1,96 @@
+services:
+  zilean:
+    image: ipromknight/zilean@sha256:1b828ac0604235de7adb7757d11c88c1b3bb1a6319071b0c9d99325bc0f9d477
+    restart: unless-stopped
+    container_name: zilean
+    tty: true
+    mem_limit: 4g
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    expose:
+      - 8181
+    environment:
+      Zilean__EnableDashboard: true
+      Zilean__Database__ConnectionString: Host=zilean_postgres;Database=zilean;Username=zilean;Password=d0c4f8c9b2a59b170d54fe1a81ec52236f2e21b882a512fa;Include Error Detail=true;Timeout=30;CommandTimeout=3600
+      Zilean__Imdb__UseAllCores: true
+      Zilean__Imdb__UseLucene: true
+      Zilean__Parsing__BatchSize: 100000
+      # Zilean__Dmm_ScrapeSchedule: 32 * * * *   # Disabled — DMM endpoint returning 4xx/5xx hourly
+      Zilean__Torrents__EnableEndpoint: true
+      Zilean__Torrents__EnableScrapeEndpoint: true
+      # Zilean__ApiKey: zilean-api-key
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.zilean.rule=Host(`${ZILEAN_HOSTNAME?}`)"
+      - "traefik.http.routers.zilean.entrypoints=websecure"
+      - "traefik.http.routers.zilean.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.zilean.middlewares=authelia@docker"
+      - "traefik.http.services.zilean.loadbalancer.server.port=8181"
+    volumes:
+      - ${DOCKER_DATA_DIR}/zilean/tmp:/tmp
+    depends_on:
+      zilean_postgres:
+        condition: service_healthy
+    healthcheck:
+        test: curl --connect-timeout 10 --silent --show-error --fail http://localhost:8181/healthchecks/ping
+        timeout: 60s
+        interval: 30s
+        retries: 10
+    profiles:
+      - zilean
+      - all
+
+  zilean_postgres:
+    image: postgres:17.2-alpine
+    container_name: zilean_postgres
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    shm_size: 2G
+    environment:
+      PGDATA: /var/lib/postgresql/data/pgdata
+      POSTGRES_USER: zilean
+      POSTGRES_PASSWORD: d0c4f8c9b2a59b170d54fe1a81ec52236f2e21b882a512fa
+      POSTGRES_DB: zilean
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_preload_libraries=pg_stat_statements"
+      - "-c"
+      - "pg_stat_statements.track=top"
+      - "-c"
+      - "shared_buffers=512MB"
+      - "-c"
+      - "effective_cache_size=2GB"
+      - "-c"
+      - "maintenance_work_mem=128MB"
+      - "-c"
+      - "checkpoint_completion_target=0.9"
+      - "-c"
+      - "wal_buffers=8MB"
+      - "-c"
+      - "random_page_cost=1.1"
+      - "-c"
+      - "effective_io_concurrency=200"
+      - "-c"
+      - "work_mem=8MB"
+      - "-c"
+      - "max_connections=100"
+      - "-c"
+      - "log_min_duration_statement=1000"
+    volumes:
+      - ${DOCKER_DATA_DIR}/zilean/db:/var/lib/postgresql/data/pgdata
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U zilean -d zilean" ]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - zilean
+      - all

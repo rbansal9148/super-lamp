@@ -1,0 +1,19 @@
+services:
+  ocm:
+    image: ghcr.io/iamneur0/ocm:latest
+    container_name: ocm
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    platform: linux/arm64
+    env_file:
+      - .env
+      - config.env
+    volumes:
+      - ${DOCKER_DATA_DIR}/ocm/key.pem:/app/key.pem:ro
+    profiles:
+      - ocm
+      - all

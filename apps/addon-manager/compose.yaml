@@ -1,0 +1,26 @@
+services:
+  addon-manager:
+    build:
+      context: https://github.com/0xConstant1/stremio-addon-manager.git
+      dockerfile: Dockerfile
+    # image: reddravenn/stremio-addon-manager:latest
+    container_name: addon-manager
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    expose:
+      - 80
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.addon-manager.rule=Host(`${ADDON_MANAGER_HOSTNAME?}`)"
+      - "traefik.http.routers.addon-manager.entrypoints=websecure"
+      - "traefik.http.routers.addon-manager.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.addon-manager.middlewares=authelia@docker"
+      - "traefik.http.services.addon-manager.loadbalancer.server.port=80"
+    profiles:
+      - addon-manager
+      - stremio
+      - all

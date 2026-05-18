@@ -1,0 +1,24 @@
+services:
+  honey:
+    image: ghcr.io/dani3l0/honey:latest
+    container_name: honey
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    user: $PUID:$PGID
+    volumes:
+      - ./config.json:/app/dist/config/config.json
+      - ${DOCKER_DATA_DIR}/honey:/app/dist/img/custom # place any images in this folder, and use custom/image_name.jpg in the config.json
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.honey.rule=Host(`${HONEY_HOSTNAME?}`)"
+      - "traefik.http.routers.honey.entrypoints=websecure"
+      - "traefik.http.routers.honey.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.honey.middlewares=authelia@docker"
+      - "traefik.http.services.honey.loadbalancer.server.port=4173"
+    profiles:
+      - honey
+      - all

@@ -1,0 +1,97 @@
+services:
+  syncio:
+    image: ghcr.io/iamneur0/syncio:public
+    container_name: syncio
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    env_file:
+      - .env
+      - config.env
+    depends_on:
+      - syncio_postgres
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.syncio.rule=Host(`${SYNCIO_HOSTNAME?}`)"
+      - "traefik.http.routers.syncio.entrypoints=websecure"
+      - "traefik.http.routers.syncio.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.syncio.middlewares=authelia@docker"
+      - "traefik.http.services.syncio.loadbalancer.server.port=3000"
+    profiles:
+      - syncio
+      - all
+
+  syncio_postgres:
+    image: postgres:18.3
+    container_name: syncio_postgres
+    volumes:
+      - ${DOCKER_DATA_DIR}/syncio/db:/var/lib/postgresql/data
+    shm_size: 1g
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=128MB"
+      - "-c"
+      - "effective_cache_size=384MB"
+      - "-c"
+      - "maintenance_work_mem=64MB"
+      - "-c"
+      - "checkpoint_completion_target=0.9"
+      - "-c"
+      - "wal_buffers=8MB"
+      - "-c"
+      - "random_page_cost=1.1"
+      - "-c"
+      - "effective_io_concurrency=200"
+      - "-c"
+      - "work_mem=8MB"
+      - "-c"
+      - "max_connections=100"
+      - "-c"
+      - "log_min_duration_statement=1000"
+      - "-c"
+      - "idle_in_transaction_session_timeout=300000"
+      - "-c"
+      - "idle_session_timeout=900000"
+    environment:
+      - POSTGRES_PASSWORD=syncio
+      - POSTGRES_DB=syncio
+      - POSTGRES_USER=syncio
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U syncio -d syncio"]
+      interval: 10s
+      start_period: 20s
+    profiles:
+      - syncio
+      - all
+
+  syncio_redis:
+    image: redis:8.6.3
+    container_name: syncio_redis
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    volumes:
+      - ${DOCKER_DATA_DIR}/syncio/cache:/data
+    command: redis-server --appendonly yes --save 60 1 --maxmemory 64mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - syncio
+      - all

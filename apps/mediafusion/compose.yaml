@@ -1,0 +1,174 @@
+services:
+  mediafusion:
+    image: mhdzumair/mediafusion:6.0.0-beta.8
+    container_name: mediafusion
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    expose:
+      - 8000
+    env_file:
+      - .env
+      - config.env
+    mem_limit: 3g
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 1m
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    depends_on:
+      # mediafusion_mongodb:
+      #   condition: service_healthy
+      mediafusion_redis:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.mediafusion.rule=Host(`${MEDIAFUSION_HOSTNAME?}`)"
+      - "traefik.http.routers.mediafusion.entrypoints=websecure"
+      - "traefik.http.routers.mediafusion.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.mediafusion.middlewares=authelia@docker"
+    profiles:
+      - mediafusion
+      - all
+
+  mediafusion_postgres:
+    image: postgres:18-alpine
+    container_name: mediafusion_postgres
+    environment:
+      POSTGRES_USER: mediafusion
+      POSTGRES_PASSWORD: mediafusion
+      POSTGRES_DB: mediafusion
+      # Performance tuning
+      POSTGRES_INITDB_ARGS: "--data-checksums"
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=256MB"
+      - "-c"
+      - "effective_cache_size=768MB"
+      - "-c"
+      - "maintenance_work_mem=128MB"
+      - "-c"
+      - "checkpoint_completion_target=0.9"
+      - "-c"
+      - "wal_buffers=16MB"
+      - "-c"
+      - "log_min_duration_statement=1000"
+      - "-c"
+      - "default_statistics_target=100"
+      - "-c"
+      - "random_page_cost=1.1"
+      - "-c"
+      - "effective_io_concurrency=200"
+      - "-c"
+      - "work_mem=16MB"
+      - "-c"
+      - "huge_pages=off"
+      - "-c"
+      - "min_wal_size=1GB"
+      - "-c"
+      - "max_wal_size=4GB"
+      - "-c"
+      - "max_worker_processes=4"
+      - "-c"
+      - "max_parallel_workers_per_gather=2"
+      - "-c"
+      - "max_parallel_workers=4"
+      - "-c"
+      - "max_parallel_maintenance_workers=2"
+    volumes:
+      - ${DOCKER_DATA_DIR}/mediafusion/postgres:/var/lib/postgresql
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mediafusion -d mediafusion"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    profiles:
+      - mediafusion
+      - all
+
+
+  # mediafusion_scheduler:
+  #   image: mhdzumair/mediafusion:latest
+  #   container_name: mediafusion_scheduler
+  #   command: ["dramatiq", "api.task", "-p", "1", "-t", "4"]
+  #   restart: unless-stopped
+  #   env_file:
+  #     - .env
+  #   depends_on:
+  #     mediafusion_mongodb:
+  #       condition: service_healthy
+  #     mediafusion_redis:
+  #       condition: service_healthy
+  #   profiles:
+  #     - mediafusion
+  #     - all
+  
+  browserless:
+    image: ghcr.io/browserless/chromium
+    container_name: browserless
+    environment:
+      - TIMEOUT=-1
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/json/version"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    profiles:
+      - mediafusion
+      - all
+
+  # mediafusion_mongodb:
+  #   image: mongo:latest
+  #   container_name: mediafusion_mongodb
+  #   restart: unless-stopped
+  #   init: true
+  #   volumes:
+  #     - ${DOCKER_DATA_DIR}/mediafusion/db:/data/db
+  #   healthcheck:
+  #     test: echo 'db.runCommand("ping").ok' | mongosh localhost:27017/test --quiet
+  #     interval: 10s
+  #     timeout: 10s
+  #     retries: 5
+  #     start_period: 40s
+  #   profiles:
+  #     - mediafusion
+  #     - all
+
+  mediafusion_redis:
+    image: redis:8.6.3
+    container_name: mediafusion_redis
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    volumes:
+      - ${DOCKER_DATA_DIR}/mediafusion/cache:/data
+    command: redis-server --appendonly yes --save 60 1 --maxmemory 256mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - mediafusion
+      - all

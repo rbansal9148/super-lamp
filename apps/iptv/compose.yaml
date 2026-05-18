@@ -1,0 +1,48 @@
+services:
+  iptv:
+    build:
+      context: https://github.com/Inside4ndroid/M3U-XCAPI-EPG-IPTV-Stremio.git
+      dockerfile: Dockerfile
+    container_name: iptv
+    env_file:
+      - .env
+      - config.env
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.iptv.rule=Host(`${IPTV_HOSTNAME?}`)"
+      - "traefik.http.routers.iptv.entrypoints=websecure"
+      - "traefik.http.routers.iptv.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.iptv.middlewares=authelia@docker"
+      - "traefik.http.services.iptv.loadbalancer.server.port=${PORT:-7000}"
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    depends_on:
+      - iptv_redis
+    profiles:
+      - iptv
+      - all
+
+  iptv_redis:
+    image: redis:8.6.3
+    container_name: iptv_redis
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    volumes:
+      - ${DOCKER_DATA_DIR}/iptv/cache:/data
+    command: redis-server --appendonly yes --save 60 1
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - iptv
+      - all

@@ -1,0 +1,25 @@
+services:
+  usenet-streamer:
+    image: ghcr.io/sanket9225/usenetstreamer:latest
+    container_name: usenet-streamer
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    expose:
+      - 7000
+    env_file:
+      - .env
+      - config.env
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.usenet-streamer.rule=Host(`${USENET_STREAMER_HOSTNAME?}`)"
+      - "traefik.http.routers.usenet-streamer.entrypoints=websecure"
+      - "traefik.http.routers.usenet-streamer.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.usenet-streamer.middlewares=authelia@docker"
+      - "traefik.http.services.usenet-streamer.loadbalancer.server.port=7000"
+    profiles:
+      - usenet-streamer
+      - all

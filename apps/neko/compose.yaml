@@ -1,0 +1,26 @@
+services:
+  neko:
+    image: ghcr.io/m1k1o/neko/firefox:latest
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    #     ports:
+    #       - "8080:8080"
+    #       - "56000-56100:56000-56100/udp"
+    environment:
+      NEKO_WEBRTC_EPR: "56000-56100"
+      NEKO_WEBRTC_NAT1TO1: "127.0.0.1"
+      NEKO_MEMBER_MULTIUSER_USER_PASSWORD: "neko"
+      NEKO_MEMBER_MULTIUSER_ADMIN_PASSWORD: "admin"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.neko.rule=Host(`${NEKO_HOSTNAME?}`)"
+      - "traefik.http.routers.neko.entrypoints=websecure"
+      - "traefik.http.routers.neko.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.neko.middlewares=authelia@docker"
+    profiles:
+      - neko
+      - all

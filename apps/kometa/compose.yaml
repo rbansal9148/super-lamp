@@ -1,0 +1,40 @@
+services:
+  kometa:
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    image: lscr.io/linuxserver/kometa:latest
+    container_name: kometa
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ:-Etc/UTC}
+      - KOMETA_RUN=True
+    volumes:
+      - ./config:/config
+    profiles:
+      - kometa
+      - all
+
+  kometa_scheduled:
+    image: lscr.io/linuxserver/kometa:latest
+    container_name: kometa_scheduled
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=${TZ:-Etc/UTC}
+      - KOMETA_TIME=00:00,02:00,04:00,06:00,08:00,10:00,12:00,14:00,16:00,18:00,20:00,22:00
+      - KOMETA_RUN=False 
+    volumes:
+      - ./config:/config
+    profiles:
+      - kometa
+      - all

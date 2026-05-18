@@ -1,0 +1,27 @@
+services:
+  uptime-kuma:
+    image: louislam/uptime-kuma:latest
+    container_name: kuma
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    # environment:
+      # PUID: ${PUID}
+      # PGID: ${PGID}
+    expose:
+      - 3001
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.uptime-kuma.rule=Host(`${UPTIME_KUMA_HOSTNAME?}`)"
+      - "traefik.http.routers.uptime-kuma.entrypoints=websecure"
+      - "traefik.http.routers.uptime-kuma.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.uptime-kuma.middlewares=authelia@docker"
+    volumes:
+      - ${DOCKER_DATA_DIR}/uptime-kuma:/app/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    profiles:
+      - uptime-kuma
+      - all

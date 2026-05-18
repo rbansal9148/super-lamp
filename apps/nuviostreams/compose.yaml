@@ -1,0 +1,26 @@
+services:
+  nuviostreams:
+    build:
+      context: https://github.com/tapframe/NuvioStreamsAddon.git
+      dockerfile: Dockerfile
+    container_name: nuviostreams
+    #     ports:
+    #       - "7000:7000"
+    env_file:
+      - .env
+      - config.env
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    volumes:
+      - ./cookies.txt:/app/cookies.txt
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nuviostreams.rule=Host(`${NUVIOSTREAMS_HOSTNAME?}`)"
+      - "traefik.http.routers.nuviostreams.entrypoints=websecure"
+      - "traefik.http.routers.nuviostreams.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.nuviostreams.middlewares=authelia@docker"
+      - "traefik.http.services.nuviostreams.loadbalancer.server.port=7000"

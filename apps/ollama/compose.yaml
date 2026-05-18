@@ -1,0 +1,72 @@
+services:
+  ollama:
+    image: docker.io/ollama/ollama:latest
+    # ports:
+    #   - 7869:11434
+    volumes:
+      - .:/code
+      - ${DOCKER_DATA_DIR}/ollama/data:/root/.ollama
+    container_name: ollama
+    # pull_policy: always
+    tty: true
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    environment:
+      - OLLAMA_KEEP_ALIVE=24h
+      - OLLAMA_HOST=0.0.0.0
+    healthcheck:
+      test: ["CMD", "pgrep", "-x", "ollama"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+    profiles:
+      - ollama
+      - all
+
+  ollama-webui:
+    image: ghcr.io/open-webui/open-webui:main
+    container_name: ollama-webui
+    expose:
+      - 8080
+    volumes:
+      - ${DOCKER_DATA_DIR}/ollama/ollama-webui:/app/backend/data
+    depends_on:
+      ollama:
+        condition: service_healthy
+    ports:
+      - 8080:8080
+    environment: # https://docs.openwebui.com/getting-started/env-configuration#default_models
+      - OLLAMA_BASE_URLS=http://ollama:11434 #comma separated ollama hosts
+      - ENV=dev
+      - WEBUI_AUTH=False
+      - WEBUI_NAME=viren070's Ollama WebUI
+      - WEBUI_URL=http://localhost:8080
+      - WEBUI_SECRET_KEY=t0p-s3cr3t
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.ollama.rule=Host(`${OLLAMA_HOSTNAME?}`)"
+      - "traefik.http.routers.ollama.entrypoints=websecure"
+      - "traefik.http.routers.ollama.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.ollama.middlewares=authelia@docker"
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail http://localhost:8080/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    profiles:
+      - ollama
+      - all

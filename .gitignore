@@ -1,0 +1,15 @@
+..*
+
+notification.txt
+data
+*.log
+*.db
+
+!data/searxng/settings.yml
+
+*.env
+
+# Runtime-cloned nested repos (not tracked here)
+/Indexers/
+/apps/calibre-web-automated/heroofhearts/
+/apps/invidious/

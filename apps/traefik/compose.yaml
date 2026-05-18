@@ -1,0 +1,114 @@
+services:
+  traefik:
+    image: traefik:v3.7.0
+    container_name: traefik
+    restart: unless-stopped
+    mem_limit: 512m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    env_file:
+      - .env
+      - config.env
+    environment:
+      - CF_DNS_API_TOKEN=${CLOUDFLARE_API_TOKEN}
+    ports:
+      - 443:443
+      - 80:80
+      - 853:853
+    command:
+      - "--ping"
+      - '--api=true'
+      - '--api.dashboard=true'
+      - '--api.insecure=false'
+      - '--global.sendAnonymousUsage=false'
+      - '--global.checkNewVersion=false'
+      - '--log=true'
+      - "--log.level=WARN"
+      - '--accesslog=true'
+      - "--accesslog.filepath=/data/access.log"
+      - "--accesslog.bufferingsize=100"
+      - "--accesslog.fields.names.StartUTC=drop"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=${DOCKER_NETWORK?}"
+  
+      - "--entryPoints.web.address=:80"
+      - "--entryPoints.websecure.address=:443"
+      - "--entryPoints.dot.address=:853"
+      
+      # redirect http to https
+      - "--entryPoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entryPoints.web.http.redirections.entryPoint.scheme=https"
+      - "--entryPoints.web.http.redirections.entryPoint.permanent=true"
+
+      # setup forwarded headers and proxy protocol for trusted proxies
+      - "--entryPoints.web.forwardedHeaders.insecure=false"
+      - "--entryPoints.web.proxyProtocol.insecure=false"
+      - "--entryPoints.web.forwardedHeaders.trustedIPs=${TRUSTED_IPS}"
+      - "--entryPoints.web.proxyProtocol.trustedIPs=${TRUSTED_IPS}"
+      - "--entryPoints.websecure.forwardedHeaders.insecure=false"
+      - "--entryPoints.websecure.proxyProtocol.insecure=false"
+      - "--entryPoints.websecure.forwardedHeaders.trustedIPs=${TRUSTED_IPS}"
+      - "--entryPoints.websecure.proxyProtocol.trustedIPs=${TRUSTED_IPS}"
+
+      # allow all encoded characters in path params
+      - "--entryPoints.web.http.encodedcharacters.allowencodedslash=true"
+      - "--entryPoints.web.http.encodedcharacters.allowencodedbackslash=true"
+      - "--entryPoints.web.http.encodedcharacters.allowencodednullcharacter=true"
+      - "--entryPoints.web.http.encodedcharacters.allowencodedsemicolon=true"
+      - "--entryPoints.web.http.encodedcharacters.allowencodedpercent=true"
+      - "--entryPoints.web.http.encodedcharacters.allowencodedquestionmark=true"
+      - "--entryPoints.web.http.encodedcharacters.allowencodedhash=true"
+      - "--entryPoints.websecure.http.encodedcharacters.allowencodedslash=true"
+      - "--entryPoints.websecure.http.encodedcharacters.allowencodedbackslash=true"
+      - "--entryPoints.websecure.http.encodedcharacters.allowencodednullcharacter=true"
+      - "--entryPoints.websecure.http.encodedcharacters.allowencodedsemicolon=true"
+      - "--entryPoints.websecure.http.encodedcharacters.allowencodedpercent=true"
+      - "--entryPoints.websecure.http.encodedcharacters.allowencodedquestionmark=true"
+      - "--entryPoints.websecure.http.encodedcharacters.allowencodedhash=true"
+
+      # If you dont mind applying crowdsec to all routers, just uncomment the line below
+      # - "--entryPoints.websecure.http.middlewares=crowdsec@docker"
+      # You can instead choose to add it to specific routers only
+      # e.g. in a service's labels: (dont uncomment the line below)
+      # - "traefik.http.routers.myservice.middlewares=crowdsec@docker
+
+
+      - "--certificatesresolvers.letsencrypt.acme.email=${LETSENCRYPT_EMAIL?}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/data/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.caserver=${LE_CA_SERVER?}"
+      - "--certificatesresolvers.letsencrypt.acme.dnsChallenge.provider=cloudflare"
+      - "--certificatesresolvers.letsencrypt.acme.dnsChallenge.delayBeforeCheck=30"
+      - "--certificatesresolvers.letsencrypt.acme.dnsChallenge.resolvers=1.1.1.1:53,8.8.8.8:53"
+
+      # Uncomment when using crowdsec
+      # - "--experimental.plugins.bouncer.modulename=github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin"
+      # - "--experimental.plugins.bouncer.version=v1.3.0"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "${DOCKER_DATA_DIR}/traefik:/data"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.api.rule=Host(`${TRAEFIK_HOSTNAME?}`)"
+      - "traefik.http.routers.api.entrypoints=websecure"
+      - "traefik.http.routers.api.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.api.service=api@internal"
+      - "traefik.http.routers.api.middlewares=authelia@docker"
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck", "--ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      authelia:
+        condition: service_healthy
+      # Uncomment when using crowdsec
+      # crowdsec:
+      #   condition: service_healthy
+    profiles:
+      - traefik
+      - required
+      - all

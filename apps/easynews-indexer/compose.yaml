@@ -1,0 +1,18 @@
+services:
+  easynews-indexer:
+    image: sanket9225/easynewsindexer
+    container_name: easynews-indexer
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    expose:
+      - ${PORT}
+    env_file:
+      - .env
+      - config.env
+    profiles:
+      - easynews-indexer
+      - all

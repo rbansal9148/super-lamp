@@ -1,0 +1,144 @@
+services:
+  authelia:
+    container_name: 'authelia'
+    image: 'authelia/authelia'
+    restart: 'unless-stopped'
+    mem_limit: 512m
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    user: $PUID:$PGID
+    environment:
+      TZ: ${TZ:-Etc/UTC}
+      X_AUTHELIA_CONFIG_FILTERS: template
+      TEMPLATE_AUTHELIA_SESSION_SECRET: ${AUTHELIA_SESSION_SECRET?}
+      TEMPLATE_DOMAIN: ${DOMAIN?}
+      TEMPLATE_AUTHELIA_HOSTNAME: ${AUTHELIA_HOSTNAME?}
+      TEMPLATE_AUTHELIA_STORAGE_ENCRYPTION_KEY: ${AUTHELIA_STORAGE_ENCRYPTION_KEY?}
+      TEMPLATE_AUTHELIA_WEBAUTHN_DISPLAY_NAME: ${AUTHELIA_WEBAUTHN_DISPLAY_NAME?}
+      TEMPLATE_AUTHELIA_JWT_SECRET: ${AUTHELIA_JWT_SECRET?}
+      # A list of domains to apply page specific rules to.
+      # Although we can't fully protect Stremio addons, we can still add authentication to specific pages like the configuration pages. 
+      # All the domains within this comma separated list will have specific pages protected with Authelia.
+      # Do NOT include non-stremio addon domains here. It would mean that those services would not be fully protected, or in most cases not protected at all.
+      TEMPLATE_STREMIO_ADDON_HOSTNAMES: >-
+        ${AIOLISTS_HOSTNAME},
+        ${AIOMETADATA_HOSTNAME},
+        ${AIOSTREAMS_HOSTNAME},
+        ${AIOSTREMIO_HOSTNAME},
+        ${ANIME_KITSU_HOSTNAME},
+        ${COMET_HOSTNAME},
+        ${EASYNEWS_PLUS_HOSTNAME},
+        ${EASYNEWS_PLUS_PLUS_HOSTNAME},
+        ${MEDIAFUSION_HOSTNAME},
+        ${DISPATCHARR_HOSTNAME},
+        ${JACKETTIO_HOSTNAME},
+        ${PLEXIO_HOSTNAME},
+        ${STREMIO_AI_COMPANION_HOSTNAME},
+        ${STREMIO_AI_SEARCH_HOSTNAME},
+        ${STREMIO_JACKETT_HOSTNAME},
+        ${IPTV_HOSTNAME},
+        ${STREMIO_LETTERBOXD_HOSTNAME},
+        ${STREMTHRU_HOSTNAME},
+        ${SYNCIO_HOSTNAME},
+        ${OMG_TV_STREMIO_ADDON_HOSTNAME},
+        ${STREMIO_CATALOG_PROVIDERS_HOSTNAME},
+        ${STREMIO_TRAKT_ADDON_HOSTNAME},
+        ${STREMIO_STREAMING_CATALOGS_HOSTNAME},
+        ${SYNCRIBULLET_HOSTNAME},
+        ${TMDB_ADDON_HOSTNAME},
+        ${TMDB_COLLECTIONS_HOSTNAME},
+        ${USENET_STREAMER_HOSTNAME},
+        ${WEBSTREAMR_HOSTNAME},
+        ${CALIBRE_HOSTNAME},
+        ${SHELFMARK_HOSTNAME},
+        ${LIBREMDB_HOSTNAME},
+        ${CALIBRE_WEBDAV_HOSTNAME},
+        ${AUDIOBOOKSHELF_HOSTNAME},
+        ${NUVIOSTREAMS_HOSTNAME}
+      TEMPLATE_FRESHRSS_HOSTNAME: ${FRESHRSS_HOSTNAME?}
+      TEMPLATE_KARAKEEP_HOSTNAME: ${KARAKEEP_HOSTNAME?}
+      TEMPLATE_ACTUAL_BUDGET_HOSTNAME: ${ACTUAL_BUDGET_HOSTNAME?}
+      TEMPLATE_TANDOOR_HOSTNAME: ${TANDOOR_HOSTNAME?}
+      TEMPLATE_ALTMOUNT_HOSTNAME: ${ALTMOUNT_HOSTNAME?}
+      TEMPLATE_NZBDAV_HOSTNAME: ${NZBDAV_HOSTNAME?}
+      # TEMPLATE_BOOKLORE_HOSTNAME: ${BOOKLORE_HOSTNAME?}
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.authelia.rule=Host(`${AUTHELIA_HOSTNAME?}`)"
+      - "traefik.http.routers.authelia.entryPoints=websecure"
+      - "traefik.http.routers.authelia.tls.certresolver=letsencrypt"
+      - "traefik.http.services.authelia.loadbalancer.server.port=9091"
+      - "traefik.http.middlewares.authelia.forwardAuth.address=http://authelia:9091/api/authz/forward-auth"
+      - "traefik.http.middlewares.authelia.forwardAuth.trustForwardHeader=true"
+      - "traefik.http.middlewares.authelia.forwardAuth.authResponseHeaders=Remote-User,Remote-Groups,Remote-Email,Remote-Name"
+      - "traefik.http.middlewares.authelia.forwardAuth.maxResponseBodySize=16777216"
+    volumes:
+      - './config:/config'
+    depends_on:
+      authelia_redis:
+        condition: service_healthy
+      authelia_postgres:
+        condition: service_healthy
+    profiles:
+      - authelia
+      - required
+      - all
+  
+  authelia_redis:
+    image: redis:8.6.3
+    container_name: authelia_redis
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    volumes:
+      - ${DOCKER_DATA_DIR}/authelia/cache:/data
+    command: redis-server --appendonly yes --save 60 1 --maxmemory 64mb --maxmemory-policy allkeys-lru
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - authelia
+      - required
+      - all
+
+  authelia_postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    container_name: authelia_postgres
+    command:
+      - "postgres"
+      - "-c"
+      - "idle_in_transaction_session_timeout=300000"
+      - "-c"
+      - "idle_session_timeout=900000"
+      - "-c"
+      - "log_min_duration_statement=1000"
+    volumes:
+      -  ${DOCKER_DATA_DIR}/authelia/db:/var/lib/postgresql/data
+    environment:
+      POSTGRES_USER: authelia
+      POSTGRES_PASSWORD: authelia
+      POSTGRES_DB: authelia
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U authelia -d authelia"]
+      start_period: 1m
+      interval: 20s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - authelia
+      - required
+      - all

@@ -1,0 +1,35 @@
+services:
+  # Start page for your serve
+  dash:
+    image: mauricenino/dashdot:latest
+    container_name: dash
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    expose:
+      - 3001
+    # Was privileged: true (full host kernel access — overkill for a stats dashboard).
+    # Dashdot needs read access to host /proc, /sys, /etc/os-release for system stats.
+    # Bind-mounting them read-only achieves the same without privileged.
+    env_file:
+      - .env
+      - config.env
+    security_opt:
+      - no-new-privileges:true
+    volumes:
+      - /:/mnt/host:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /etc/os-release:/etc/os-release:ro
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.dash.rule=Host(`${DASHDOT_HOSTNAME?}`)"
+      - "traefik.http.routers.dash.entrypoints=websecure"
+      - "traefik.http.routers.dash.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.dash.middlewares=authelia@docker"
+    profiles:
+      - dash
+      - all

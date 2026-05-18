@@ -1,0 +1,65 @@
+services:
+  searxng:
+    container_name: searxng
+    image: searxng/searxng:latest
+    restart: unless-stopped
+    expose:
+      - 8080
+    env_file:
+      - .env
+      - config.env
+    volumes:
+      - ${DOCKER_DATA_DIR}/searxng:/etc/searxng:rw
+      - ./settings.yml:/etc/searxng/settings.yml:ro
+    environment:
+      - SEARXNG_BASE_URL=https://${SEARXNG_HOSTNAME:-localhost}/
+      - UWSGI_WORKERS=${SEARXNG_UWSGI_WORKERS:-2}
+      - UWSGI_THREADS=${SEARXNG_UWSGI_THREADS:-2}
+      - SEARXNG_LIMITER=false
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+        max-file: "1"
+    depends_on:
+      searxng_redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:8080/healthz >/dev/null || wget -qO- http://127.0.0.1:8080/ >/dev/null"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+    # network_mode: "container:gluetun"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.searxng.rule=Host(`${SEARXNG_HOSTNAME}`)"
+      - "traefik.http.routers.searxng.entrypoints=websecure"
+      - "traefik.http.routers.searxng.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.searxng.middlewares=authelia@docker"
+      - "traefik.http.services.searxng.loadbalancer.server.port=8080"
+    profiles:
+      - searxng
+      - all
+
+  searxng_redis:
+    image: valkey/valkey:9.0.4
+    container_name: searxng_redis
+    restart: unless-stopped
+    # network_mode: "container:gluetun"
+    volumes:
+      - ${DOCKER_DATA_DIR}/searxng/cache:/data
+    command: valkey-server --save 30 1 --port 6379 --maxmemory 64mb --maxmemory-policy allkeys-lru
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+        max-file: "1"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    profiles:
+      - searxng
+      - all

@@ -1,0 +1,45 @@
+# Remote MCP (HTTPS via Traefik).
+#
+# Claude.ai (Connectors): streamable-http — use:
+#   https://${SEARXNG_MCP_HOSTNAME}/mcp
+#
+# Claude Code (CLI): use HTTP transport (POST), not SSE, and not raw "streamable-http"
+# in JSON (see anthropics/claude-code#32708). Examples:
+#   claude mcp add --transport http searxng https://${SEARXNG_MCP_HOSTNAME}/mcp
+# In ~/.claude.json / .mcp.json use  "type": "http"  (not "streamable-http").
+#
+# Local stdio (no Traefik):  claude mcp add --transport stdio searxng -- docker run --rm -i -e SEARXNG_URL=... dandehoon/searxng-mcp:latest
+#
+# This router intentionally does NOT use authelia: cloud clients cannot complete
+# interactive login. Protect the host (firewall, Cloudflare Access, mTLS, etc.).
+# If the hostname is proxied through Cloudflare, use DNS-only or rules that do not
+# buffer long responses for this host.
+services:
+  searxng-mcp:
+    image: dandehoon/searxng-mcp:latest
+    container_name: searxng-mcp
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    environment:
+      - SEARXNG_MCP_TRANSPORT=streamable-http
+      # Remote clients POST /mcp; default /mcp/ only matches paths with a trailing slash.
+      - SEARXNG_MCP_PATH=/mcp
+      - SEARXNG_URL=http://searxng:8080
+    depends_on:
+      searxng:
+        condition: service_started
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.searxng-mcp.rule=Host(`${SEARXNG_MCP_HOSTNAME}`)"
+      - "traefik.http.routers.searxng-mcp.entrypoints=websecure"
+      - "traefik.http.routers.searxng-mcp.tls.certresolver=letsencrypt"
+      - "traefik.http.services.searxng-mcp.loadbalancer.server.port=8000"
+      # Help streaming / chunked MCP responses reach the client without excess proxy buffering.
+      - "traefik.http.services.searxng-mcp.loadbalancer.responseForwarding.flushInterval=100ms"
+    profiles:
+      - searxng-mcp
+      - all

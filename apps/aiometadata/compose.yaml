@@ -1,0 +1,103 @@
+services:
+  aiometadata:
+    image: ghcr.io/cedya77/aiometadata:latest
+    container_name: aiometadata
+    restart: unless-stopped
+    expose:
+      - ${PORT:-1337}
+    env_file:
+      - .env
+      - config.env
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.aiometadata.rule=Host(`${AIOMETADATA_HOSTNAME?}`)"
+      - "traefik.http.routers.aiometadata.entrypoints=websecure"
+      - "traefik.http.routers.aiometadata.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.aiometadata.middlewares=authelia@docker"
+      - "traefik.http.services.aiometadata.loadbalancer.server.port=${PORT:-1337}"
+    volumes:
+      - ${DOCKER_DATA_DIR}/aiometadata/data:/app/addon/data
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+        max-file: "1"
+    depends_on:
+      aiometadata_redis:
+        condition: service_healthy
+      aiometadata_postgres:
+        condition: service_healthy
+    profiles:
+      - aiometadata
+      - all
+
+  aiometadata_postgres:
+    image: postgres:18.3
+    container_name: aiometadata_postgres
+    volumes:
+      - ${DOCKER_DATA_DIR}/aiometadata/db:/var/lib/postgresql/data
+    shm_size: 1g
+    restart: unless-stopped
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=128MB"
+      - "-c"
+      - "effective_cache_size=384MB"
+      - "-c"
+      - "maintenance_work_mem=64MB"
+      - "-c"
+      - "checkpoint_completion_target=0.9"
+      - "-c"
+      - "wal_buffers=8MB"
+      - "-c"
+      - "random_page_cost=1.1"
+      - "-c"
+      - "effective_io_concurrency=200"
+      - "-c"
+      - "work_mem=8MB"
+      - "-c"
+      - "max_connections=100"
+      - "-c"
+      - "log_min_duration_statement=1000"
+    environment:
+      - POSTGRES_PASSWORD=aiometadata
+      - POSTGRES_DB=aiometadata
+      - POSTGRES_USER=aiometadata
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+        max-file: "1"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U aiometadata -d aiometadata"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    profiles:
+      - aiometadata
+      - all
+
+  aiometadata_redis:
+    image: redis:8.6.3
+    container_name: aiometadata_redis
+    restart: unless-stopped
+    volumes:
+      - ${DOCKER_DATA_DIR}/aiometadata/cache:/data
+    command: redis-server --appendonly yes --save 60 1 --maxmemory 1gb --maxmemory-policy allkeys-lru
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+        max-file: "1"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    profiles:
+      - aiometadata
+      - all

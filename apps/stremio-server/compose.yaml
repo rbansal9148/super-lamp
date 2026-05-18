@@ -1,0 +1,20 @@
+services:
+  stremio-server:
+    image: stremio/server:latest
+    container_name: stremio-server
+    expose:
+      - 11470
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.stremio-server.rule=Host(`${STREMIO_SERVER_HOSTNAME?}`)"
+      - "traefik.http.routers.stremio-server.entrypoints=websecure"
+      - "traefik.http.routers.stremio-server.tls.certresolver=letsencrypt"
+    profiles:
+      - stremio-server
+      - all

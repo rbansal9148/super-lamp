@@ -1,0 +1,29 @@
+services:
+  tor:
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    image: debridmediamanager/tor
+    deploy:
+      replicas: 1
+
+  web:
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    image: debridmediamanager/debrid-media-manager:latest
+    ports:
+      - 3000:3000
+    env_file:
+      - .env
+      - .env.local
+    depends_on:
+      - tor
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure

@@ -1,0 +1,123 @@
+services:
+  # Moodle image runs as daemon (uid 1), group root; keep MariaDB dir on PUID/PGID for bitnami/mariadb.
+  moodle_permissions:
+    image: alpine:3.20
+    container_name: moodle_permissions
+    restart: "no"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    command: >
+      sh -ec "mkdir -p /mnt/moodle/mariadb /mnt/moodle/moodle /mnt/moodle/moodledata &&
+      chown -R ${PUID}:${PGID} /mnt/moodle/mariadb &&
+      chown -R 1:0 /mnt/moodle/moodle /mnt/moodle/moodledata"
+    volumes:
+      - ${DOCKER_DATA_DIR}/moodle:/mnt/moodle
+    profiles:
+      - moodle
+      - all
+
+  moodle_db_init:
+    image: bitnami/mariadb:latest
+    container_name: moodle_db_init
+    restart: "no"
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    env_file:
+      - .env
+      - config.env
+    command: >
+      /bin/bash -ec "mariadb -h moodle_mariadb -uroot -p\"$$MOODLE_DB_ROOT_PASSWORD\"
+      -e \"CREATE DATABASE IF NOT EXISTS $$MOODLE_DB_NAME CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+      ALTER DATABASE $$MOODLE_DB_NAME CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;\""
+    depends_on:
+      moodle_mariadb:
+        condition: service_healthy
+    profiles:
+      - moodle
+      - all
+
+  moodle:
+    image: docker.io/bitnami/moodle:5.1
+    pull_policy: never
+    build:
+      context: https://github.com/bitnami/containers.git#main:bitnami/moodle/5.1/debian-12
+    container_name: moodle
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    env_file:
+      - .env
+    expose:
+      - "${MOODLE_PORT}"
+    environment:
+      - TZ=${TZ}
+      - MOODLE_USERNAME=${MOODLE_ADMIN_USER}
+      - MOODLE_PASSWORD=${MOODLE_ADMIN_PASSWORD}
+      - MOODLE_EMAIL=${MOODLE_ADMIN_EMAIL}
+      - MOODLE_SITE_NAME=${MOODLE_SITE_NAME}
+      - MOODLE_DATABASE_TYPE=mariadb
+      - MOODLE_DATABASE_HOST=moodle_mariadb
+      - MOODLE_DATABASE_PORT_NUMBER=3306
+      - MOODLE_DATABASE_USER=${MOODLE_DB_USER}
+      - MOODLE_DATABASE_PASSWORD=${MOODLE_DB_PASSWORD}
+      - MOODLE_DATABASE_NAME=${MOODLE_DB_NAME}
+    volumes:
+      - ${DOCKER_DATA_DIR}/moodle/moodle:/bitnami/moodle
+      - ${DOCKER_DATA_DIR}/moodle/moodledata:/bitnami/moodledata
+    depends_on:
+      moodle_permissions:
+        condition: service_completed_successfully
+      moodle_mariadb:
+        condition: service_started
+      moodle_db_init:
+        condition: service_completed_successfully
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.moodle.rule=Host(`${MOODLE_HOSTNAME?}`)"
+      - "traefik.http.routers.moodle.entrypoints=websecure"
+      - "traefik.http.routers.moodle.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.moodle.middlewares=authelia@docker"
+      - "traefik.http.services.moodle.loadbalancer.server.port=${MOODLE_PORT}"
+    profiles:
+      - moodle
+      - all
+
+  moodle_mariadb:
+    image: bitnami/mariadb:latest
+    container_name: moodle_mariadb
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    env_file:
+      - .env
+    environment:
+      - TZ=${TZ}
+      - MARIADB_ROOT_PASSWORD=${MOODLE_DB_ROOT_PASSWORD}
+      - MARIADB_DATABASE=${MOODLE_DB_NAME}
+      - MARIADB_USER=${MOODLE_DB_USER}
+      - MARIADB_PASSWORD=${MOODLE_DB_PASSWORD}
+    volumes:
+      - ${DOCKER_DATA_DIR}/moodle/mariadb:/bitnami/mariadb
+    depends_on:
+      moodle_permissions:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD-SHELL", "mariadb-admin ping -h 127.0.0.1 -uroot -p$$MARIADB_ROOT_PASSWORD || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 15
+    profiles:
+      - moodle
+      - all

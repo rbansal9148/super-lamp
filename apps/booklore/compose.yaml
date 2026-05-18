@@ -1,0 +1,67 @@
+services:
+  booklore:
+    image: booklore/booklore:latest
+    # Alternative: Use GitHub Container Registry
+    # image: ghcr.io/booklore-app/booklore:latest
+    container_name: booklore
+    environment:
+      - USER_ID=${APP_USER_ID}
+      - GROUP_ID=${APP_GROUP_ID}
+      - TZ=${TZ}
+      - DATABASE_URL=${DATABASE_URL}
+      - DATABASE_USERNAME=${DB_USER}
+      - DATABASE_PASSWORD=${DB_PASSWORD}
+      - BOOKLORE_PORT=${BOOKLORE_PORT}
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    # ports:
+    #   - "${BOOKLORE_PORT}:${BOOKLORE_PORT}"
+    volumes:
+      - ${DOCKER_DATA_DIR}/booklore/data:/app/data
+      - ${DOCKER_DATA_DIR}/booklore/books:/books
+      - ${DOCKER_DATA_DIR}/booklore/bookdrop:/bookdrop
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.booklore.rule=Host(`${BOOKLORE_HOSTNAME?}`)"
+      - "traefik.http.routers.booklore.entrypoints=websecure"
+      - "traefik.http.routers.booklore.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.booklore.middlewares=authelia@docker"
+      - "traefik.http.services.booklore.loadbalancer.server.port=${BOOKLORE_PORT}"
+    healthcheck:
+      test: wget -q -O - http://localhost:${BOOKLORE_PORT}/api/v1/healthcheck
+      interval: 60s
+      retries: 5
+      start_period: 60s
+      timeout: 10s
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  mariadb:
+    image: lscr.io/linuxserver/mariadb:11.4.5
+    container_name: mariadb
+    environment:
+      - PUID=${DB_USER_ID}
+      - PGID=${DB_GROUP_ID}
+      - TZ=${TZ}
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD}
+      - MYSQL_DATABASE=${MYSQL_DATABASE}
+      - MYSQL_USER=${DB_USER}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - ${DOCKER_DATA_DIR}/booklore/mariadb/config:/config
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: [ "CMD", "mariadb-admin", "ping", "-h", "localhost" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10

@@ -1,0 +1,216 @@
+{
+	"ui": {
+		"name": "Dashboard",
+		"desc": "Nice and sweet place for all your self-hosted services.",
+		"icon": "img/icon.png",
+		"wallpaper": "img/background.jpg",
+		"wallpaper_dark": "img/background-dark.jpg",
+		"dark_mode": true,
+		"open_new_tab": true,
+		"ping_dots": true,
+		"blur": true,
+		"animations": true,
+		"trusted_domains": ["my-blue-car.work"]
+	},
+	"services": [
+		{
+			"name": "Arcane",
+			"desc": "Docker management interface.",
+			"href": "https://arcane.my-blue-car.work",
+			"icon": "https://raw.githubusercontent.com/ofkm/arcane/refs/heads/main/.github/assets/arcane.png"
+		},
+		{
+      "name": "Authelia",
+      "desc": "Authentication and Authorization service.",
+      "href": "https://auth.my-blue-car.work",
+      "icon": "https://raw.githubusercontent.com/authelia/authelia/refs/heads/master/docs/static/svgs/branding/logo-cropped.svg"
+    },
+		{
+			"name": "dash.",
+			"desc": "A modern Server dashboard.",
+			"href": "https://dash.my-blue-car.work",
+			"icon": "https://getdashdot.com/img/logo512.png"
+		},
+		{
+			"name": "Dozzle",
+			"desc": "Docker logs in the browser.",
+			"href": "https://dozzle.my-blue-car.work",
+			"icon": "https://raw.githubusercontent.com/amir20/dozzle/19bb8659135e4232523d45ff8e948a0907b2701c/docs/public/logo.svg"
+		},
+		{
+      "name": "Traefik",
+      "desc": "HTTP reverse proxy and load balancer.",
+      "href": "https://traefik.my-blue-car.work",
+      "icon": "https://icon.icepanel.io/Technology/svg/Traefik-Proxy.svg"
+    },
+		{
+			"name": "Uptime Kuma",
+			"desc": "Self-hosted uptime monitor.",
+			"href": "https://kuma.my-blue-car.work",
+			"icon": "https://raw.githubusercontent.com/louislam/uptime-kuma/refs/heads/master/public/favicon.ico"
+		},
+		{
+			"name": "Status Page",
+			"desc": "Status page for all services.",
+			"href": "https://status.my-blue-car.work",
+			"icon": "https://raw.githubusercontent.com/louislam/uptime-kuma/refs/heads/master/public/favicon.ico"
+		},
+		{
+			"name": "Jellyfin",
+			"desc": "Media server",
+			"href": "https://jellyfin.my-blue-car.work",
+			"icon": "https://raw.githubusercontent.com/jellyfin/jellyfin-ux/refs/heads/master/branding/tizen/icon.png"
+		},
+		{
+			"name": "JellySeerr",
+			"desc": "Jellyfin Media manager",
+			"href": "https://jellyseerr.my-blue-car.work",
+			"icon": "https://raw.githubusercontent.com/fallenbagel/jellyseerr/refs/heads/develop/public/android-chrome-512x512.png"
+		},
+		{
+			"name": "Plex",
+			"desc": "Media server",
+			"href": "https://plex.my-blue-car.work",
+			"icon": "https://global.synologydownload.com/download/Package/img/PlexMediaServer/1.40.4.8840-72008840/thumb_256.png"
+		},
+		{
+			"name": "Seanime",
+			"desc": "Anime streaming service.",
+			"href": "https://seanime.my-blue-car.work",
+			"icon": "https://raw.githubusercontent.com/5rahim/seanime/refs/heads/main/seanime-web/public/logo.png"
+		},
+		{
+			"name": "AIOStreams",
+			"desc": "All-In-One streaming add-on for Stremio.",
+			"href": "https://aiostreams.my-blue-car.work",
+			"icon": "https://raw.githubusercontent.com/Viren070/AIOStreams/refs/heads/main/packages/frontend/public/assets/logo.png"
+		},
+		{
+			"name": "AIOStremio",
+			"desc": "All-in-one streaming service.",
+			"href": "https://aiostremio.my-blue-car.work",
+			"icon": "https://lh3.googleusercontent.com/d/1uudcj58lk4NXt9Qfk-1PC9vAH0LuPY0D"
+		},
+		{
+			"name": "Comet",
+			"desc": "Torrent/Debrid indexer for Stremio.",
+			"href": "https://comet.my-blue-car.work",
+			"icon": "https://i.imgur.com/jmVoVMu.jpeg"
+		},
+		{
+			"name": "MediaFusion",
+			"desc": "Torrent/Debrid indexer for Stremio/Kodi.",
+			"href": "https://mediafusion.my-blue-car.work",
+			"icon": "https://raw.githubusercontent.com/mhdzumair/MediaFusion/main/resources/images/mediafusion_logo.png"
+		},
+		{
+			"name": "Stremio-Jackett",
+			"desc": "Stremio add-on for Jackett.",
+			"href": "https://stremio-jackett.my-blue-car.work",
+			"icon": "https://raw.githubusercontent.com/Jackett/Jackett/refs/heads/master/src/Jackett.Common/Content/jacket_medium.png"
+		},
+		{
+			"name": "Jackettio",
+			"desc": "Stremio add-on for Jackett.",
+			"href": "https://jackettio.my-blue-car.work",
+			"icon": "https://raw.githubusercontent.com/Jackett/Jackett/refs/heads/master/src/Jackett.Common/Content/jacket_medium.png"
+		},
+		{
+			"name": "Easynews+",
+			"desc": "Stremio add-on for usenet content.",
+			"href": "https://easynews-plus.my-blue-car.work",
+			"icon": "https://pbs.twimg.com/profile_images/479627852757733376/8v9zH7Yo_400x400.jpeg"
+		},
+		{
+			"name": "TMDB Addon",
+			"desc": "Stremio add-on for TMDB metadata.",
+			"href": "https://tmdb-addon.my-blue-car.work",
+			"icon": "https://raw.githubusercontent.com/mrcanelas/tmdb-addon/refs/heads/main/public/logo.png"
+		},
+		{
+			"name": "Stremio Catalog Providers",
+			"desc": "Stremio add-on for catalog providers.",
+			"href": "https://catalog-providers.my-blue-car.work",
+			"icon": "https://raw.githubusercontent.com/redd-ravenn/stremio-catalog-providers/refs/heads/main/public/assets/logo.png"
+		},
+		{
+			"name": "Stremio Trakt Addon",
+			"desc": "Stremio add-on for Trakt.",
+			"href": "https://trakt-addon.my-blue-car.work",
+			"icon": "https://raw.githubusercontent.com/redd-ravenn/stremio-catalog-providers/refs/heads/main/public/assets/logoTrakt.png"
+		},
+		{
+			"name": "MediaFlow",
+			"desc": "Proxy server for media streams.",
+			"href": "https://mediaflow-proxy.my-blue-car.work",
+			"icon": "https://raw.githubusercontent.com/mhdzumair/mediaflow-proxy/refs/heads/main/mediaflow_proxy/static/logo.png"
+		},
+		{
+			"name": "StremThru",
+			"desc": "Companion suite for Stremio.",
+			"href": "https://stremthru.my-blue-car.work",
+			"icon": "https://emojiapi.dev/api/v1/sparkles/256.png"
+		},
+		{
+			"name": "Stremio Addon Manager",
+			"desc": "Add-on manager for Stremio.",
+			"href": "https://addon-manager.my-blue-car.work",
+			"icon": "https://raw.githubusercontent.com/Viren070/stremio-addon-manager/refs/heads/main/public/logo.png"
+		},
+		{
+			"name": "Stremio Account Bootstrapper",
+			"desc": "Stremio account bootstrapper.",
+			"href": "https://stremio-account-bootstrapper.my-blue-car.work",
+			"icon": "https://raw.githubusercontent.com/DryKillLogic/stremio-account-bootstrapper/refs/heads/main/public/favicon.ico"
+		},
+		{
+			"name": "Stremio Server",
+			"desc": "Stremio streaming server.",
+			"href": "https://stremio-server.my-blue-car.work",
+			"icon": "https://www.stremio.com/website/stremio-purple-small.png"
+		},
+		{
+			"name": "Prowlarr",
+			"desc": "Indexer manager.",
+			"href": "https://prowlarr.my-blue-car.work",
+			"icon": "https://raw.githubusercontent.com/Prowlarr/Prowlarr/refs/heads/develop/Logo/512.png"
+		},
+		{
+			"name": "Jackett",
+			"desc": "Torrent indexer.",
+			"href": "https://jackett.my-blue-car.work",
+			"icon": "https://raw.githubusercontent.com/Jackett/Jackett/refs/heads/master/src/Jackett.Common/Content/jacket_medium.png"
+		},
+		{
+			"name": "NZBHydra2",
+			"desc": "Usenet indexer.",
+			"href": "https://nzbhydra.my-blue-car.work",
+			"icon": "https://raw.githubusercontent.com/theotherp/nzbhydra2/refs/heads/master/core/ui-src/img/logo.png"
+		},
+		{
+			"name": "SearXNG",
+			"desc": "Privacy-respecting search engine.",
+			"href": "https://searxng.my-blue-car.work",
+			"icon": "https://raw.githubusercontent.com/searxng/searxng/refs/heads/master/searx/static/themes/simple/img/favicon.png"
+		},
+		{
+			"name": "Plausible",
+			"desc": "Privacy-friendly web analytics.",
+			"href": "https://plausible.my-blue-car.work",
+			"icon": "https://raw.githubusercontent.com/plausible/docs/master/static/img/plausible-analytics-icon-top.png"
+		},
+		{
+      "name": "Portainer",
+      "desc": "Manage Docker, Swarm, Kubernetes & ACI.",
+      "href": "https://portainer.my-blue-car.work",
+      "icon": "https://avatars.githubusercontent.com/u/22225832?s=280&v=4"
+    },
+		{
+			"name": "Vaultwarden",
+			"desc": "Password Manager",
+			"href": "https://vaultwarden.my-blue-car.work",
+			"icon": "https://raw.githubusercontent.com/dani-garcia/vaultwarden/6edceb5f7acfee8ffe1ae2f07afd76dc588dda60/resources/vaultwarden-icon.svg"
+		}
+
+	]
+}

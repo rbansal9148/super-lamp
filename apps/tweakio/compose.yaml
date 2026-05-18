@@ -1,0 +1,23 @@
+services:
+  tweakio:
+    image: varthe/tweakio:latest
+    container_name: tweakio
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    ports:
+      - 3185:3185
+    user: $PUID:$PGID
+    env_file:
+      - .env
+      - config.env
+    profiles:
+      - all
+      - tweakio
+    depends_on:
+      gluetun:
+        condition: service_healthy
+        restart: true

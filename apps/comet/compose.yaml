@@ -1,0 +1,90 @@
+services:
+  comet:
+    container_name: comet
+    image: g0ldyy/comet@sha256:7ab050b1ab0f9a6e01981f14ba13f8bf1fd508914d2aa0bb83909b0ba2e55138
+    restart: unless-stopped
+    expose:
+      - 2020
+    env_file:
+      - .env
+      - config.env
+    mem_limit: 2g
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.comet.rule=Host(`${COMET_HOSTNAME?}`)
+      - traefik.http.routers.comet.entrypoints=websecure
+      - traefik.http.routers.comet.tls.certresolver=letsencrypt
+      - traefik.http.routers.comet.middlewares=authelia@docker
+    volumes:
+      - ${DOCKER_DATA_DIR}/comet:/app/data
+    healthcheck:
+      test: wget -qO- http://127.0.0.1:2020/health
+      interval: 1m
+      timeout: 10s
+      retries: 5
+      start_period: 10s
+    # network_mode: "container:gluetun"
+    depends_on:
+      comet_postgres:
+        condition: service_healthy
+    profiles:
+      - comet
+      - all
+
+  # If you would like to use postgres instead of sqlite, uncomment the followling lines,
+  # and set the DATABASE_TYPE to postgres and DATABASE_URL to 
+  comet_postgres:
+    image: postgres:18.3
+    container_name: comet_postgres
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    volumes:
+      - ${DOCKER_DATA_DIR}/comet/postgres:/var/lib/postgresql/data
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=128MB"
+      - "-c"
+      - "effective_cache_size=384MB"
+      - "-c"
+      - "maintenance_work_mem=64MB"
+      - "-c"
+      - "checkpoint_completion_target=0.9"
+      - "-c"
+      - "wal_buffers=8MB"
+      - "-c"
+      - "random_page_cost=1.1"
+      - "-c"
+      - "effective_io_concurrency=200"
+      - "-c"
+      - "work_mem=8MB"
+      - "-c"
+      - "max_connections=100"
+      - "-c"
+      - "log_min_duration_statement=1000"
+      - "-c"
+      - "idle_in_transaction_session_timeout=300000"
+      - "-c"
+      - "idle_session_timeout=900000"
+    environment:
+      - POSTGRES_USER=comet
+      - POSTGRES_PASSWORD=comet
+      - POSTGRES_DB=comet
+      - PGUSER=debridav
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "comet"]
+      interval: 10s
+      retries: 5
+    profiles:
+      - comet
+      - all

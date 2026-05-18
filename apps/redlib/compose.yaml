@@ -1,0 +1,38 @@
+services:
+  redlib:
+    image: quay.io/redlib/redlib:latest
+    container_name: redlib
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    user: nobody
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    env_file:
+      - .env
+      - config.env
+    command: ["redlib", "--port", "8090"]
+    network_mode: "service:gluetun"
+    depends_on:
+      gluetun:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.redlib.rule=Host(`${REDLIB_HOSTNAME?}`)"
+      - "traefik.http.routers.redlib.entrypoints=websecure"
+      - "traefik.http.routers.redlib.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.redlib.middlewares=authelia@docker"
+      - "traefik.http.services.redlib.loadbalancer.server.port=8090"
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "--tries=1", "http://localhost:8090/settings"]
+      interval: 15s
+      timeout: 3s
+    profiles:
+      - redlib
+      # removed from "all" — service crash-loops on Reddit 403, manually start with --profile redlib if fixed

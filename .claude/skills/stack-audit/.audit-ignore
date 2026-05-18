@@ -1,0 +1,13 @@
+# One regex per line. Matches against raw 'SEVERITY|DOMAIN|FINDING|FIX' output.
+# Empty lines and lines starting with # are ignored.
+
+# aiostreams_redis hit rate is structurally low (per-user-config cache keys),
+# can never reach generic 70% threshold; tracked separately.
+\|redis/aiostreams_redis\|hit rate
+
+# authelia_postgres is tiny (~9 MB) — heap_hit doesn't matter on tiny DBs.
+\|postgres/authelia_postgres\|
+
+# bitmagnet's unclassified-torrent backlog is being drained by the prune sidecar
+# at ~200k/day; the count organically shrinks. Re-enable if it stops shrinking.
+\|bitmagnet\|.*unclassified torrents backlog

@@ -1,0 +1,109 @@
+services:
+  calibre-web-automated:
+    image: crocodilestick/calibre-web-automated:latest
+    container_name: calibre-web-automated
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - TZ=Asia/Kolkata
+      - DOCKER_MODS=lscr.io/linuxserver/mods:universal-calibre-v7.16.0
+      - LOG_LEVEL=DEBUG
+      - SESSION_COOKIE_SECURE=true
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8083/"]
+      interval: 30s
+      timeout: 10s
+      start_period: 30s
+      retries: 5
+    volumes:
+      - ${DOCKER_DATA_DIR}/calibre-web-automated/config:/config
+      - ${DOCKER_DATA_DIR}/calibre-web-automated/book-ingest:/cwa-book-ingest
+      - ${DOCKER_DATA_DIR}/calibre-web-automated/calibre-library:/calibre-library
+      - ${DOCKER_DATA_DIR}/calibre-web-automated/books:/books
+      #- /path/to/your/gmail/credentials.json:/app/calibre-web/gmail.json #Optional
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.calibre.rule=Host(`${CALIBRE_HOSTNAME?}`)"
+      - "traefik.http.routers.calibre.entrypoints=websecure"
+      - "traefik.http.routers.calibre.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.calibre.middlewares=authelia@docker"
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  shelfmark:
+    image: ghcr.io/calibrain/shelfmark:latest
+    container_name: shelfmark
+    env_file:
+      - shelfmark.env
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "curl", "-sf", "http://localhost:8084/api/health"]
+      interval: 30s
+      timeout: 30s
+      start_period: 10s
+      retries: 3
+    depends_on:
+      calibre-web-automated:
+        condition: service_healthy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.shelfmark.rule=Host(`${SHELFMARK_HOSTNAME?}`)"
+      - "traefik.http.routers.shelfmark.entrypoints=websecure"
+      - "traefik.http.routers.shelfmark.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.shelfmark.middlewares=authelia@docker"
+    volumes:
+      - ${DOCKER_DATA_DIR}/calibre-web-automated/book-ingest:/books
+      - ${DOCKER_DATA_DIR}/calibre-web-automated/config:/config
+
+  # heroofhearts-scraper:
+  #   image: python:3.11-slim
+  #   container_name: heroofhearts-scraper
+  #   environment:
+  #     - TZ=Asia/Kolkata
+  #   volumes:
+  #     - ${DOCKER_DATA_DIR}/calibre-web-automated/book-ingest:/cwa-book-ingest
+  #     - ${DOCKER_APP_DIR}/heroofhearts:/app
+  #   working_dir: /app
+  #   entrypoint: ["/bin/sh", "-c"]
+  #   command: >
+  #     sh -c "pip install --no-cache-dir requests beautifulsoup4 &&
+  #            python Extractor.py &&
+  #            cp *.html /cwa-book-ingest/"
+  #   restart: "no"
+
+
+  # rclone-webdav:
+  #   image: rclone/rclone:latest
+  #   container_name: calibre-webdav
+  #   command: >
+  #     serve webdav /books
+  #     --addr :8084
+  #     --user webdav
+  #     --pass strongpassword
+  #     --read-only
+  #     --dir-cache-time 24h
+  #     --poll-interval 0
+  #     --buffer-size 64M
+  #     --vfs-read-ahead 128M
+  #     --log-level DEBUG
+  #   volumes:
+  #     - ${DOCKER_DATA_DIR}/calibre-web-automated/books:/books:ro
+  #   # ports:
+  #   #   - 8084:8084
+  #   restart: unless-stopped
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.http.routers.calibre-webdav.rule=Host(`${CALIBRE_WEBDAV_HOSTNAME?}`)"
+  #     - "traefik.http.routers.calibre-webdav.entrypoints=websecure"
+  #     - "traefik.http.routers.calibre-webdav.tls.certresolver=letsencrypt"
+  #     - "traefik.http.routers.calibre-webdav.middlewares=authelia@docker"
+  #     - "traefik.http.services.calibre-webdav.loadbalancer.server.port=8084"

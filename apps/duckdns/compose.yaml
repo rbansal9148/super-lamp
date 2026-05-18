@@ -1,0 +1,21 @@
+services:
+  duckdns:
+    image: lscr.io/linuxserver/duckdns:latest
+    container_name: duckdns
+    network_mode: host #optional
+    environment:
+      - PUID=${PUID} #optional
+      - PGID=${PGID} #optional
+      - TZ=${TZ} #optional
+      - SUBDOMAINS=rbansal
+      - TOKEN=69d54cd2-1ee1-4d63-adbe-adcd23b6c4dc
+      # - UPDATE_IP=ipv4 #optional
+      # - LOG_FILE=false #optional
+    # volumes:
+    #   - /path/to/duckdns/config:/config #optional
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"

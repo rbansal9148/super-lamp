@@ -1,0 +1,26 @@
+services:
+  aiolists:
+    build:
+      context: https://github.com/SebastianMorel/AIOLists.git
+      dockerfile: Dockerfile
+    container_name: aiolists
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    env_file:
+      - .env
+      - config.env
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.aiolists.rule=Host(`${AIOLISTS_HOSTNAME?}`)"
+      - "traefik.http.routers.aiolists.entrypoints=websecure"
+      - "traefik.http.routers.aiolists.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.aiolists.middlewares=authelia@docker"
+      - "traefik.http.services.aiolists.loadbalancer.server.port=7000"
+    profiles:
+      - aiolists
+      - stremio
+      - all

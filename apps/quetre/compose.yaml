@@ -1,0 +1,34 @@
+services:
+  quetre:
+    build:
+      context: https://github.com/zyachel/quetre.git
+      dockerfile_inline: |
+        FROM node:alpine3.17
+        WORKDIR /app
+        COPY . .
+        ENV NODE_ENV=production
+        RUN npm install -g pnpm && pnpm install
+        EXPOSE 3000
+        CMD ["pnpm", "start"]
+    image: quetre
+    container_name: quetre
+    environment:
+      - "NODE_ENV=production"
+      - "PORT=3000"
+      - "PROXY=http://gluetun:8080"
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.quetre.rule=Host(`${QUETRE_HOSTNAME?}`)"
+      - "traefik.http.routers.quetre.entrypoints=websecure"
+      - "traefik.http.routers.quetre.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.quetre.middlewares=authelia@docker"
+      - "traefik.http.services.quetre.loadbalancer.server.port=3000"
+    profiles:
+      - quetre
+      - all

@@ -1,0 +1,29 @@
+services:
+  nzbhydra2:
+    image: ghcr.io/hotio/nzbhydra2:latest
+    container_name: nzbhydra2
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    expose:
+      - 5076
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - UMASK=002
+      - TZ=${TZ:-UTC} 
+    volumes:
+      - ${DOCKER_DATA_DIR}/nzbhydra:/config
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.nzbhydra2.rule=Host(`${NZBHYDRA2_HOSTNAME?}`)"
+      - "traefik.http.routers.nzbhydra2.entrypoints=websecure"
+      - "traefik.http.routers.nzbhydra2.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.nzbhydra2.middlewares=authelia@docker"
+    profiles:
+      - nzbhydra2
+      - all
+      - indexers

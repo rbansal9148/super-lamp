@@ -1,0 +1,56 @@
+services:
+  libremdb:
+    container_name: libremdb
+    image: ghcr.io/zyachel/libremdb:latest
+    env_file: .env
+    depends_on:
+      - libremdb-redis
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    user: 65534:65534
+    read_only: true
+    tmpfs:
+      - /opt/app/.next/cache/:size=10M,mode=0770,uid=65534,gid=65534,noexec,nosuid,nodev
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.libremdb.rule=Host(`${LIBREMDB_HOSTNAME?}`)"
+      - "traefik.http.routers.libremdb.entrypoints=websecure"
+      - "traefik.http.routers.libremdb.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.libremdb.middlewares=authelia@docker"
+      - "traefik.http.services.libremdb.loadbalancer.server.port=3000"
+    profiles:
+      - libremdb
+      - all
+
+  libremdb-redis:
+    container_name: libremdb_redis
+    image: redis:8.6.3
+    # FOR DEBUGGING ONLY
+    # ports:
+    #   - "6379:6379"
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    user: nobody
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /data:size=10M,mode=0770,uid=65534,gid=65534,noexec,nosuid,nodev
+    cap_drop:
+      - ALL
+    command: redis-server --maxmemory 8mb --maxmemory-policy allkeys-lru --save ""
+    profiles:
+      - libremdb
+      - all

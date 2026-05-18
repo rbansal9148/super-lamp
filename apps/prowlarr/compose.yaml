@@ -1,0 +1,123 @@
+services:
+  prowlarr:
+    image: ghcr.io/hotio/prowlarr@sha256:311027731416b356fdbfc45101cd844283f34c2cb700c6db2f43c948744f9e3d
+    container_name: prowlarr
+    environment:
+      - PUID=${PUID}
+      - PGID=${PGID}
+      - UMASK=002
+      - TZ=${TZ:-UTC}
+      - PROWLARR__POSTGRES__HOST=prowlarr_postgres
+      - PROWLARR__POSTGRES__USER=prowlarr
+      - PROWLARR__POSTGRES__PASSWORD=prowlarr
+      - PROWLARR__POSTGRES__MAINDB=prowlarr
+      - PROWLARR__POSTGRES__LOGDB=prowlarr_log
+    # expose:
+    #   - 9696
+    volumes:
+      - ${DOCKER_DATA_DIR}/prowlarr:/config
+      # - ${DOCKER_DATA_DIR}/prowlarr/definitions:/config/Definitions/Custom
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.prowlarr.rule=Host(`${PROWLARR_HOSTNAME?}`)"
+      - "traefik.http.routers.prowlarr.entrypoints=websecure"
+      - "traefik.http.routers.prowlarr.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.prowlarr.middlewares=authelia@docker"
+      - "traefik.http.services.prowlarr.loadbalancer.server.port=9696"
+    mem_limit: 6g
+    # network_mode: "container:gluetun"
+    depends_on:
+      prowlarr_postgres:
+        condition: service_healthy
+    healthcheck:
+      test: curl -f http://localhost:9696/ping
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    profiles:
+      - prowlarr
+      - all
+
+  prowlarr_history_prune:
+    image: postgres:18.3
+    container_name: prowlarr_history_prune
+    restart: unless-stopped
+    depends_on:
+      prowlarr_postgres:
+        condition: service_healthy
+    environment:
+      - PGPASSWORD=prowlarr
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        while true; do
+          echo "[$(date -u +%FT%TZ)] pruning Prowlarr History older than 7 days"
+          psql -h prowlarr_postgres -U prowlarr -d prowlarr -c "DELETE FROM \"History\" WHERE \"Date\" < NOW() - INTERVAL '7 days';" || true
+          echo "[$(date -u +%FT%TZ)] pruning Prowlarr Logs older than 3 days"
+          psql -h prowlarr_postgres -U prowlarr -d prowlarr_log -c "DELETE FROM \"Logs\" WHERE \"Time\" < NOW() - INTERVAL '3 days';" || true
+          sleep 86400
+        done
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+        max-file: "1"
+    profiles:
+      - prowlarr
+      - all
+
+  prowlarr_postgres:
+    image: postgres:18.3
+    container_name: prowlarr_postgres
+    volumes:
+      - ${DOCKER_DATA_DIR}/prowlarr/db:/var/lib/postgresql/data
+      - ${DOCKER_APP_DIR}/prowlarr/init:/docker-entrypoint-initdb.d
+    shm_size: 1g
+    restart: unless-stopped
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=128MB"
+      - "-c"
+      - "effective_cache_size=384MB"
+      - "-c"
+      - "maintenance_work_mem=64MB"
+      - "-c"
+      - "checkpoint_completion_target=0.9"
+      - "-c"
+      - "wal_buffers=8MB"
+      - "-c"
+      - "random_page_cost=1.1"
+      - "-c"
+      - "effective_io_concurrency=200"
+      - "-c"
+      - "work_mem=8MB"
+      - "-c"
+      - "max_connections=100"
+      - "-c"
+      - "log_min_duration_statement=1000"
+    environment:
+      - POSTGRES_PASSWORD=prowlarr
+      - POSTGRES_DB=prowlarr
+      - POSTGRES_USER=prowlarr
+      - PGDATA=/var/lib/postgresql/data/pgdata
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U prowlarr -d prowlarr"]
+      interval: 10s
+      start_period: 20s
+    profiles:
+      - prowlarr
+      - all
