@@ -20,6 +20,42 @@ bash /opt/docker/.claude/skills/stack-audit/audit.sh --deep    # include pg_stat
 bash /opt/docker/.claude/skills/stack-audit/audit.sh --json    # machine-readable output
 ```
 
+### When you (the model) are running `/stack-audit`
+
+Always run the deterministic bash audit first — it's fast and ~zero token cost. Then, **for a full audit**, also dispatch the 10-POV multi-agent pass below. The two are complementary: the bash audit catches codified issues with high precision; the agents discover unknown-unknowns and propose new check scripts.
+
+Skip the multi-agent pass for narrow asks ("check disk space", "is bitmagnet healthy") — only run it when the user wants a thorough audit ("audit", "full audit", "what's wrong with the stack", "improvements?", "research more").
+
+#### The 10 POVs to dispatch in parallel
+
+Use the `Agent` tool with `subagent_type: Explore`, `run_in_background: true`, and dispatch all 10 in a single message. Each prompt must:
+1. Brief the agent on the bitmagnet_vpn bug class (see "Bug-class reference" below) so it understands the kind of latent issue we're hunting.
+2. Assign one of the 10 lenses below.
+3. Demand concrete file:line findings in /opt/docker NOW (not hypothetical).
+4. Demand a deterministic detection snippet suitable for `checks/`.
+5. Cap output at ~350 words.
+
+| # | Lens | Looks for |
+|---|------|-----------|
+| 1 | Security | weak creds, exposed ports, missing authelia, root containers, RW docker.sock |
+| 2 | Performance | missing mem_limit/cpus, healthcheck thrash, duplicate workloads, unbounded logs |
+| 3 | Reliability/DR | missing healthchecks, no backups, no restart policy, broken depends_on |
+| 4 | Config hygiene | inconsistent TZ/PUID, dead blocks, duplicate keys, `:latest` tags |
+| 5 | Networking | services that should be behind gluetun, DNS leaks, proxy chain breakage |
+| 6 | Observability | log rotation gaps, missing metrics, beszel/uptime-kuma blind spots |
+| 7 | Supply chain | image age, EOL versions, abandoned upstreams, watchtower scope |
+| 8 | Data integrity | postgres tuning, redis persistence, mixed pg majors, missing checksums |
+| 9 | Architecture/sprawl | overlapping services, kill candidates, consolidation opportunities |
+| 10 | Storage/cost | postgres bloat, orphan data dirs, log file runaways, docker overlay size |
+
+#### Bug-class reference for agent briefings
+
+Use this exact paragraph (verbatim or summarized) in each agent prompt so they share context:
+
+> **The bitmagnet_vpn bug class**: A service can run for weeks with a latent config bug. The container holds the env from its last successful start; the compose file has since drifted. The bug only surfaces on the next recreate. Example: `apps/bitmagnet/compose.yaml` loaded `gluetun/.env` but not `gluetun/config.env` after the env-split refactor — `VPN_TYPE=wireguard` (in config.env) was missing from the rendered config, but the running container still had it from before the split. The recreate dropped the var, defaulted to OpenVPN, and crashed.
+
+When consolidating agent findings, **filter false positives** before adopting checks: subagents often have buggy path resolution, wrong env-var assumptions, or hardcode values that aren't true on this host. Cross-verify before promoting a finding to a check script.
+
 Each check script in `checks/` runs independently and emits findings in this format:
 
 ```
@@ -75,6 +111,15 @@ Connects to each `*_postgres` container and reports:
 - Authelia coverage on all Traefik routes
 - StremThru tunnel route map (TorBox should bypass, others via gost)
 - Orphan data dirs under `/opt/docker/data/` for stopped services
+
+### Pass 6: Config-drift (the "bitmagnet_vpn class")
+A service can run for weeks with a latent config bug — its env was set correctly at last start, but the compose file has since drifted (env_file split, var renamed, etc.). The container keeps the old env in memory and only crashes on recreate. These checks catch the bug *before* the recreate:
+
+- **17-env-file-completeness.sh** — services with `env_file: - .env` whose sibling `config.env` exists but isn't loaded (or vice versa). Covers the exact bitmagnet→gluetun pattern (cross-service env_file imports loading one half of a split).
+- **18-undefined-var-refs.sh** — `${VAR}` referenced in compose.yaml with no default and no definition reachable through env_file chain or top-level .env.
+- **19-env-duplicate-keys.sh** — same KEY defined twice in one .env file (later wins silently); same KEY in both .env and config.env with different values.
+- **20-config-drift.sh** — diff each running container's env against what `docker compose config` would render *right now*. If compose declares a var the container doesn't have, the next recreate would set it — and that may expose a latent failure.
+- **21-floating-tags.sh** — running containers whose image is a floating tag (`:latest`, `:edge`, etc.). Recreate would pull a new digest silently; pin to the current image id.
 
 ## Thresholds (deterministic — see `thresholds.sh`)
 
