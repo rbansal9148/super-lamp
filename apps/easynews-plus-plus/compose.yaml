@@ -11,7 +11,7 @@ services:
     expose:
       - 1337
     environment:
-      - EASYNEWS_LOG_LEVEL=TRACE
+      - EASYNEWS_LOG_LEVEL=${EASYNEWS_LOG_LEVEL:-INFO}
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.easynews-plus-plus.rule=Host(`${EASYNEWS_PLUS_PLUS_HOSTNAME}`)"

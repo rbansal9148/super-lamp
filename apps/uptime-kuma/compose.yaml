@@ -21,7 +21,7 @@ services:
       - "traefik.http.routers.uptime-kuma.middlewares=authelia@docker"
     volumes:
       - ${DOCKER_DATA_DIR}/uptime-kuma:/app/data
-      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     profiles:
       - uptime-kuma
       - all

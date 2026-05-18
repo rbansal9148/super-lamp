@@ -44,6 +44,7 @@ services:
       - all
 
   zilean_postgres:
+    mem_limit: 2g
     image: postgres:17.2-alpine
     container_name: zilean_postgres
     restart: unless-stopped

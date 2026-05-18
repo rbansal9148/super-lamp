@@ -7,7 +7,7 @@ services:
       - PGID=${PGID}
       - TZ=Asia/Kolkata
       - DOCKER_MODS=lscr.io/linuxserver/mods:universal-calibre-v7.16.0
-      - LOG_LEVEL=DEBUG
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - SESSION_COOKIE_SECURE=true
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8083/"]

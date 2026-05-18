@@ -66,6 +66,7 @@ services:
       - all
 
   plausible_postgres:
+    mem_limit: 1g
     image: postgres:16-alpine
     restart: unless-stopped
     logging:

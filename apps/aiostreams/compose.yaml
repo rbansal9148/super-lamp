@@ -31,6 +31,7 @@ services:
       - all
 
   aiostreams_postgres:
+    mem_limit: 1g
     image: postgres:18.3
     container_name: aiostreams_postgres
     volumes:
@@ -80,6 +81,7 @@ services:
       - all
 
   aiostreams_redis:
+    mem_limit: 256m
     image: redis:8.6.3
     container_name: aiostreams_redis
     restart: unless-stopped

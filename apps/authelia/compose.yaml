@@ -1,7 +1,7 @@
 services:
   authelia:
     container_name: 'authelia'
-    image: 'authelia/authelia'
+    image: 'authelia/authelia@sha256:0c824dcab1ae97c56bf673c5e77fe8cc6bcd400564555140cc8002a12c6b6463'
     restart: 'unless-stopped'
     mem_limit: 512m
     logging:
@@ -88,6 +88,7 @@ services:
       - all
   
   authelia_redis:
+    mem_limit: 256m
     image: redis:8.6.3
     container_name: authelia_redis
     restart: unless-stopped
@@ -110,6 +111,7 @@ services:
       - all
 
   authelia_postgres:
+    mem_limit: 512m
     image: postgres:17-alpine
     restart: unless-stopped
     logging:

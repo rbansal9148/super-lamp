@@ -50,9 +50,9 @@ services:
       - "traefik.http.services.debridav.loadbalancer.server.port=8080"
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8080/actuator/health/readiness" ]
-      interval: 2s
-      start_period: 2s
-      retries: 1000
+      interval: 10s
+      start_period: 60s
+      retries: 30
     depends_on:
       debridav_postgres:
         condition: service_healthy
@@ -101,6 +101,7 @@ services:
       - all
 
   debridav_postgres:
+    mem_limit: 1g
     image: postgres:18.3
     container_name: debridav_postgres
     restart: unless-stopped

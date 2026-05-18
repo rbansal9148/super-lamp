@@ -1,6 +1,6 @@
 services:
   watchtower:
-    image: containrrr/watchtower
+    image: containrrr/watchtower@sha256:6dd50763bbd632a83cb154d5451700530d1e44200b268a4e9488fefdfcf2b038
     container_name: watchtower
     restart: unless-stopped
     logging:
@@ -9,8 +9,11 @@ services:
         max-size: "10m"
         max-file: "3"
     environment:
-      TZ: ${TZ:-UTC}  
+      TZ: ${TZ:-UTC}
       WATCHTOWER_CLEANUP: "true"
+      # Notify-only by default; flip per-container via label
+      # `com.centurylinklabs.watchtower.enable=true` to opt back into auto-updates.
+      WATCHTOWER_MONITOR_ONLY: ${WATCHTOWER_MONITOR_ONLY:-true}
       WATCHTOWER_SCHEDULE: ${AUTO_UPDATE_SCHEDULE:-0 0 6 * * *} # Run at 6am daily
       WATCHTOWER_NOTIFICATION_URL: ${AUTO_UPDATE_NOTIFICATION_URL:-}
       WATCHTOWER_NOTIFICATION_REPORT: "true"

@@ -31,6 +31,7 @@ services:
         condition: service_healthy
   
   aiostremio_redis: 
+    mem_limit: 256m
     image: redis:8.6.3
     container_name: aiostremio_redis
     restart: unless-stopped

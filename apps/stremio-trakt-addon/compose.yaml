@@ -52,6 +52,7 @@ services:
       - all
 
   stremio-trakt-addon_postgres:
+    mem_limit: 1g
     container_name: stremio-trakt-addon_postgres
     image: postgres:16.4
     restart: unless-stopped
@@ -79,8 +80,10 @@ services:
       - all
 
   stremio-trakt-addon_redis:
+    mem_limit: 256m
     container_name: stremio-trakt-addon_redis
-    image: redis:6
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1"]
     restart: unless-stopped
     logging:
       driver: "json-file"

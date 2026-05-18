@@ -36,6 +36,7 @@ services:
       - all
 
   mediafusion_postgres:
+    mem_limit: 2g
     image: postgres:18-alpine
     container_name: mediafusion_postgres
     environment:
@@ -153,6 +154,7 @@ services:
   #     - all
 
   mediafusion_redis:
+    mem_limit: 512m
     image: redis:8.6.3
     container_name: mediafusion_redis
     restart: unless-stopped

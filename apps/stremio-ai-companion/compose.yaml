@@ -29,6 +29,7 @@ services:
       - all
 
   stremio-ai-companion_redis: 
+    mem_limit: 256m
     image: redis:8.6.3
     container_name: stremio-ai-companion_redis
     restart: unless-stopped

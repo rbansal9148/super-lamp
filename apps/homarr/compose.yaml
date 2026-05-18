@@ -21,7 +21,7 @@ services:
       traefik.http.services.homarr.loadbalancer.server.port: 7575
       traefik.http.routers.homarr.middlewares: authelia@docker
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
+      - /var/run/docker.sock:/var/run/docker.sock:ro
       - ${DOCKER_DATA_DIR}/homarr:/appdata
     profiles:
       - homarr

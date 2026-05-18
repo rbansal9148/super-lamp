@@ -31,6 +31,7 @@ services:
       - all
 
   libremdb-redis:
+    mem_limit: 256m
     container_name: libremdb_redis
     image: redis:8.6.3
     # FOR DEBUGGING ONLY

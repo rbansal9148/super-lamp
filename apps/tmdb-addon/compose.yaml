@@ -36,6 +36,7 @@ services:
       - all
   
   tmdb-addon_redis:
+    mem_limit: 256m
     image: redis:8.6.3
     container_name: tmdb-addon_redis
     restart: unless-stopped

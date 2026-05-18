@@ -1,6 +1,6 @@
 services:
   traefik:
-    image: traefik:v3.7.0
+    image: traefik:v3.7.0@sha256:eb328e2c806c53aafbbace6c451fa54d268961261a85452fcf0fb752a30c17be
     container_name: traefik
     restart: unless-stopped
     mem_limit: 512m
@@ -28,7 +28,8 @@ services:
       - '--log=true'
       - "--log.level=WARN"
       - '--accesslog=true'
-      - "--accesslog.filepath=/data/access.log"
+      # Write to stdout so json-file driver's 10m/3-file rotation applies
+      # (was /data/access.log — grew to 148M unbounded).
       - "--accesslog.bufferingsize=100"
       - "--accesslog.fields.names.StartUTC=drop"
       - "--providers.docker=true"
@@ -88,7 +89,7 @@ services:
       # - "--experimental.plugins.bouncer.modulename=github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin"
       # - "--experimental.plugins.bouncer.version=v1.3.0"
     volumes:
-      - "/var/run/docker.sock:/var/run/docker.sock"
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "${DOCKER_DATA_DIR}/traefik:/data"
     labels:
       - "traefik.enable=true"

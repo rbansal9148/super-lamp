@@ -29,6 +29,7 @@ services:
     
 
   yamtrack_redis:
+    mem_limit: 256m
     image: redis:7-alpine
     container_name: yamtrack-redis
     restart: unless-stopped

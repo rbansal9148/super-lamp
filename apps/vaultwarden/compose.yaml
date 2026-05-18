@@ -12,7 +12,7 @@ services:
       - 80
     environment:
       DOMAIN: "https://${VAULTWARDEN_HOSTNAME?}"
-      SIGNUPS_ALLOWED: ${VAULTWARDEN_SIGNUPS_ALLOWED:-true}
+      SIGNUPS_ALLOWED: ${VAULTWARDEN_SIGNUPS_ALLOWED:-false}
       ADMIN_TOKEN: ${VAULTWARDEN_ADMIN_TOKEN?}
     volumes:
       - ${DOCKER_DATA_DIR}/vaultwarden:/data/
@@ -21,6 +21,7 @@ services:
       - "traefik.http.routers.vaultwarden.rule=Host(`${VAULTWARDEN_HOSTNAME?}`)"
       - "traefik.http.routers.vaultwarden.entrypoints=websecure"
       - "traefik.http.routers.vaultwarden.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.vaultwarden.middlewares=authelia@docker"
     profiles:
       - vaultwarden
       - all

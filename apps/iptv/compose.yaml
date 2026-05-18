@@ -27,6 +27,7 @@ services:
       - all
 
   iptv_redis:
+    mem_limit: 256m
     image: redis:8.6.3
     container_name: iptv_redis
     restart: unless-stopped

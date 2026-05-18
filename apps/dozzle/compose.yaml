@@ -24,9 +24,9 @@ services:
       - "traefik.http.services.dozzle.loadbalancer.server.port=8080"
     healthcheck:
       test: ["CMD", "/dozzle", "healthcheck"]
-      interval: 3s
-      timeout: 30s
-      retries: 5
+      interval: 30s
+      timeout: 10s
+      retries: 3
       start_period: 30s
     profiles:
       - dozzle

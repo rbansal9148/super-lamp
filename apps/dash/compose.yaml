@@ -30,6 +30,12 @@ services:
       - "traefik.http.routers.dash.entrypoints=websecure"
       - "traefik.http.routers.dash.tls.certresolver=letsencrypt"
       - "traefik.http.routers.dash.middlewares=authelia@docker"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:3001/"]
+      interval: 60s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
     profiles:
       - dash
       - all

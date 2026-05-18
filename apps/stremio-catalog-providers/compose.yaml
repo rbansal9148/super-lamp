@@ -49,6 +49,7 @@ services:
       - all  
       
   stremio-catalog-providers_postgres:
+    mem_limit: 1g
     logging:
       driver: "json-file"
       options:
@@ -75,13 +76,15 @@ services:
       - all
 
   stremio-catalog-providers_redis:
+    mem_limit: 256m
     logging:
       driver: "json-file"
       options:
         max-size: "10m"
         max-file: "3"
     container_name: stremio-catalog-providers_redis
-    image: redis:6
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1"]
     expose:
       - 6379
     volumes:

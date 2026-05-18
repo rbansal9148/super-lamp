@@ -75,6 +75,7 @@ services:
       - all
 
   prowlarr_postgres:
+    mem_limit: 1g
     image: postgres:18.3
     container_name: prowlarr_postgres
     volumes:
