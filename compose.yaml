@@ -1,5 +1,4 @@
 include:
-  # - apps/duckdns/compose.yaml
   # - apps/actual-budget/compose.yaml
   # - apps/addon-manager/compose.yaml
   # - apps/adguard/compose.yaml
