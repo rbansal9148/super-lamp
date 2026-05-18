@@ -13,6 +13,11 @@ services:
     expose:
       - 8181
     environment:
+      # Route outbound HTTP through gluetun (gost) to avoid IP leaks to public trackers/DMM.
+      # NO_PROXY excludes internal Docker hostnames so they don't get tunneled.
+      HTTP_PROXY: http://gluetun:8080
+      HTTPS_PROXY: http://gluetun:8080
+      NO_PROXY: localhost,127.0.0.1,zilean_postgres,gluetun,*.internal
       Zilean__EnableDashboard: true
       Zilean__Database__ConnectionString: Host=zilean_postgres;Database=zilean;Username=zilean;Password=d0c4f8c9b2a59b170d54fe1a81ec52236f2e21b882a512fa;Include Error Detail=true;Timeout=30;CommandTimeout=3600
       Zilean__Imdb__UseAllCores: true
