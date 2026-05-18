@@ -63,6 +63,7 @@ services:
       - FIREWALL_OUTBOUND_SUBNETS=192.168.55.0/24
     env_file:
       - ${DOCKER_APP_DIR}/gluetun/.env
+      - ${DOCKER_APP_DIR}/gluetun/config.env
     labels:
       - "traefik.enable=true"
       - "traefik.http.routers.bitmagnet.rule=Host(`${BITMAGNET_HOSTNAME}`)"
