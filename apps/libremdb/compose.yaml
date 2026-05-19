@@ -54,6 +54,12 @@ services:
     cap_drop:
       - ALL
     command: redis-server --maxmemory 8mb --maxmemory-policy allkeys-lru --save ""
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
     profiles:
       - libremdb
       - all
