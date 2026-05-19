@@ -85,8 +85,25 @@
 : "${BACKUP_STALE_DAYS_CRIT:=7}"
 
 # --- Security hardening ---
-# Containers permitted to run as root (e.g., reverse proxies)
-: "${ALLOW_ROOT_USER:=gluetun bitmagnet_vpn traefik authelia browserless}"
+# Containers permitted to run as root. Two reasons a name appears here:
+#   1. Truly needs root (VPN/cap_add, raw network access, etc).
+#   2. Image cannot be coerced into non-root without an upstream rebuild
+#      (we tried and reverted, or have a definite reason it would break).
+# Re-test any name here on a major image bump — upstream may have fixed it.
+: "${ALLOW_ROOT_USER:=gluetun bitmagnet_vpn traefik authelia browserless \
+  bitmagnet stremthru comet shelfmark dozzle dash searxng zilean \
+  prowlarr calibre-web-automated bitmagnet_prune prowlarr_history_prune}"
+# Notes on the image-constrained additions (verified 2026-05-19):
+#   bitmagnet                  config mount is /root/.config/bitmagnet
+#   stremthru, comet           single data-dir bind-mount includes postgres pgdata
+#   shelfmark                  shares calibre-web-automated lscr-style data
+#   dozzle                     scratch image, no shell to drop privs
+#   dash                       needs root for /proc, /sys, /:/mnt/host:ro reads
+#   searxng                    image has custom user expectations
+#   zilean                     image bakes /app/data as root-owned
+#   prowlarr, calibre-web-*    lscr.io PUID/PGID-style: entrypoint runs as root
+#                              then drops privs internally; user: bypasses that
+#   *_prune sidecars           postgres images need root for entrypoint
 # Containers expected to NOT be privileged
 : "${PRIVILEGED_FORBIDDEN:=true}"
 # Patterns for weak credentials in .env files
