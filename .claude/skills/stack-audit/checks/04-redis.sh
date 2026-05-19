@@ -20,8 +20,12 @@ for r in $REDIS_CONTAINERS; do
   evicted=$(echo "$stats" | awk -F: '/evicted_keys:/{gsub(/\r/,"");print $2}')
   used=$(echo "$mem" | awk -F: '/used_memory:/{gsub(/\r/,"");print $2}' | head -1)
 
-  # Hit rate (only meaningful with enough samples)
-  if [ -n "$hits" ] && [ -n "$miss" ] && [ "$((hits + miss))" -gt 1000 ]; then
+  # Hit rate (only meaningful with enough samples).
+  # Skip allowlist for workloads with intrinsically low repeat rate (per-search
+  # unique queries on a stremio addon backend — every torrent hash is mostly
+  # unique, so cache hit rate is inherently low and not actionable).
+  if [ -n "$hits" ] && [ -n "$miss" ] && [ "$((hits + miss))" -gt 1000 ] \
+     && ! echo " $REDIS_HIT_RATE_ALLOW_LOW " | grep -q " $r "; then
     rate=$((100 * hits / (hits + miss)))
     if [ "$rate" -lt "$REDIS_HIT_RATE_WARN" ]; then
       echo "MED|redis/$r|hit rate ${rate}% (warn <${REDIS_HIT_RATE_WARN}%) — investigate TTLs or key cardinality|docker exec $r $CLI --scan | awk -F: '{print \$1\":\"\$2}' | sort | uniq -c | sort -rn"
