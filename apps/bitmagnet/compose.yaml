@@ -98,7 +98,7 @@ services:
       bitmagnet_postgres:
         condition: service_healthy
     environment:
-      - PGPASSWORD=bitmagnet
+      - PGPASSWORD=f4813594672d04c048347ef5deb02ef3e8b85db1bb0d69ca
     networks:
       bitmagnet:
     entrypoint:

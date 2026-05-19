@@ -59,15 +59,28 @@ if [ "$exposed" -gt 0 ]; then
 fi
 
 # --- postgres WAL bloat → checkpoint_wal -------------------------------------
-# If any pg container's pg_wal directory is over WAL_BLOAT_MB_WARN, hint
-# checkpoint_wal.  We don't compute exact size deltas; just a heuristic.
-WAL_BLOAT_MB_WARN="${WAL_BLOAT_MB_WARN:-512}"
+# Flag only TRUE bloat: pg_wal directory exceeds 1.5× the instance's own
+# max_wal_size setting. Postgres normally fills WAL up to max_wal_size before
+# forcing a checkpoint — that's healthy steady-state, not bloat.
+WAL_BLOAT_RATIO="${WAL_BLOAT_RATIO:-1.5}"
 big_wal=0
 for c in $(docker ps --format '{{.Names}}' | grep '_postgres$'); do
   for p in /var/lib/postgresql/data/pgdata/pg_wal /var/lib/postgresql/data/pg_wal; do
     if docker exec "$c" test -d "$p" 2>/dev/null; then
       mb=$(docker exec "$c" du -sm "$p" 2>/dev/null | awk '{print $1}')
-      if [ -n "$mb" ] && [ "$mb" -gt "$WAL_BLOAT_MB_WARN" ]; then
+      [ -z "$mb" ] && break
+      # Query instance's max_wal_size (postgres returns it in pretty form e.g. "1GB")
+      max_wal=$(docker exec "$c" psql -U "${c%_postgres}" -d "${c%_postgres}" -At -c "SHOW max_wal_size;" 2>/dev/null)
+      # Convert max_wal to MB (best effort: handles MB/GB suffixes)
+      max_mb=$(echo "$max_wal" | awk '
+        /GB$/ {sub(/GB/,""); printf "%d", $1*1024; exit}
+        /MB$/ {sub(/MB/,""); printf "%d", $1; exit}
+        /^[0-9]+$/ {printf "%d", $1; exit}
+      ')
+      # Default to 1024 if we couldn't parse
+      [ -z "$max_mb" ] && max_mb=1024
+      threshold_mb=$(awk -v m=$max_mb -v r=$WAL_BLOAT_RATIO 'BEGIN{printf "%d", m*r}')
+      if [ "$mb" -gt "$threshold_mb" ]; then
         big_wal=$((big_wal+1))
       fi
       break
@@ -75,7 +88,7 @@ for c in $(docker ps --format '{{.Names}}' | grep '_postgres$'); do
   done
 done
 if [ "$big_wal" -gt 0 ]; then
-  echo "MED|postgres|$big_wal postgres instances have pg_wal > ${WAL_BLOAT_MB_WARN}MB|force CHECKPOINT to recycle segments|checkpoint_wal"
+  echo "MED|postgres|$big_wal postgres instances have pg_wal > ${WAL_BLOAT_RATIO}× max_wal_size (true bloat)|force CHECKPOINT to recycle segments|checkpoint_wal"
 fi
 
 # --- docker housekeeping → prune_docker --------------------------------------

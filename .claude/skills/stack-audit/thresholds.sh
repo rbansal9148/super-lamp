@@ -37,12 +37,18 @@
 
 # --- Redis ---
 : "${REDIS_HIT_RATE_WARN:=70}"
+# Redis instances whose workload is intrinsically low-repeat (per-search
+# unique torrent hashes, etc) — hit-rate finding would be noise.
+: "${REDIS_HIT_RATE_ALLOW_LOW:=aiostreams_redis comet_redis libremdb_redis}"
 : "${REDIS_MUST_HAVE_MAXMEMORY:=true}"
 : "${REDIS_MUST_HAVE_LRU_POLICY:=true}"
 : "${REDIS_NO_TTL_KEYS_WARN:=1000}"
 
 # --- Streaming ---
-: "${AIOSTREAMS_ERROR_RATE_PCT_WARN:=30}"
+# 30% used to fire; most errors trace to TorBox bulk-cache-check timeouts —
+# not actionable from this stack. Raised to 40% so the alert means "really
+# elevated", not "TorBox normal".
+: "${AIOSTREAMS_ERROR_RATE_PCT_WARN:=40}"
 : "${AIOSTREAMS_ZERO_STREAMS_PCT_WARN:=20}"
 : "${COMET_P95_RESP_S_WARN:=15}"
 : "${MEDIAFUSION_P95_RESP_S_WARN:=15}"
