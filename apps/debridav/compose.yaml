@@ -110,6 +110,18 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=256MB"
+      - "-c"
+      - "effective_cache_size=768MB"
+      - "-c"
+      - "work_mem=16MB"
+      - "-c"
+      - "maintenance_work_mem=64MB"
+      - "-c"
+      - "log_min_duration_statement=1000"
     environment:
       - POSTGRES_USER=debridav
       - POSTGRES_PASSWORD=debridav

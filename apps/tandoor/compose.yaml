@@ -9,7 +9,9 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    env_file: .env
+    env_file:
+      - .env
+      - config.env
     volumes:
       - ${DOCKER_DATA_DIR}/tandoor/postgresql:/var/lib/postgresql/data
     profiles:
@@ -27,7 +29,9 @@ services:
         max-file: "3"
     depends_on:
       - tandoor_db
-    env_file: .env
+    env_file:
+      - .env
+      - config.env
     volumes:
       - ${DOCKER_DATA_DIR}/tandoor/staticfiles:/opt/recipes/staticfiles
       - ${DOCKER_DATA_DIR}/tandoor/mediafiles:/opt/recipes/mediafiles

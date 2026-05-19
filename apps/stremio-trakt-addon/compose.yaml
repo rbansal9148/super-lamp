@@ -55,6 +55,16 @@ services:
     mem_limit: 1g
     container_name: stremio-trakt-addon_postgres
     image: postgres:16.4
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=256MB"
+      - "-c"
+      - "effective_cache_size=768MB"
+      - "-c"
+      - "work_mem=16MB"
+      - "-c"
+      - "maintenance_work_mem=64MB"
     restart: unless-stopped
     logging:
       driver: "json-file"

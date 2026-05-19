@@ -1,8 +1,10 @@
 services:
   libremdb:
     container_name: libremdb
-    image: ghcr.io/zyachel/libremdb:latest
-    env_file: .env
+    image: ghcr.io/zyachel/libremdb:latest@sha256:9f65a47fe64133045b4cfaa48e5ef73371c55c62b3d5bf42f7584a90dfd1c1ee
+    env_file:
+      - .env
+      - config.env
     depends_on:
       - libremdb-redis
     restart: unless-stopped

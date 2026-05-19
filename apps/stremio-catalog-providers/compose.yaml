@@ -57,6 +57,16 @@ services:
         max-file: "3"
     container_name: stremio-catalog-providers_postgres
     image: postgres:16.4
+    command:
+      - "postgres"
+      - "-c"
+      - "shared_buffers=256MB"
+      - "-c"
+      - "effective_cache_size=768MB"
+      - "-c"
+      - "work_mem=16MB"
+      - "-c"
+      - "maintenance_work_mem=64MB"
     environment:
       POSTGRES_DB: stremio_catalog_db
       POSTGRES_USER: postgres

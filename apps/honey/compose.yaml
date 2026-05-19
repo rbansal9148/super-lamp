@@ -1,6 +1,6 @@
 services:
   honey:
-    image: ghcr.io/dani3l0/honey:latest
+    image: ghcr.io/dani3l0/honey:latest@sha256:0af531af34ec047d72ecbbbb4627b8b45039835755c10338f6e2428ee23e7dd5
     container_name: honey
     restart: unless-stopped
     logging:

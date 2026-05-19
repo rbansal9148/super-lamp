@@ -13,7 +13,8 @@ if [ "$world_readable" -gt 0 ]; then
   echo "HIGH|security|$world_readable .env files are world/group-readable (perms != 600)|chmod 600 every apps/*/.env|secure_envs"
 fi
 if (cd "$ROOT" && git rev-parse --git-dir >/dev/null 2>&1); then
-  tracked=$(cd "$ROOT" && git ls-files | grep -cE '\.env$' || true)
+  # Exclude stack-audit test fixtures — those are intentional dummy data.
+  tracked=$(cd "$ROOT" && git ls-files | grep -E '\.env$' | grep -vF '.claude/skills/stack-audit/tools/test/fixtures/' | wc -l)
   if [ "$tracked" -gt 0 ]; then
     echo "HIGH|security|$tracked .env files are committed to git — secrets leak in history|git rm --cached then commit|secure_envs"
   fi

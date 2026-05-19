@@ -1,6 +1,6 @@
 services:
   aiometadata:
-    image: ghcr.io/cedya77/aiometadata:latest
+    image: ghcr.io/cedya77/aiometadata:latest@sha256:1dbf878e225ef78d60e4fcd44f0a7bd18127dc36d156eb891dec1a08b202a54f
     container_name: aiometadata
     restart: unless-stopped
     expose:
@@ -82,7 +82,9 @@ services:
       - all
 
   aiometadata_redis:
-    mem_limit: 512m
+    # 384m redis data + headroom for RDB snapshot fork (copy-on-write can
+    # ~2× memory during save). 768m fits the worst case without OOM.
+    mem_limit: 768m
     image: redis:8.6.3
     container_name: aiometadata_redis
     restart: unless-stopped

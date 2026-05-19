@@ -1,6 +1,6 @@
 services:
   dozzle:
-    image: amir20/dozzle:latest
+    image: amir20/dozzle:latest@sha256:1cc972250626553009ddacbdf1f5725b681cdcbabe551fec69cd728882ffbc58
     container_name: dozzle
     restart: unless-stopped
     logging:

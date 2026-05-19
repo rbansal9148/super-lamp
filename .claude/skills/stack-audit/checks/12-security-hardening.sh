@@ -27,11 +27,14 @@ docker ps --format '{{.Names}}' | while read c; do
 done
 
 # 3. Weak / default credentials in .env files (sampling)
+# Strip comments and blank lines BEFORE matching, so "e.g. postgresql://bitmagnet:bitmagnet@…"
+# in a `# comment` doesn't trip the check.
 for envf in /opt/docker/apps/*/.env; do
   [ -f "$envf" ] || continue
   app=$(basename $(dirname "$envf"))
+  uncommented=$(sed -E 's/[[:space:]]*#.*$//' "$envf" 2>/dev/null | grep -vE '^[[:space:]]*$')
   for pat in $WEAK_PW_PATTERNS; do
-    if grep -qE "^${pat//:/=}|${pat}" "$envf" 2>/dev/null; then
+    if echo "$uncommented" | grep -qE "^${pat//:/=}|${pat}"; then
       echo "MED|security|$app/.env contains weak/default credential pattern '$pat'|rotate to a strong password; update both .env and the postgres user|rotate_pg_password"
     fi
   done

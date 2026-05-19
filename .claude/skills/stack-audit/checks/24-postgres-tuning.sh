@@ -16,6 +16,8 @@ for cf in /opt/docker/apps/*/compose.yaml; do
     lineno=${line%%:*}
     # Find the service-name header above this line (2-space indent)
     svc=$(awk -v L=$lineno 'NR<L && /^  [A-Za-z0-9_-]+:\s*$/ {gsub(/[: ]/,"",$0); s=$0} END{print s}' "$cf")
+    # Skip prune sidecars — they don't host a database, they just run psql
+    case "$svc" in *_prune|*_history_prune) continue ;; esac
     # Look ahead 60 lines for `command:` with `shared_buffers`
     has_tuning=$(sed -n "${lineno},$((lineno+60))p" "$cf" | grep -cE 'shared_buffers=' || true)
     if [ "$has_tuning" = "0" ]; then
