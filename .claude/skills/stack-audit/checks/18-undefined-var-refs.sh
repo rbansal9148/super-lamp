@@ -20,6 +20,15 @@ apps = Path("/opt/docker/apps")
 root_env = Path("/opt/docker/.env")
 shell_env = set(os.environ.keys())
 
+# Build set of enabled services from top-level compose.yaml.
+# Only flag undefined vars in services that are actually included (uncommented).
+enabled = set()
+top = Path("/opt/docker/compose.yaml")
+if top.exists():
+    for ln in top.read_text().splitlines():
+        m = re.match(r'^\s*-\s*apps/([^/]+)/compose\.yaml', ln)
+        if m: enabled.add(m.group(1))
+
 # Load top-level env vars
 top_vars = set()
 if root_env.exists():
@@ -32,6 +41,8 @@ VAR_RE = re.compile(r'\$\{([A-Z_][A-Z0-9_]*)(:?-[^}]*|\?[^}]*)?\}')
 for cf in sorted(apps.glob("*/compose.yaml")):
     svc_dir = cf.parent
     svc = svc_dir.name
+    if enabled and svc not in enabled:
+        continue  # disabled at top-level — don't flag latent issues
     txt = cf.read_text()
     refs = {}  # var -> first line number
     for i, line in enumerate(txt.splitlines(), 1):
