@@ -2,6 +2,7 @@ services:
   aiometadata:
     image: ghcr.io/cedya77/aiometadata:latest@sha256:1dbf878e225ef78d60e4fcd44f0a7bd18127dc36d156eb891dec1a08b202a54f
     container_name: aiometadata
+    user: "${PUID}:${PGID}"
     restart: unless-stopped
     expose:
       - ${PORT:-1337}

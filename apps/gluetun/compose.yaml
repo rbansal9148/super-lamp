@@ -31,6 +31,7 @@ services:
   # Use Gost as a proxy because its better.
   gost:
     image: ginuerzh/gost
+    user: "${PUID}:${PGID}"
     container_name: gost
     restart: unless-stopped
     logging:

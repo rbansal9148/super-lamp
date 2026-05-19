@@ -2,6 +2,7 @@ services:
   aiostreams:
     image: ghcr.io/viren070/aiostreams:${AIOSTREAMS_TAG:-latest}
     container_name: aiostreams
+    user: "${PUID}:${PGID}"
     restart: unless-stopped
     env_file:
       - .env
