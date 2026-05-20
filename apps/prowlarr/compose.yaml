@@ -1,6 +1,6 @@
 services:
   prowlarr:
-    image: ghcr.io/hotio/prowlarr@sha256:311027731416b356fdbfc45101cd844283f34c2cb700c6db2f43c948744f9e3d
+    image: ghcr.io/hotio/prowlarr@sha256:fa08890d7ff0d2833fb8aa8de4ea572849acfae16f016f17aa0e745daf948831
     container_name: prowlarr
     environment:
       - PUID=${PUID}
@@ -12,6 +12,9 @@ services:
       - PROWLARR__POSTGRES__PASSWORD=prowlarr
       - PROWLARR__POSTGRES__MAINDB=prowlarr
       - PROWLARR__POSTGRES__LOGDB=prowlarr_log
+      - HTTP_PROXY=http://gluetun:8080
+      - HTTPS_PROXY=http://gluetun:8080
+      - NO_PROXY=localhost,127.0.0.1,prowlarr_postgres,*.aio_network,traefik,authelia
     # expose:
     #   - 9696
     volumes:
@@ -46,7 +49,7 @@ services:
       - all
 
   prowlarr_history_prune:
-    image: postgres:18.3
+    image: postgres:18.4
     container_name: prowlarr_history_prune
     restart: unless-stopped
     depends_on:
@@ -76,7 +79,7 @@ services:
 
   prowlarr_postgres:
     mem_limit: 1g
-    image: postgres:18.3
+    image: postgres:18.4
     container_name: prowlarr_postgres
     volumes:
       - ${DOCKER_DATA_DIR}/prowlarr/db:/var/lib/postgresql/data

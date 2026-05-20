@@ -150,7 +150,7 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
-    mem_limit: 4g
+    mem_limit: 6g
     command:
       - "postgres"
       - "-c"

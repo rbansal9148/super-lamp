@@ -50,7 +50,7 @@ services:
 
   zilean_postgres:
     mem_limit: 2g
-    image: postgres:17.2-alpine
+    image: postgres:17.10-alpine
     container_name: zilean_postgres
     restart: unless-stopped
     logging:

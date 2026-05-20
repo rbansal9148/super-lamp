@@ -34,7 +34,7 @@ services:
       - all
 
   stremthru_prune:
-    image: postgres:18.3
+    image: postgres:18.4
     container_name: stremthru_prune
     restart: unless-stopped
     depends_on:
@@ -67,7 +67,7 @@ services:
       - all
 
   stremthru_postgres:
-    image: postgres:18.3
+    image: postgres:18.4
     container_name: stremthru_postgres
     volumes:
       - ${DOCKER_DATA_DIR}/stremthru/db:/var/lib/postgresql/data

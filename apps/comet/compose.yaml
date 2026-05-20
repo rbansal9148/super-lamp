@@ -40,7 +40,7 @@ services:
   # and set the DATABASE_TYPE to postgres and DATABASE_URL to 
   comet_postgres:
     mem_limit: 1g
-    image: postgres:18.3
+    image: postgres:18.4
     container_name: comet_postgres
     restart: unless-stopped
     logging:

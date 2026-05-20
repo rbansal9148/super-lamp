@@ -33,7 +33,7 @@ services:
 
   aiostreams_postgres:
     mem_limit: 1g
-    image: postgres:18.3
+    image: postgres:18.4
     container_name: aiostreams_postgres
     volumes:
       - ${DOCKER_DATA_DIR}/aiostreams/db:/var/lib/postgresql/data
