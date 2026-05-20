@@ -56,6 +56,15 @@ for cf in sorted(apps.glob("*/compose.yaml")):
 
     # Gather defined vars from env_file list (resolve ${DOCKER_APP_DIR} only)
     defined = set(top_vars) | shell_env
+
+    # Docker Compose v2 auto-loads the sibling .env next to each included
+    # compose.yaml for interpolation in that file. Mirror that here.
+    sibling_env = svc_dir / ".env"
+    if sibling_env.exists():
+        for el in sibling_env.read_text().splitlines():
+            mm = re.match(r"^([A-Z_][A-Z0-9_]*)=", el)
+            if mm: defined.add(mm.group(1))
+
     for m in re.finditer(r'env_file:\s*\n((?:\s*-\s*[^\n]+\n)+)|env_file:\s*([^\n]+)', txt):
         block = m.group(1) or ("- " + m.group(2) + "\n")
         for ln in block.splitlines():
