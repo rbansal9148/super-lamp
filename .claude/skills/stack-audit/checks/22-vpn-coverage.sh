@@ -32,7 +32,7 @@ for svc in $MUST_TUNNEL; do
 
   # Pattern B: any env var ending in PROXY / PROXY_URL pointing to gluetun
   has_proxy=$(docker inspect "$svc" --format '{{range .Config.Env}}{{println .}}{{end}}' 2>/dev/null \
-    | grep -iE '^[A-Z_]*(HTTP_?PROXY|PROXY_URL)=.*gluetun' | head -1)
+    | grep -iE '^[A-Z_]*PROXY(_URL)?=.*gluetun' | head -1)
   if [ -n "$has_proxy" ]; then
     # Pass — service has at least partial egress tunneling.
     # (Some apps with foo_PROXY_URL only tunnel one subsystem; spot-check at
