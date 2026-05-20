@@ -12,7 +12,7 @@ users:
     displayname: "Rubal Bansal"
     ## Generate the argon2 password hash using:
     ## sudo docker run --rm authelia/authelia:latest authelia crypto hash generate argon2 --password 'yourpassword'
-    password: "$argon2id$v=19$m=65536,t=3,p=4$XAGcEYGiZu3RuXVsyJnzJA$DyXQ/pePjI/rBVl97/aUW+kI8hI5w38nQP/BPUW/XfA"
+    password: "$argon2id$v=19$m=65536,t=3,p=4$eJjB8ntb8gGoJMbIWxpc9Q$daG22E4wG/hCcwzqzM+2H7mvo/aUYqVd1sTQX4rv0aM"
     email: rbansal.rbansal@gmail.com
     groups:
       - admins
@@ -25,5 +25,4 @@ users:
     groups:
       - admins
       - dev
-...
 # yamllint enable rule:line-length
