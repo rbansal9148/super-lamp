@@ -15,3 +15,6 @@ data
 /apps/calibre-web-automated/heroofhearts/
 /apps/invidious/
 .serena/
+
+__pycache__/
+*.pyc
