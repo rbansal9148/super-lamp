@@ -11,7 +11,18 @@ docker ps -a --format '{{.Names}}' | while read c; do
     echo "CRIT|containers|$c was OOM-killed|docker logs --tail=100 $c; check mem_limit in compose"
   fi
   if [ "$rc" -ge "$RESTART_COUNT_WARN" ] 2>/dev/null; then
-    echo "HIGH|containers|$c has $rc restarts (warn ≥${RESTART_COUNT_WARN})|docker logs --tail=50 $c; investigate root cause"
+    # Distinguish an active loop from a healed one by checking current uptime.
+    # Docker doesn't track restart history, so we proxy: long uptime => loop has stopped.
+    started=$(docker inspect --format '{{.State.StartedAt}}' "$c" 2>/dev/null)
+    up_min=0
+    if [ -n "$started" ]; then
+      up_min=$(( ( $(date -u +%s) - $(date -u -d "$started" +%s 2>/dev/null || echo 0) ) / 60 ))
+    fi
+    if [ "$up_min" -ge "$RESTART_LOOP_UPTIME_MIN" ] 2>/dev/null; then
+      echo "LOW|containers|$c has $rc historical restarts but has been up ${up_min}m (loop appears resolved)|no action; cumulative count clears on container recreate"
+    else
+      echo "HIGH|containers|$c has $rc restarts (warn ≥${RESTART_COUNT_WARN}), uptime ${up_min}m (loop active)|docker logs --tail=50 $c; investigate root cause"
+    fi
   fi
 done
 

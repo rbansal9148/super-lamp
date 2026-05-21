@@ -10,6 +10,7 @@
 
 # --- Containers ---
 : "${RESTART_COUNT_WARN:=5}"
+: "${RESTART_LOOP_UPTIME_MIN:=30}"   # uptime above this minutes => assume restart loop is broken
 : "${CONTAINER_LOG_MB_WARN:=50}"
 : "${CONTAINER_LOG_MB_CRIT:=500}"
 : "${MEM_PCT_OF_CAP_WARN:=80}"
