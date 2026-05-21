@@ -31,3 +31,13 @@ if [ -n "$proxy" ]; then
     echo "HIGH|stremthru|STREMTHRU_HTTP_PROXY=$proxy unreachable — outbound calls will fail|verify gluetun + gost are healthy"
   fi
 fi
+
+# 5. parse-torrent poison rows — torrent_info with parser_version=0 aged past 1h.
+# MarkForReparseBelowVersion(9000) re-marks these on every container restart;
+# go-ptt's parser can hang on pathological titles (long, mixed-bracket DHT rows),
+# blocking the worker, breaking the heartbeat, and crashing the container in a
+# ~5-min loop. Caught the live incident at 280 restarts (commit ref in audit.log).
+stuck_unparsed=$($PSQL "SELECT count(*) FROM torrent_info WHERE parser_version = 0 AND created_at < NOW() - INTERVAL '1 hour';" 2>/dev/null)
+if [ -n "$stuck_unparsed" ] && [ "$stuck_unparsed" -gt 0 ]; then
+  echo "HIGH|stremthru|$stuck_unparsed torrent_info rows have parser_version=0 older than 1h — parse-torrent worker likely hanging on poison titles, restart loop imminent|inspect with: docker exec stremthru_postgres psql -U stremthru -d stremthru -c \"SELECT src, count(*) FROM torrent_info WHERE parser_version = 0 AND created_at < NOW() - INTERVAL '1 hour' GROUP BY src;\" — then DELETE poison rows + dependent torrent_stream rows in one txn"
+fi
