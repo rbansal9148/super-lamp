@@ -8,6 +8,7 @@ data
 !data/searxng/settings.yml
 
 *.env
+!**/config.env
 
 # Runtime-cloned nested repos (not tracked here)
 /Indexers/
