@@ -31,12 +31,15 @@ import re, sys, pathlib, argparse
 # Keys that LOOK secret-shaped but are not (timeouts, intervals, URLs, flags).
 NEVER_SECRET_REGEX = re.compile(
     r"^(?:"
-    r".+_CACHE_TTL"      # *_CACHE_TTL (durations)
+    r".+_CACHE_TTL(?:_.+)?"  # *_CACHE_TTL[_suffix] (durations)
     r"|.+_TIMEOUT"       # *_TIMEOUT
     r"|.+_INTERVAL.*"    # *_INTERVAL, *_INTERVAL_HOURS, etc.
     r"|.+_VALIDITY.*"    # *_VALIDITY_*
     r"|.+_ENABLED"       # boolean flags
     r"|.+_DISABLED"
+    r"|ENABLE_.*"        # ENABLE_* flags (suppress _API$ noise)
+    r"|DISABLE_.*"       # DISABLE_*
+    r"|PUBLIC_.*"        # PUBLIC_* opt-in flags
     r"|.+_BASE_URL"      # URL bases without creds
     r"|.+_URL"           # generic URLs without creds (URI_WITH_CRED still catches credentialed ones)
     r"|.+_REDIRECT_URI"
@@ -70,6 +73,12 @@ SECRET_KEY_REGEX = re.compile(
     r"|CLIENT[_-]?ID"     # OAuth client IDs are mildly sensitive; treat as secret
     r"|SESSION[_-]?KEY"
     r"|AUTH[_-]?KEY"
+    r"|MASTER[_-]?KEY"    # MEILI_MASTER_KEY, REDIS_MASTER_KEY, …
+    r"|HMAC"              # HMAC_SECRET / HMAC_KEY
+    r"|SALT"              # password salts
+    r"|SIGNATURE"         # signing keys
+    r"|BEARER"
+    r"|_API$"             # bare *_API suffix (TMDB_API, OPENAI_API …)
     r")",
     re.IGNORECASE,
 )
@@ -82,6 +91,12 @@ COMPOSE_VAR_RE = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)|\$([A-Za-z_][A-Za-z0-
 
 # KV line regex (handles optional `export ` prefix).
 KV_LINE = re.compile(r"^(?:export\s+)?([A-Za-z_][A-Za-z0-9_.-]*)\s*=\s*(.*)$")
+
+# Commented KV line: `# VAR=value` (or `#VAR=value`). Split_env routes these
+# by classification too — otherwise a commented-out secret in config.env leaks.
+COMMENTED_KV = re.compile(
+    r"^\s*#+\s*(?:export\s+)?([A-Za-z_][A-Za-z0-9_.-]*)\s*=\s*(.*)$"
+)
 
 # Weak/placeholder values to flag (lowercased for comparison).
 WEAK_VALUES = {
@@ -180,8 +195,19 @@ def split(in_path: pathlib.Path, secrets_path: pathlib.Path,
     counts = {"secrets": 0, "config": 0, "weak": 0, "substituted": 0}
 
     for line in lines:
-        s = line.strip()
-        if not s or s.startswith("#"):
+        stripped = line.strip()
+        if not stripped:
+            pending.append(line)
+            continue
+        if stripped.startswith("#"):
+            # Commented KV lines that name a secret must travel with .env,
+            # not slip into config.env as innocent comments.
+            cm = COMMENTED_KV.match(line)
+            if cm and must_stay_in_env(cm.group(1), cm.group(2), compose_vars):
+                secrets_out.extend(pending)
+                secrets_out.append(line)
+                pending = []
+                continue
             pending.append(line)
             continue
         m = KV_LINE.match(line)
