@@ -83,15 +83,17 @@ services:
       - all
 
   aiometadata_redis:
-    # 384m redis data + headroom for RDB snapshot fork (copy-on-write can
-    # ~2× memory during save). 768m fits the worst case without OOM.
-    mem_limit: 768m
+    # 512m redis data + headroom for RDB snapshot fork (copy-on-write can
+    # ~2× memory during save). 1280m fits the worst-case fork without OOM
+    # and gives ~25% slack. Raised from 384m/768m after audit showed 45
+    # evictions/min sustained on 384m maxmemory.
+    mem_limit: 1280m
     image: redis:8.6.3
     container_name: aiometadata_redis
     restart: unless-stopped
     volumes:
       - ${DOCKER_DATA_DIR}/aiometadata/cache:/data
-    command: redis-server --appendonly yes --save 60 1 --maxmemory 384mb --maxmemory-policy allkeys-lru
+    command: redis-server --appendonly yes --save 60 1 --maxmemory 512mb --maxmemory-policy allkeys-lru
     logging:
       driver: "json-file"
       options:
