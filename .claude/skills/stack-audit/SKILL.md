@@ -78,6 +78,8 @@ Where `SEVERITY ∈ {CRIT, HIGH, MED, LOW, OK}`. The main `audit.sh` aggregates,
 - mem_limit set on big services (bitmagnet_postgres, mediafusion, comet, aiostreams)
 - Log file size per container (cap should bound them)
 - Image pinning: streaming addons should be `@sha256` not `:latest`
+- **Restart loops are uptime-aware**: HIGH while uptime < `RESTART_LOOP_UPTIME_MIN` (default 30m), auto-downgraded to LOW once the container has survived past that boundary (loop appears resolved).
+- **Healthcheck interval too long on critical services** (check 28): catches services that have a healthcheck but with `interval ≥ 120s`, which delays hung-state detection.
 
 ### Pass 3: Postgres (per DB)
 Connects to each `*_postgres` container and reports:
@@ -88,11 +90,13 @@ Connects to each `*_postgres` container and reports:
 - Unused indexes (0 scans + >50MB)
 - Last autovacuum recency
 - DB size growth vs prior snapshot
+- **Autovacuum rate** (check 31): per-table dead-tuple accumulation rate; warns when `dead_tup / hours_since_last_autovacuum ≥ DEAD_TUP_RATE_PER_HOUR_WARN` (default 10000), even before `dead_pct` crosses the absolute threshold.
 
 ### Pass 4: Redis (per instance)
 - Hit rate, evicted_keys, used/max memory
 - maxmemory policy must be `allkeys-lru` (not `noeviction`)
 - Count of keys with no TTL (leak indicator)
+- **Eviction rate** (check 30): per-instance evicted_keys/min over uptime; warns at `REDIS_EVICTION_PER_MIN_WARN` (default 30). Hit-rate alone misses this signal.
 
 ### Pass 5: Streaming layer
 - AIOStreams: histogram of `Returning N streams and M errors` over last N min
@@ -102,6 +106,8 @@ Connects to each `*_postgres` container and reports:
 - AIOmetadata: app-level cache hit rate (from log), TMDB fetch failure rate
 - Bitmagnet: DHT ingest rate (last 4 hours), must be ≤ prune rate
 - Zilean: search_torrents_meta p95 latency
+- **Stuck-job / poison-input detection** (check 32): generalizes the parse-torrent fix — flags `comet.background_scraper_items` with `consecutive_failures ≥ 5` aged >24h, `mediafusion.jobs` exhausted past `max_attempts`, and `stremthru.job_log` with repeated failures.
+- **Stremthru stream orphans** (check 29): `torrent_stream` rows with no matching `torrent_info` (the schema lacks the FK, so cleanup is manual).
 
 ### Cross-cutting
 - VPN: gluetun egress IP must match `EXPECTED_VPN_REGION` (default SG)
@@ -119,6 +125,12 @@ A service can run for weeks with a latent config bug — its env was set correct
 - **19-env-duplicate-keys.sh** — same KEY defined twice in one .env file (later wins silently); same KEY in both .env and config.env with different values.
 - **20-config-drift.sh** — diff each running container's env against what `docker compose config` would render *right now*. If compose declares a var the container doesn't have, the next recreate would set it — and that may expose a latent failure.
 - **21-floating-tags.sh** — running containers whose image is a floating tag (`:latest`, `:edge`, etc.). Recreate would pull a new digest silently; pin to the current image id.
+- **22-vpn-coverage.sh** — services that should route via gluetun but don't.
+- **23-docker-socket-mode.sh** — read/write mounts of `/var/run/docker.sock` that should be read-only.
+- **24-postgres-tuning.sh** — wrong shared_buffers / work_mem heuristics relative to mem_limit.
+- **25-config-env-secrets.sh** — secret-shaped values that slipped into the committed `config.env` half of the env split (inverse of `tools/split_env.py`).
+- **26-tz-consistency.sh** — TZ values that disagree with the top-level `/opt/docker/.env` pin (or no pin at all when 1+ service hardcodes a TZ).
+- **27-env-shadowing.sh** — same KEY defined in both `env_file:` and `environment:` (compose silently overrides); skips the safe `KEY=${KEY}` pass-through pattern.
 
 ## Thresholds (deterministic — see `thresholds.sh`)
 
@@ -136,6 +148,12 @@ All limits live in `thresholds.sh` so they're tunable. Examples:
 | `DHT_INGEST_VS_PRUNE_MAX_RATIO` | 0.8 |
 | `AIOSTREAMS_ERROR_RATE_PCT_WARN` | 30 |
 | `CONTAINER_LOG_MB_WARN` | 50 |
+| `RESTART_LOOP_UPTIME_MIN` | 30 |
+| `REDIS_EVICTION_PER_MIN_WARN` | 30 |
+| `DEAD_TUP_RATE_PER_HOUR_WARN` | 10000 |
+| `STUCK_JOB_WARN_COUNT` | 10 |
+| `STREMTHRU_STREAM_ORPHANS_WARN` | 1000 |
+| `HEALTHCHECK_INTERVAL_WARN_SEC` | 120 |
 
 ## Severity rules
 
