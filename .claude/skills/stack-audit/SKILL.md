@@ -138,6 +138,7 @@ A service can run for weeks with a latent config bug — its env was set correct
 - **25-config-env-secrets.sh** — secret-shaped values that slipped into the committed `config.env` half of the env split (inverse of `tools/split_env.py`).
 - **26-tz-consistency.sh** — TZ values that disagree with the top-level `/opt/docker/.env` pin (or no pin at all when 1+ service hardcodes a TZ).
 - **27-env-shadowing.sh** — same KEY defined in both `env_file:` and `environment:` (compose silently overrides); skips the safe `KEY=${KEY}` pass-through pattern.
+- **40-env-references-missing-container.sh** — env vars on running containers that reference an internal docker hostname (in URIs or bare `*HOST*` vars) which doesn't exist as a running container. Catches the *stremthru_redis class*: env set (`STREMTHRU_REDIS_URI=redis://stremthru_redis:6379`) but the referenced service was never defined in compose → stremthru silently fell back to in-memory cache that wasn't working → 14-16s/stream call instead of 0.07s. Skips FQDNs, IPs, localhost, and boolean/scalar false positives.
 
 ## Thresholds (deterministic — see `thresholds.sh`)
 
