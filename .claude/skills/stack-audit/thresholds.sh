@@ -128,6 +128,16 @@
 : "${PROWLARR_INDEXER_AVG_MS_HIGH:=30000}"
 : "${PROWLARR_MIN_QUERIES_FOR_STATS:=5}"
 
+# --- OOM history (check 38) ---
+: "${OOM_HISTORY_WARN:=3}"
+: "${OOM_HISTORY_HIGH:=20}"
+: "${OOM_HISTORY_DAYS:=7}"
+: "${OOM_RECENT_HOURS:=24}"
+
+# --- TLS cert expiry (check 39) ---
+: "${CERT_EXPIRY_WARN_DAYS:=30}"
+: "${CERT_EXPIRY_CRIT_DAYS:=7}"
+
 # --- Dormant data dirs (check 36) ---
 : "${DORMANT_DATA_MB_WARN:=100}"
 : "${DORMANT_DATA_MB_HIGH:=5000}"

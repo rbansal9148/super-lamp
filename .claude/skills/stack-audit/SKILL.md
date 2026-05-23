@@ -120,7 +120,9 @@ Connects to each `*_postgres` container and reports:
 - Authelia coverage on all Traefik routes
 - StremThru tunnel route map (TorBox should bypass, others via gost)
 - Orphan data dirs under `/opt/docker/data/` for stopped services
-- **Dormant data dirs** (check 36): directories under `/opt/docker/data/<svc>/` whose service is NOT in any running container — likely a service that got commented out of the main `compose.yaml` but whose data dir was never reclaimed (this stack had 10.9GB of orphan immich data after the service was disabled). HIGH at ≥5GB, MED ≥100MB.
+- **Dormant data dirs** (check 36): directories under `/opt/docker/data/<svc>/` whose service is NOT in any running container — likely a service that got commented out of the main `compose.yaml` but whose data dir was never reclaimed (this stack had 10.9GB of orphan immich data after the service was disabled). HIGH at ≥5GB, MED ≥100MB. Allowlist via `DORMANT_DATA_IGNORE`.
+- **OOM history** (check 38): kernel journalctl scan for OOM-killer events per process over last 7d. The existing live `OOMKilled` flag check only catches the CURRENT incarnation — a container OOM-killed and auto-restarted clears that flag and leaves no `docker inspect` trace, so an actual 279×/day loop can be invisible. HIGH if any recent (last 24h), MED for sustained-but-resolved (≥20 in 7d, none recent).
+- **TLS cert expiry** (check 39): scans traefik's `acme.json`; CRIT ≤7d, MED ≤30d. Catches silent ACME renewal failures.
 
 ### Pass 6: Config-drift (the "bitmagnet_vpn class")
 A service can run for weeks with a latent config bug — its env was set correctly at last start, but the compose file has since drifted (env_file split, var renamed, etc.). The container keeps the old env in memory and only crashes on recreate. These checks catch the bug *before* the recreate:
