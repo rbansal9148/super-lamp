@@ -131,6 +131,8 @@
 # --- Dormant data dirs (check 36) ---
 : "${DORMANT_DATA_MB_WARN:=100}"
 : "${DORMANT_DATA_MB_HIGH:=5000}"
+# Space-separated names to skip (intentionally-kept data for currently-disabled services).
+: "${DORMANT_DATA_IGNORE:=immich}"
 
 # --- Modes ---
 : "${MODE:=quick}"  # quick | deep
