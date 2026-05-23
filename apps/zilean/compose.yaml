@@ -23,7 +23,9 @@ services:
       Zilean__Imdb__UseAllCores: true
       Zilean__Imdb__UseLucene: true
       Zilean__Parsing__BatchSize: 100000
-      # Zilean__Dmm_ScrapeSchedule: 32 * * * *   # Disabled — DMM endpoint returning 4xx/5xx hourly
+      # Default is "0 * * * *" (hourly) which causes DMM to 429 every run.
+      # Quoted because cron syntax contains '*' which YAML would otherwise mis-parse.
+      Zilean__Dmm__ScrapeSchedule: "0 */6 * * *"   # every 6h (was hourly → 24× 429/day)
       Zilean__Torrents__EnableEndpoint: true
       Zilean__Torrents__EnableScrapeEndpoint: true
       # Zilean__ApiKey: zilean-api-key
