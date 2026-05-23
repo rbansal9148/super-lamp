@@ -180,6 +180,12 @@ services:
       - "-c"
       - "log_min_duration_statement=1000"
       - "-c"
+      # Truncate parameter values in slow-query logs; bitmagnet bytea (info_hash, file
+      # data) gets dumped as multi-MB hex lines per slow statement otherwise.
+      - "log_parameter_max_length=0"
+      - "-c"
+      - "log_parameter_max_length_on_error=0"
+      - "-c"
       - "autovacuum_vacuum_scale_factor=0.05"
       - "-c"
       - "autovacuum_analyze_scale_factor=0.05"
