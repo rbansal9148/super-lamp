@@ -108,6 +108,10 @@ Connects to each `*_postgres` container and reports:
 - Zilean: search_torrents_meta p95 latency
 - **Stuck-job / poison-input detection** (check 32): generalizes the parse-torrent fix — flags `comet.background_scraper_items` with `consecutive_failures ≥ 5` aged >24h, `mediafusion.jobs` exhausted past `max_attempts`, and `stremthru.job_log` with repeated failures.
 - **Stremthru stream orphans** (check 29): `torrent_stream` rows with no matching `torrent_info` (the schema lacks the FK, so cleanup is manual).
+- **AIOStreams TorBox account cluster signal** (check 33): when ≥3 distinct `_TB`-suffixed addons time out in the same hour, or TorBox Search Zod-parse-errors accumulate, surfaces the "TorBox API account broken" hypothesis (rate-limit cap=0, sub lapsed, key revoked) rather than per-addon noise. Source-side fixes don't help — universal failure point is the TorBox checkcached step.
+- **Prowlarr indexer health** (check 34): per-indexer fail-rate and avg response time via Prowlarr's `/api/v1/indexerstats`; flags 100%-failure indexers (waste slots) and slow ones (>5s avg WARN, >30s HIGH — a single 30s+ indexer blocks the whole concurrent search batch past timeout). Filters out already-disabled indexers (their cumulative stats are historical, not actionable).
+- **Postgres slow-query parameter dump** (check 35): any postgres with `log_min_duration_statement` set but missing `log_parameter_max_length=0` will dump bytea values as multi-MB hex strings per slow statement. Bounded by log rotation, but eats the rotation budget fast.
+- **AIOStreams v2.30 deprecated env** (check 37): catches `DEFAULT_/FORCED_<SVC>_*` (replaced by `SERVICE_CREDENTIALS`), `FORCE_PUBLIC_PROXY_*`, `PTT_*`, `LOG_CACHE_STATS_INTERVAL`. Also flags `ANIME_DB_*_REFRESH_INTERVAL` values that look like ms (>1e7) — v2.30 reinterpreted these as seconds; old values get clamped to ~24.8 days and fire immediately on startup.
 
 ### Cross-cutting
 - VPN: gluetun egress IP must match `EXPECTED_VPN_REGION` (default SG)
@@ -116,6 +120,7 @@ Connects to each `*_postgres` container and reports:
 - Authelia coverage on all Traefik routes
 - StremThru tunnel route map (TorBox should bypass, others via gost)
 - Orphan data dirs under `/opt/docker/data/` for stopped services
+- **Dormant data dirs** (check 36): directories under `/opt/docker/data/<svc>/` whose service is NOT in any running container — likely a service that got commented out of the main `compose.yaml` but whose data dir was never reclaimed (this stack had 10.9GB of orphan immich data after the service was disabled). HIGH at ≥5GB, MED ≥100MB.
 
 ### Pass 6: Config-drift (the "bitmagnet_vpn class")
 A service can run for weeks with a latent config bug — its env was set correctly at last start, but the compose file has since drifted (env_file split, var renamed, etc.). The container keeps the old env in memory and only crashes on recreate. These checks catch the bug *before* the recreate:
@@ -152,6 +157,11 @@ All limits live in `thresholds.sh` so they're tunable. Examples:
 | `REDIS_EVICTION_PER_MIN_WARN` | 30 |
 | `DEAD_TUP_RATE_PER_HOUR_WARN` | 10000 |
 | `STUCK_JOB_WARN_COUNT` | 10 |
+| `PROWLARR_INDEXER_FAIL_RATE_WARN` | 50 |
+| `PROWLARR_INDEXER_AVG_MS_WARN` | 5000 |
+| `PROWLARR_INDEXER_AVG_MS_HIGH` | 30000 |
+| `DORMANT_DATA_MB_WARN` | 100 |
+| `DORMANT_DATA_MB_HIGH` | 5000 |
 | `STREMTHRU_STREAM_ORPHANS_WARN` | 1000 |
 | `HEALTHCHECK_INTERVAL_WARN_SEC` | 120 |
 

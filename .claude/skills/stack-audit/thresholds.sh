@@ -122,6 +122,16 @@
 # How many recent requests to look at for per-addon contribution analysis
 : "${PER_ADDON_SAMPLE_REQUESTS:=20}"
 
+# --- Prowlarr indexer health (check 34) ---
+: "${PROWLARR_INDEXER_FAIL_RATE_WARN:=50}"
+: "${PROWLARR_INDEXER_AVG_MS_WARN:=5000}"
+: "${PROWLARR_INDEXER_AVG_MS_HIGH:=30000}"
+: "${PROWLARR_MIN_QUERIES_FOR_STATS:=5}"
+
+# --- Dormant data dirs (check 36) ---
+: "${DORMANT_DATA_MB_WARN:=100}"
+: "${DORMANT_DATA_MB_HIGH:=5000}"
+
 # --- Modes ---
 : "${MODE:=quick}"  # quick | deep
 : "${OUTPUT:=md}"   # md | json
