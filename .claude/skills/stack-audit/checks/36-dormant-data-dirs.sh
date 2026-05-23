@@ -11,6 +11,8 @@ set -u
 
 : "${DORMANT_DATA_MB_WARN:=100}"
 : "${DORMANT_DATA_MB_HIGH:=5000}"
+# Space-separated names to skip — intentionally-kept data for currently-disabled services.
+: "${DORMANT_DATA_IGNORE:=immich}"
 
 [ -d /opt/docker/data ] || exit 0
 
@@ -22,6 +24,8 @@ for d in /opt/docker/data/*/; do
   if echo "$running" | grep -qE "^${name}(\$|_)"; then
     continue
   fi
+  # Skip names explicitly allowlisted as intentionally-kept dormant data.
+  case " $DORMANT_DATA_IGNORE " in *" $name "*) continue;; esac
   sz=$(du -sm "$d" 2>/dev/null | awk '{print $1}')
   [ -z "$sz" ] && continue
   if [ "$sz" -ge "$DORMANT_DATA_MB_HIGH" ]; then
