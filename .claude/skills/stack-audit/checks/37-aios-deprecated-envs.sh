@@ -20,7 +20,7 @@ docker ps --format '{{.Names}} {{.Image}}' | grep '^aiostreams ' | grep -qE 'v2\
 env_files="/opt/docker/apps/aiostreams/.env /opt/docker/apps/aiostreams/config.env"
 
 # Deprecated key patterns (non-comment lines with a value)
-hits=$(grep -hE '^(DEFAULT_|FORCED_)[A-Z]+_(API_KEY|PASSWORD|USERNAME|CLIENT_ID|CLIENT_SECRET|ENCODED_TOKEN)=.+' \
+hits=$(grep -hE '^(DEFAULT_|FORCED_)[A-Z]+_(API_KEY|PASSWORD|USERNAME|EMAIL|CLIENT_ID|CLIENT_SECRET|ENCODED_TOKEN)=.+' \
          $env_files 2>/dev/null | grep -v '^#' | grep -vE '=$' | wc -l)
 
 if [ "$hits" -gt 0 ]; then
@@ -35,8 +35,19 @@ if [ "$bad_interval" -gt 0 ]; then
 fi
 
 # Other v2.30-removed envs
-for v in ALLOWED_REGEX_PATTERNS WHITELISTED_REGEX_PATTERNS LOG_CACHE_STATS_INTERVAL PTT_PORT PTT_SOCKET FORCE_PUBLIC_PROXY_HOST FORCE_PUBLIC_PROXY_PORT FORCE_PUBLIC_PROXY_PROTOCOL; do
+for v in ALLOWED_REGEX_PATTERNS WHITELISTED_REGEX_PATTERNS LOG_CACHE_STATS_INTERVAL PTT_PORT PTT_SOCKET FORCE_PUBLIC_PROXY_HOST FORCE_PUBLIC_PROXY_PORT FORCE_PUBLIC_PROXY_PROTOCOL LOG_TIMEZONE MEDIAFUSION_CONFIG_TIMEOUT RPDB_API_KEY_VALIDITY_CACHE_TTL BUILTIN_SEADEX_ENTRY_CACHE_TTL; do
   if grep -hE "^${v}=." $env_files 2>/dev/null | grep -qv '^#'; then
     echo "LOW|env/aiostreams|deprecated env $v set — v2.30 ignores|see migration guide for replacement"
   fi
+done
+
+# v2.30 removed per-addon URL rewriters (FORCE_<addon>_HOSTNAME/PORT/PROTOCOL).
+# Replaced by STREAM_URL_MAPPINGS for rewriting URLs inside stream responses.
+for addon in COMET JACKETTIO STREMTHRU_STORE STREMTHRU_TORZ; do
+  for suffix in HOSTNAME PORT PROTOCOL; do
+    v="FORCE_${addon}_${suffix}"
+    if grep -hE "^${v}=." $env_files 2>/dev/null | grep -qv '^#'; then
+      echo "LOW|env/aiostreams|deprecated env $v set — v2.30 ignores; addon-specific URL rewriters removed|use STREAM_URL_MAPPINGS='{\"http://internal:port\":\"https://public.host\"}' for stream-response URL rewriting"
+    fi
+  done
 done
