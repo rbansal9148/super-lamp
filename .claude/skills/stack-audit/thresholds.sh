@@ -40,7 +40,7 @@
 : "${REDIS_HIT_RATE_WARN:=70}"
 # Redis instances whose workload is intrinsically low-repeat (per-search
 # unique torrent hashes, etc) — hit-rate finding would be noise.
-: "${REDIS_HIT_RATE_ALLOW_LOW:=aiostreams_redis comet_redis libremdb_redis}"
+: "${REDIS_HIT_RATE_ALLOW_LOW:=aiostreams_redis comet_redis libremdb_redis stremthru_redis}"
 : "${REDIS_MUST_HAVE_MAXMEMORY:=true}"
 : "${REDIS_MUST_HAVE_LRU_POLICY:=true}"
 : "${REDIS_NO_TTL_KEYS_WARN:=1000}"
