@@ -60,6 +60,10 @@ services:
       - "-c"
       - "log_min_duration_statement=1000"
       - "-c"
+      - "log_parameter_max_length=0"
+      - "-c"
+      - "log_parameter_max_length_on_error=0"
+      - "-c"
       - "default_statistics_target=100"
       - "-c"
       - "random_page_cost=1.1"
@@ -117,7 +121,7 @@ services:
   #     - all
   
   browserless:
-    image: ghcr.io/browserless/chromium
+    image: ghcr.io/browserless/chromium:latest@sha256:af0f9442caf5908fdf655a23c34e50e6f1c66ce3306d88e3d4578280bcba9661
     container_name: browserless
     environment:
       - TIMEOUT=-1

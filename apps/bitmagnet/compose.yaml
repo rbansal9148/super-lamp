@@ -42,7 +42,7 @@ services:
   bitmagnet_vpn:
     container_name: bitmagnet_vpn
     hostname: bitmagnet
-    image: qmcgaw/gluetun@sha256:c5411925f73f0721b1d6bb2bfd89d6236dc3c66ddf38a1336e45308dc33859f9
+    image: qmcgaw/gluetun@sha256:bca4ddb017c25bc37e498a1907f3165371c0eae011cb2d9ea73856ca2d806f2c
     restart: unless-stopped
     logging:
       driver: "json-file"
@@ -106,8 +106,8 @@ services:
       - -c
       - |
         while true; do
-          echo "[$$(date -u +%FT%TZ)] starting prune cycle (up to 5 batches of 50k unclassified torrents, retry on deadlock)"
-          for i in 1 2 3 4 5; do
+          echo "[$$(date -u +%FT%TZ)] starting prune cycle (up to 6 batches of 50k unclassified torrents, retry on deadlock)"
+          for i in 1 2 3 4 5 6; do
             attempt=0
             while [ $$attempt -lt 5 ]; do
               attempt=$$((attempt+1))

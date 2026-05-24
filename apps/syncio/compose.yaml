@@ -1,6 +1,6 @@
 services:
   syncio:
-    image: ghcr.io/iamneur0/syncio:public
+    image: ghcr.io/iamneur0/syncio:public@sha256:bffe1ce0113f516d8de034d2caa2a3ddf2c68f596ba8880b5673ab7a37e902bb
     container_name: syncio
     restart: unless-stopped
     logging:
@@ -59,6 +59,10 @@ services:
       - "max_connections=100"
       - "-c"
       - "log_min_duration_statement=1000"
+      - "-c"
+      - "log_parameter_max_length=0"
+      - "-c"
+      - "log_parameter_max_length_on_error=0"
       - "-c"
       - "idle_in_transaction_session_timeout=300000"
       - "-c"

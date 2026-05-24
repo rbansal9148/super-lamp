@@ -113,6 +113,10 @@ services:
       - "max_connections=100"
       - "-c"
       - "log_min_duration_statement=1000"
+      - "-c"
+      - "log_parameter_max_length=0"
+      - "-c"
+      - "log_parameter_max_length_on_error=0"
     environment:
       - POSTGRES_PASSWORD=prowlarr
       - POSTGRES_DB=prowlarr

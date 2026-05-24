@@ -1,6 +1,6 @@
 services:
   aiometadata:
-    image: ghcr.io/cedya77/aiometadata:latest@sha256:1dbf878e225ef78d60e4fcd44f0a7bd18127dc36d156eb891dec1a08b202a54f
+    image: ghcr.io/cedya77/aiometadata:latest@sha256:6b50c8e7177465c3f3749f2a5e7846e731f9c8087b1caebf332661c17834dfe8
     container_name: aiometadata
     user: "${PUID}:${PGID}"
     restart: unless-stopped
@@ -62,6 +62,10 @@ services:
       - "max_connections=100"
       - "-c"
       - "log_min_duration_statement=1000"
+      - "-c"
+      - "log_parameter_max_length=0"
+      - "-c"
+      - "log_parameter_max_length_on_error=0"
     environment:
       - POSTGRES_PASSWORD=aiometadata
       - POSTGRES_DB=aiometadata
