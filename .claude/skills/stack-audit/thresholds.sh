@@ -38,9 +38,15 @@
 
 # --- Redis ---
 : "${REDIS_HIT_RATE_WARN:=70}"
-# Redis instances whose workload is intrinsically low-repeat (per-search
-# unique torrent hashes, etc) — hit-rate finding would be noise.
-: "${REDIS_HIT_RATE_ALLOW_LOW:=aiostreams_redis comet_redis libremdb_redis stremthru_redis}"
+# Per-instance overrides — set when the workload has an intrinsically lower
+# baseline (content-metadata caches keyed by hash/IMDB id, etc). Threshold is
+# set ~10pp below observed steady-state so genuine regressions still fire.
+# Lookup pattern in checks: REDIS_HIT_RATE_WARN_<container_name>
+: "${REDIS_HIT_RATE_WARN_aiometadata_redis:=25}"   # observed 37%
+: "${REDIS_HIT_RATE_WARN_aiostreams_redis:=50}"    # observed 64%
+: "${REDIS_HIT_RATE_WARN_comet_redis:=50}"         # placeholder (container not running)
+: "${REDIS_HIT_RATE_WARN_libremdb_redis:=30}"      # placeholder (no traffic yet)
+: "${REDIS_HIT_RATE_WARN_stremthru_redis:=10}"     # observed 13-24% (variance)
 : "${REDIS_MUST_HAVE_MAXMEMORY:=true}"
 : "${REDIS_MUST_HAVE_LRU_POLICY:=true}"
 : "${REDIS_NO_TTL_KEYS_WARN:=1000}"

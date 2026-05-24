@@ -21,14 +21,15 @@ for r in $REDIS_CONTAINERS; do
   used=$(echo "$mem" | awk -F: '/used_memory:/{gsub(/\r/,"");print $2}' | head -1)
 
   # Hit rate (only meaningful with enough samples).
-  # Skip allowlist for workloads with intrinsically low repeat rate (per-search
-  # unique queries on a stremio addon backend — every torrent hash is mostly
-  # unique, so cache hit rate is inherently low and not actionable).
-  if [ -n "$hits" ] && [ -n "$miss" ] && [ "$((hits + miss))" -gt 1000 ] \
-     && ! echo " $REDIS_HIT_RATE_ALLOW_LOW " | grep -q " $r "; then
+  # Per-instance threshold via REDIS_HIT_RATE_WARN_<container_name>; falls back
+  # to REDIS_HIT_RATE_WARN. Lower thresholds are set in thresholds.sh for
+  # content-metadata caches whose baseline is intrinsically below 70%.
+  if [ -n "$hits" ] && [ -n "$miss" ] && [ "$((hits + miss))" -gt 1000 ]; then
     rate=$((100 * hits / (hits + miss)))
-    if [ "$rate" -lt "$REDIS_HIT_RATE_WARN" ]; then
-      echo "MED|redis/$r|hit rate ${rate}% (warn <${REDIS_HIT_RATE_WARN}%) — investigate TTLs or key cardinality|docker exec $r $CLI --scan | awk -F: '{print \$1\":\"\$2}' | sort | uniq -c | sort -rn"
+    threshold_var="REDIS_HIT_RATE_WARN_${r}"
+    threshold="${!threshold_var:-$REDIS_HIT_RATE_WARN}"
+    if [ "$rate" -lt "$threshold" ]; then
+      echo "MED|redis/$r|hit rate ${rate}% (warn <${threshold}%) — investigate TTLs or key cardinality|docker exec $r $CLI --scan | awk -F: '{print \$1\":\"\$2}' | sort | uniq -c | sort -rn"
     fi
   fi
 
