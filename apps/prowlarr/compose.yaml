@@ -63,9 +63,9 @@ services:
       - |
         while true; do
           echo "[$(date -u +%FT%TZ)] pruning Prowlarr History older than 7 days"
-          psql -h prowlarr_postgres -U prowlarr -d prowlarr -c "DELETE FROM \"History\" WHERE \"Date\" < NOW() - INTERVAL '7 days';" || true
+          psql -h prowlarr_postgres -U prowlarr -d prowlarr -c "DELETE FROM \"History\" WHERE \"Date\" < NOW() - INTERVAL '7 days'; VACUUM \"History\";" || true
           echo "[$(date -u +%FT%TZ)] pruning Prowlarr Logs older than 3 days"
-          psql -h prowlarr_postgres -U prowlarr -d prowlarr_log -c "DELETE FROM \"Logs\" WHERE \"Time\" < NOW() - INTERVAL '3 days';" || true
+          psql -h prowlarr_postgres -U prowlarr -d prowlarr_log -c "DELETE FROM \"Logs\" WHERE \"Time\" < NOW() - INTERVAL '3 days'; VACUUM \"Logs\";" || true
           sleep 86400
         done
     logging:

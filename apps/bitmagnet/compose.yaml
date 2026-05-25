@@ -106,8 +106,8 @@ services:
       - -c
       - |
         while true; do
-          echo "[$$(date -u +%FT%TZ)] starting prune cycle (up to 6 batches of 50k unclassified torrents, retry on deadlock)"
-          for i in 1 2 3 4 5 6; do
+          echo "[$$(date -u +%FT%TZ)] starting prune cycle (up to 7 batches of 50k unclassified torrents, retry on deadlock)"
+          for i in 1 2 3 4 5 6 7; do
             attempt=0
             while [ $$attempt -lt 5 ]; do
               attempt=$$((attempt+1))
@@ -193,6 +193,8 @@ services:
       - "autovacuum_naptime=30s"
       - "-c"
       - "autovacuum_max_workers=4"
+      - "-c"
+      - "idle_session_timeout=900000"
     environment:
       - POSTGRES_PASSWORD=f4813594672d04c048347ef5deb02ef3e8b85db1bb0d69ca
       - POSTGRES_DB=bitmagnet

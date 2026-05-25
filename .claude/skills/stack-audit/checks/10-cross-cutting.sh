@@ -62,10 +62,19 @@ for svc in "${!pinned_repos[@]}"; do
   img=$(docker inspect "$svc" --format '{{.Config.Image}}' 2>/dev/null)
   echo "$img" | grep -q '@sha256:' || continue
   pinned_sha=$(echo "$img" | grep -oE 'sha256:[a-f0-9]+')
-  # Compare to local :latest if pulled; if no local :latest, skip (avoid network in audit)
-  latest_sha=$(docker image inspect "${pinned_repos[$svc]}:latest" --format '{{.Id}}' 2>/dev/null)
-  [ -z "$latest_sha" ] && continue
-  if [ "$pinned_sha" != "$latest_sha" ]; then
-    echo "LOW|containers|$svc is pinned at $(echo $pinned_sha | head -c 19)... but local :latest is newer ($(echo $latest_sha | head -c 19)...)|review changelog; docker compose up -d --pull always after updating compose.yaml"
+  # Compare to local :latest if pulled; if no local :latest, skip (avoid network in audit).
+  # Use RepoDigests (manifest sha) — NOT .Id (config-blob hash). They're different hashes;
+  # comparing Id to pinned_sha would always mismatch and fire spuriously.
+  latest_digest=$(docker image inspect "${pinned_repos[$svc]}:latest" --format '{{range .RepoDigests}}{{.}} {{end}}' 2>/dev/null | grep -oE 'sha256:[a-f0-9]+' | head -1)
+  [ -z "$latest_digest" ] && continue
+  [ "$pinned_sha" = "$latest_digest" ] && continue
+  # Use Created timestamps (ISO 8601 sorts lexically) to know which is newer.
+  # If pinned is newer or equal, the pin is intentional — stay silent.
+  pinned_created=$(docker image inspect "$img" --format '{{.Created}}' 2>/dev/null)
+  latest_created=$(docker image inspect "${pinned_repos[$svc]}:latest" --format '{{.Created}}' 2>/dev/null)
+  [ -z "$latest_created" ] && continue
+  [ -z "$pinned_created" ] && continue
+  if [[ "$pinned_created" < "$latest_created" ]]; then
+    echo "LOW|containers|$svc is pinned at $(echo $pinned_sha | head -c 19)... but local :latest is newer ($(echo $latest_digest | head -c 19)...)|review changelog; docker compose up -d --pull always after updating compose.yaml"
   fi
 done
