@@ -1,6 +1,6 @@
 services:
   gluetun:
-    image: qmcgaw/gluetun@sha256:bca4ddb017c25bc37e498a1907f3165371c0eae011cb2d9ea73856ca2d806f2c
+    image: qmcgaw/gluetun@sha256:10b4895fde4499c2d1d9fbd8e681d040ede0efe8c6cfe5d0c51daf0461836ee8
     container_name: gluetun
     restart: unless-stopped
     mem_limit: 512m
