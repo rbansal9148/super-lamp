@@ -882,26 +882,9 @@ engines:
   #   brave_category: goggles
   #   Goggles: # required! This should be a URL ending in .goggle
 
-  - name: qwant
-    engine: qwant
-    shortcut: qw
-    categories: [general, web]
-    qwant_categ: web
-    weight: 1.0
-
-  - name: qwant images
-    engine: qwant
-    network: qwant
-    shortcut: qwi
-    categories: [images, web]
-    qwant_categ: images
-
-  - name: qwant news
-    engine: qwant
-    network: qwant
-    shortcut: qwn
-    categories: [news, web]
-    qwant_categ: news
+  # qwant — removed: surfaces SEO-spam .pf-style redirect domains in results
+  # (see https://gaviij.pf/owgi report). Other engines (google, ddg, brave,
+  # mojeek, etc.) still cover the same categories.
 
   - name: mojeek
     engine: mojeek
@@ -937,13 +920,17 @@ engines:
     engine: openlibrary
     shortcut: ol
     categories: [general, books]
-    timeout: 3.0
+    timeout: 5.0
 
+  # goodreads — disabled: returns empty body to this VPS IP, every search
+  # produces "Document is empty" / lxml ParserError. Re-enable if IP changes
+  # or upstream behavior changes.
   - name: goodreads
     engine: goodreads
     shortcut: gr
     categories: [general, books]
     timeout: 3.0
+    disabled: true
 
   - name: bt4g
     engine: bt4g
