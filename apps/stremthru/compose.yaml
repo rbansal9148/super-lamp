@@ -153,3 +153,31 @@ services:
     profiles:
       - stremthru
       - all
+
+  stremthru_vacuum:
+    image: postgres:18.4
+    container_name: stremthru_vacuum
+    restart: unless-stopped
+    depends_on:
+      stremthru_postgres:
+        condition: service_healthy
+    environment:
+      - PGPASSWORD=81d508541173a46f9c679290960e5a3892f089e228405ceb
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        sleep 60
+        while true; do
+          echo "[$(date -u +%FT%TZ)] VACUUM (ANALYZE) on stremthru"
+          psql -h stremthru_postgres -U stremthru -d stremthru -c "VACUUM (ANALYZE);" || true
+          sleep 86400
+        done
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+        max-file: "1"
+    profiles:
+      - stremthru
+      - all

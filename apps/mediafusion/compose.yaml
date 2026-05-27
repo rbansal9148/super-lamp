@@ -103,6 +103,34 @@ services:
       - mediafusion
       - all
 
+  mediafusion_vacuum:
+    image: postgres:18-alpine
+    container_name: mediafusion_vacuum
+    restart: unless-stopped
+    depends_on:
+      mediafusion_postgres:
+        condition: service_healthy
+    environment:
+      - PGPASSWORD=mediafusion
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        sleep 60
+        while true; do
+          echo "[$(date -u +%FT%TZ)] VACUUM (ANALYZE) on mediafusion"
+          psql -h mediafusion_postgres -U mediafusion -d mediafusion -c "VACUUM (ANALYZE);" || true
+          sleep 86400
+        done
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+        max-file: "1"
+    profiles:
+      - mediafusion
+      - all
+
 
   # mediafusion_scheduler:
   #   image: mhdzumair/mediafusion:latest

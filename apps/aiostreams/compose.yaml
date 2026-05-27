@@ -85,6 +85,34 @@ services:
       - aiostreams
       - all
 
+  aiostreams_vacuum:
+    image: postgres:18.4
+    container_name: aiostreams_vacuum
+    restart: unless-stopped
+    depends_on:
+      aiostreams_postgres:
+        condition: service_healthy
+    environment:
+      - PGPASSWORD=406c46d8eae1e9dd4cc5734995246ef249dfa67d0a1a1b67
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        sleep 60
+        while true; do
+          echo "[$(date -u +%FT%TZ)] VACUUM (ANALYZE) on aiostreams"
+          psql -h aiostreams_postgres -U aiostreams -d aiostreams -c "VACUUM (ANALYZE);" || true
+          sleep 86400
+        done
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+        max-file: "1"
+    profiles:
+      - aiostreams
+      - all
+
   aiostreams_redis:
     mem_limit: 256m
     image: redis:8.6.3

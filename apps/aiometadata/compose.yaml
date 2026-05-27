@@ -86,6 +86,34 @@ services:
       - aiometadata
       - all
 
+  aiometadata_vacuum:
+    image: postgres:18.4
+    container_name: aiometadata_vacuum
+    restart: unless-stopped
+    depends_on:
+      aiometadata_postgres:
+        condition: service_healthy
+    environment:
+      - PGPASSWORD=aiometadata
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        sleep 60
+        while true; do
+          echo "[$(date -u +%FT%TZ)] VACUUM (ANALYZE) on aiometadata"
+          psql -h aiometadata_postgres -U aiometadata -d aiometadata -c "VACUUM (ANALYZE);" || true
+          sleep 86400
+        done
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+        max-file: "1"
+    profiles:
+      - aiometadata
+      - all
+
   aiometadata_redis:
     # 512m redis data + headroom for RDB snapshot fork (copy-on-write can
     # ~2× memory during save). 1280m fits the worst-case fork without OOM

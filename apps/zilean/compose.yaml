@@ -106,3 +106,31 @@ services:
     profiles:
       - zilean
       - all
+
+  zilean_vacuum:
+    image: postgres:17.10-alpine
+    container_name: zilean_vacuum
+    restart: unless-stopped
+    depends_on:
+      zilean_postgres:
+        condition: service_healthy
+    environment:
+      - PGPASSWORD=d0c4f8c9b2a59b170d54fe1a81ec52236f2e21b882a512fa
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        sleep 60
+        while true; do
+          echo "[$(date -u +%FT%TZ)] VACUUM (ANALYZE) on zilean"
+          psql -h zilean_postgres -U zilean -d zilean -c "VACUUM (ANALYZE);" || true
+          sleep 86400
+        done
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+        max-file: "1"
+    profiles:
+      - zilean
+      - all

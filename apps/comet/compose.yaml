@@ -93,3 +93,31 @@ services:
     profiles:
       - comet
       - all
+
+  comet_vacuum:
+    image: postgres:18.4
+    container_name: comet_vacuum
+    restart: unless-stopped
+    depends_on:
+      comet_postgres:
+        condition: service_healthy
+    environment:
+      - PGPASSWORD=comet
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        sleep 60
+        while true; do
+          echo "[$(date -u +%FT%TZ)] VACUUM (ANALYZE) on comet"
+          psql -h comet_postgres -U comet -d comet -c "VACUUM (ANALYZE);" || true
+          sleep 86400
+        done
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+        max-file: "1"
+    profiles:
+      - comet
+      - all
