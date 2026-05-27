@@ -44,8 +44,13 @@ for pg in $PG_CONTAINERS; do
     echo "MED|postgres/$pg|idx_hit ${idx}% (warn <${IDX_HIT_WARN}%)|raise shared_buffers; check for missing/unused indexes"
   fi
 
-  # 2. Dead tuple ratio per top table
-  $PSQL "SELECT relname, ROUND(100.0*n_dead_tup/NULLIF(n_live_tup+n_dead_tup,0),0)::int AS pct, last_autovacuum FROM pg_stat_user_tables WHERE n_live_tup+n_dead_tup>1000 AND ROUND(100.0*n_dead_tup/NULLIF(n_live_tup+n_dead_tup,0),0) >= $DEAD_TUP_PCT_WARN ORDER BY pct DESC LIMIT 5;" 2>/dev/null | \
+  # 2. Dead tuple ratio per top table.
+  # Skip tables vacuumed (auto OR manual) in last 24h: pg_stat_user_tables.n_dead_tup
+  # is an incremental counter that only resets on a vacuum that actually removes
+  # tuples. After a recent vacuum, a non-zero stat almost always means the
+  # rows aren't yet removable (xmin horizon) — not real bloat. Suppressing
+  # the finding is the right move; autovac will reconcile when conditions allow.
+  $PSQL "SELECT relname, ROUND(100.0*n_dead_tup/NULLIF(n_live_tup+n_dead_tup,0),0)::int AS pct, last_autovacuum FROM pg_stat_user_tables WHERE n_live_tup+n_dead_tup>1000 AND ROUND(100.0*n_dead_tup/NULLIF(n_live_tup+n_dead_tup,0),0) >= $DEAD_TUP_PCT_WARN AND (GREATEST(COALESCE(last_vacuum,'epoch'), COALESCE(last_autovacuum,'epoch')) < now() - interval '24 hours') ORDER BY pct DESC LIMIT 5;" 2>/dev/null | \
     awk -F'|' -v db="$pg" -v cw="$DEAD_TUP_PCT_CRIT" -v ww="$DEAD_TUP_PCT_WARN" '
     $2+0 >= cw { printf "CRIT|postgres/%s|table %s has %s%% dead tuples (crit ≥%s%%)|docker exec %s psql -U postgres -c \"VACUUM ANALYZE %s;\"|vacuum_stale\n", db, $1, $2, cw, db, $1; next }
     $2+0 >= ww { printf "MED|postgres/%s|table %s has %s%% dead tuples (warn ≥%s%%) last_autovacuum=%s|VACUUM ANALYZE %s|vacuum_stale\n", db, $1, $2, ww, $3, $1 }'

@@ -10,8 +10,14 @@
 set -u
 . "$(dirname "${BASH_SOURCE[0]}")/../thresholds.sh"
 
+running=$(docker ps --format '{{.Names}}')
 for f in /opt/docker/apps/*/compose.yaml; do
   svc=$(basename "$(dirname "$f")")
+  # Skip if the service's postgres container isn't currently running. The
+  # compose.yaml may exist for a disabled service (e.g. commented out of
+  # the top-level include block); flagging its config is noise — flag a
+  # service only when it can actually emit slow-query logs in prod.
+  echo "$running" | grep -qE "^${svc}_postgres\$|^${svc}\$" || continue
   # Only postgres-style services
   grep -q 'log_min_duration_statement' "$f" || continue
   has_param_max=$(grep -c 'log_parameter_max_length' "$f")
