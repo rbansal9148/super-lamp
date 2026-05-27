@@ -31,6 +31,13 @@
 : "${IDLE_CONN_MAX_MIN:=30}"
 : "${DEAD_TUP_PCT_WARN:=10}"
 : "${DEAD_TUP_PCT_CRIT:=25}"
+# Rate-based dead-tup check (31-autovacuum-rate.sh) — only fires when both
+# the per-hour rate AND the dead_pct floor are exceeded. Large tables can
+# sustain high absolute churn at low ratio (68M rows × 0.6% dead = 427k dead,
+# autovac fine); we don't want to warn there.
+: "${DEAD_TUP_RATE_PER_HOUR_WARN:=10000}"
+: "${DEAD_TUP_RATE_PER_HOUR_CRIT:=50000}"
+: "${DEAD_TUP_RATE_PCT_FLOOR:=3}"
 : "${AUTOVACUUM_STALE_DAYS_WARN:=7}"
 : "${UNUSED_INDEX_MIN_MB:=50}"
 : "${SLOW_QUERY_MEAN_MS_WARN:=1000}"

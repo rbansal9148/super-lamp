@@ -21,7 +21,7 @@ docker ps --format '{{.Names}}' | while read c; do
   if [ -z "$user" ] || [ "$user" = "root" ] || [ "$user" = "0" ] || [ "$user" = "0:0" ]; then
     # Skip if image is well-known minimal (postgres/redis run as user internally)
     img=$(docker inspect "$c" --format '{{.Config.Image}}' 2>/dev/null | awk -F'[/@:]' '{print $(NF-1)}')
-    case "$c" in *_postgres|*_redis|aiostreams_*|comet_*|stremthru_*) continue ;; esac
+    case "$c" in *_postgres|*_redis|*_vacuum|*_prune|*_history_prune|aiostreams_*|comet_*|stremthru_*) continue ;; esac
     echo "LOW|security|$c runs as root (no user: directive) — best practice is non-root|add 'user: \"1000:1000\"' to apps/$c/compose.yaml (verify image supports it)"
   fi
 done
