@@ -157,6 +157,17 @@
 # Space-separated names to skip (intentionally-kept data for currently-disabled services).
 : "${DORMANT_DATA_IGNORE:=immich}"
 
+# --- SearxNG ---
+# Engine error count over the lookback window. SearxNG's `suspended_time`
+# rate-limits engines hit with 403/429/CAPTCHA (so they cap at 1-2 errs/hr
+# even when broken). Engines with no suspend path ("Document is empty",
+# "engine timeout") fail on every search attempt and cluster during use.
+# Threshold sized for a single-user instance: 5+ errors clustered in 4h
+# clears the self-healing baseline; 20+ is unambiguous.
+: "${SEARXNG_ENGINE_ERR_WINDOW_HRS:=4}"
+: "${SEARXNG_ENGINE_ERR_WARN:=5}"
+: "${SEARXNG_ENGINE_ERR_HIGH:=20}"
+
 # --- Modes ---
 : "${MODE:=quick}"  # quick | deep
 : "${OUTPUT:=md}"   # md | json
