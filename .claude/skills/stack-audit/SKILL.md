@@ -112,6 +112,7 @@ Connects to each `*_postgres` container and reports:
 - **Prowlarr indexer health** (check 34): per-indexer fail-rate and avg response time via Prowlarr's `/api/v1/indexerstats`; flags 100%-failure indexers (waste slots) and slow ones (>5s avg WARN, >30s HIGH — a single 30s+ indexer blocks the whole concurrent search batch past timeout). Filters out already-disabled indexers (their cumulative stats are historical, not actionable).
 - **Postgres slow-query parameter dump** (check 35): any postgres with `log_min_duration_statement` set but missing `log_parameter_max_length=0` will dump bytea values as multi-MB hex strings per slow statement. Bounded by log rotation, but eats the rotation budget fast.
 - **AIOStreams v2.30 deprecated env** (check 37): catches `DEFAULT_/FORCED_<SVC>_*` (replaced by `SERVICE_CREDENTIALS`), `FORCE_PUBLIC_PROXY_*`, `PTT_*`, `LOG_CACHE_STATS_INTERVAL`. Also flags `ANIME_DB_*_REFRESH_INTERVAL` values that look like ms (>1e7) — v2.30 reinterpreted these as seconds; old values get clamped to ~24.8 days and fire immediately on startup.
+- **SearxNG engine health** (check 41): per-engine `ERROR:searx.engines.<name>` count over `SEARXNG_ENGINE_ERR_WINDOW_HRS` (default 4h). MED at ≥5 errors, HIGH at ≥20. Skips engines already marked `disabled: true` in `apps/searxng/settings.yml` so the check doesn't keep nagging after a fix. Designed for the goodreads `Document is empty` / `engine timeout` class — fails on every search attempt, blows past threshold. Self-healing engines (403/429/CAPTCHA) are rate-limited by SearxNG's `suspended_time` and stay under the floor.
 
 ### Cross-cutting
 - VPN: gluetun egress IP must match `EXPECTED_VPN_REGION` (default SG)
@@ -159,6 +160,7 @@ All limits live in `thresholds.sh` so they're tunable. Examples:
 | `RESTART_LOOP_UPTIME_MIN` | 30 |
 | `REDIS_EVICTION_PER_MIN_WARN` | 30 |
 | `DEAD_TUP_RATE_PER_HOUR_WARN` | 10000 |
+| `DEAD_TUP_RATE_PCT_FLOOR` | 3 |
 | `STUCK_JOB_WARN_COUNT` | 10 |
 | `PROWLARR_INDEXER_FAIL_RATE_WARN` | 50 |
 | `PROWLARR_INDEXER_AVG_MS_WARN` | 5000 |
@@ -167,6 +169,9 @@ All limits live in `thresholds.sh` so they're tunable. Examples:
 | `DORMANT_DATA_MB_HIGH` | 5000 |
 | `STREMTHRU_STREAM_ORPHANS_WARN` | 1000 |
 | `HEALTHCHECK_INTERVAL_WARN_SEC` | 120 |
+| `SEARXNG_ENGINE_ERR_WINDOW_HRS` | 4 |
+| `SEARXNG_ENGINE_ERR_WARN` | 5 |
+| `SEARXNG_ENGINE_ERR_HIGH` | 20 |
 
 ## Severity rules
 
