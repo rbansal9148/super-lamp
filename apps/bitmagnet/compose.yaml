@@ -126,7 +126,10 @@ services:
             fi
             sleep 10
           done
-          sleep 86400
+          # 6h cycle: at ~13k/hr ingest, keeps mean backlog ~40k and peak <80k
+          # (well under the 100k audit warn). Was 86400 (24h) → backlog grew to
+          # ~310k between cycles, always tripped the audit.
+          sleep 21600
         done
     logging:
       driver: "json-file"
