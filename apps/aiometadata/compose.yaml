@@ -1,6 +1,6 @@
 services:
   aiometadata:
-    image: ghcr.io/cedya77/aiometadata:latest@sha256:6b50c8e7177465c3f3749f2a5e7846e731f9c8087b1caebf332661c17834dfe8
+    image: ghcr.io/cedya77/aiometadata:latest@sha256:fa70a461e53406714b37790b09837af24909db13e7b9e7210f8398199d304107
     container_name: aiometadata
     user: "${PUID}:${PGID}"
     restart: unless-stopped
