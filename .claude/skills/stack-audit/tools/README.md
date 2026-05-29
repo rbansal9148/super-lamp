@@ -17,6 +17,7 @@ Deterministic, idempotent fixers that complement the read-only checks in `checks
 | `prune_docker.sh`          | Safe `docker image prune` + builder prune              | `--aggressive` adds `-a` (removes all unused)      |
 | `all.sh`                   | Run every fixer in the recommended order               | `--dry-run`, `--only=`, `--skip=`, `--halt-on-error` |
 | `recreate_dependents.sh`   | Recreate containers whose `network_mode: container:X` target was replaced | catches the gost-after-gluetun-recreate footgun |
+| `refresh_image_pins.sh`    | Move drifted `@sha256` image pins forward to the tag's current digest (check 42) | pinned-only; same tag, never a version bump; edits files, never restarts |
 
 ## Test suite
 
