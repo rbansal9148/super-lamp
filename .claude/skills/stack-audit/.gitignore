@@ -1,0 +1,3 @@
+# Runtime state from tools/refresh_and_redeploy.sh --managed (cron)
+.refresh_and_redeploy.attempts
+refresh_and_redeploy.log
