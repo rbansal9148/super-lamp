@@ -176,3 +176,14 @@
 # Registry digest lookups are network round-trips; this check is --deep only.
 : "${IMAGE_CHECK_PARALLEL:=8}"     # concurrent `buildx imagetools inspect` calls
 : "${IMAGE_CHECK_TIMEOUT_SEC:=25}" # per-lookup timeout
+
+# --- Postgres data integrity (check 44) ---
+# age(datfrozenxid) wraparound guard. Healthy DBs sit in the low millions;
+# these fire only when freeze autovacuum is genuinely behind (read-only stop ~2.1B).
+: "${XID_AGE_MED:=1000000000}"
+: "${XID_AGE_HIGH:=1500000000}"
+: "${XID_AGE_CRIT:=1900000000}"
+
+# --- Dangling volumes (check 45) ---
+: "${DANGLING_VOLUME_WARN:=5}"
+: "${DANGLING_VOLUME_HIGH:=20}"
