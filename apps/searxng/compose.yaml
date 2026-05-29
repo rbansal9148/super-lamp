@@ -1,7 +1,7 @@
 services:
   searxng:
     container_name: searxng
-    image: searxng/searxng:latest@sha256:1a9d21346437a41ddfc2286968026dddece1d4d0721625cffa2c3b00bb2f9cf3
+    image: searxng/searxng:latest@sha256:0b58c193429779578d8f9dff33ca1b026ba4086daeef0e266aa9797bd5b9111b
     restart: unless-stopped
     expose:
       - 8080
