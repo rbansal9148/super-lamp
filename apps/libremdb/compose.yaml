@@ -6,7 +6,8 @@ services:
       - .env
       - config.env
     depends_on:
-      - libremdb-redis
+      libremdb-redis:
+        condition: service_healthy
     restart: unless-stopped
     logging:
       driver: "json-file"
