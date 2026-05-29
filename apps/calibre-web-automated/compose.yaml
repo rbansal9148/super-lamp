@@ -6,7 +6,7 @@ services:
       - PUID=${PUID}
       - PGID=${PGID}
       - TZ=Asia/Kolkata
-      - DOCKER_MODS=lscr.io/linuxserver/mods:universal-calibre-v7.16.0
+      - DOCKER_MODS=lscr.io/linuxserver/mods:universal-calibre-v9.9.0@sha256:559ca4caf90d80410b7b7cc8870c15b55469fa60ff15c2b5cc0c570d2eda111f
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
       - SESSION_COOKIE_SECURE=true
     healthcheck:
