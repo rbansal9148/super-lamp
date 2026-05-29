@@ -171,3 +171,8 @@
 # --- Modes ---
 : "${MODE:=quick}"  # quick | deep
 : "${OUTPUT:=md}"   # md | json
+
+# --- Image updates (check 42) ---
+# Registry digest lookups are network round-trips; this check is --deep only.
+: "${IMAGE_CHECK_PARALLEL:=8}"     # concurrent `buildx imagetools inspect` calls
+: "${IMAGE_CHECK_TIMEOUT_SEC:=25}" # per-lookup timeout
