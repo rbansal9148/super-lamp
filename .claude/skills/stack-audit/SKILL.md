@@ -80,6 +80,7 @@ Where `SEVERITY ∈ {CRIT, HIGH, MED, LOW, OK}`. The main `audit.sh` aggregates,
 - Image pinning: streaming addons should be `@sha256` not `:latest`
 - **Restart loops are uptime-aware**: HIGH while uptime < `RESTART_LOOP_UPTIME_MIN` (default 30m), auto-downgraded to LOW once the container has survived past that boundary (loop appears resolved).
 - **Healthcheck interval too long on critical services** (check 28): catches services that have a healthcheck but with `interval ≥ 120s`, which delays hung-state detection.
+- **depends_on readiness** (check 43): a service that `depends_on` a DB/cache which HAS a healthcheck, but with `condition: service_started` (or list-form, which normalises to the same) — so on reboot/recreate it starts before the dependency is ready and races into connection failures + cascade restarts. Only flagged when the dependency actually defines a healthcheck (else `service_healthy` is impossible); maintenance sidecars (`_vacuum`/`_prune`/`_init`/`_migrate`/`_backup`) are exempt. Fix is `condition: service_healthy`.
 
 ### Pass 3: Postgres (per DB)
 Connects to each `*_postgres` container and reports:
@@ -91,6 +92,7 @@ Connects to each `*_postgres` container and reports:
 - Last autovacuum recency
 - DB size growth vs prior snapshot
 - **Autovacuum rate** (check 31): per-table dead-tuple accumulation rate; warns when `dead_tup / hours_since_last_autovacuum ≥ DEAD_TUP_RATE_PER_HOUR_WARN` (default 10000), even before `dead_pct` crosses the absolute threshold.
+- **Data integrity** (check 44, SELECT-only): `data_checksums OFF` (silent on-disk bit-rot served as valid data; MED because remediation needs dump + `initdb --data-checksums` + restore) and transaction-ID wraparound proximity via `age(datfrozenxid)` (MED/HIGH/CRIT as it climbs toward the ~2.1B read-only stop). The XID guard is dormant on a healthy stack (ages sit in the low millions) — 0 false positives until freeze autovacuum genuinely falls behind.
 
 ### Pass 4: Redis (per instance)
 - Hit rate, evicted_keys, used/max memory
@@ -124,6 +126,8 @@ Connects to each `*_postgres` container and reports:
 - **Dormant data dirs** (check 36): directories under `/opt/docker/data/<svc>/` whose service is NOT in any running container — likely a service that got commented out of the main `compose.yaml` but whose data dir was never reclaimed (this stack had 10.9GB of orphan immich data after the service was disabled). HIGH at ≥5GB, MED ≥100MB. Allowlist via `DORMANT_DATA_IGNORE`.
 - **OOM history** (check 38): kernel journalctl scan for OOM-killer events per process over last 7d. The existing live `OOMKilled` flag check only catches the CURRENT incarnation — a container OOM-killed and auto-restarted clears that flag and leaves no `docker inspect` trace, so an actual 279×/day loop can be invisible. HIGH if any recent (last 24h), MED for sustained-but-resolved (≥20 in 7d, none recent).
 - **TLS cert expiry** (check 39): scans traefik's `acme.json`; CRIT ≤7d, MED ≤30d. Catches silent ACME renewal failures.
+- **Image-pin drift** (check 42, deep-only): resolves the registry digest for each `@sha256`-pinned image and flags pins that have drifted (MED) or that couldn't be verified, e.g. Docker Hub rate-limit (LOW), rather than silently skipping. Scoped to the pinned set to stay deterministic under the anonymous manifest rate limit; floating tags are covered by check 21. Fixer: `refresh_image_pins`.
+- **Dangling volumes** (check 45): anonymous Docker volumes referenced by no container (failed/rolled-back compose ops). Distinct from check 15 (dangling images) and 36 (orphan data dirs). The `dangling=true` filter excludes every named/in-use volume. No auto-fixer (volume removal is data deletion) — the fix command is given explicitly.
 
 ### Pass 6: Config-drift (the "bitmagnet_vpn class")
 A service can run for weeks with a latent config bug — its env was set correctly at last start, but the compose file has since drifted (env_file split, var renamed, etc.). The container keeps the old env in memory and only crashes on recreate. These checks catch the bug *before* the recreate:
