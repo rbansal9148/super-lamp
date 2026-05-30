@@ -1,0 +1,27 @@
+# Wave 1 — single-node logs backend (ADR D2). Receives OTLP log pushes from the
+# DaemonSet collector at :9428/insert/opentelemetry/v1/logs. Creates Service
+# "vlogs-obs:9428". retentionPeriod is a required field (schema-enforced cap).
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VLogs
+metadata:
+  name: obs
+  namespace: observability
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  retentionPeriod: "1"                   # 1 month — required field; cap from day one (primer §5)
+  removePvcAfterDelete: false            # ADR guardrail 4
+  storage:
+    accessModes:
+      - ReadWriteOnce
+    storageClassName: local-path
+    resources:
+      requests:
+        storage: 20Gi
+  resources:
+    requests:
+      memory: 256Mi
+      cpu: 100m
+    limits:
+      memory: 1Gi
+      cpu: "1"

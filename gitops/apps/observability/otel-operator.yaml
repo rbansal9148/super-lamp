@@ -1,0 +1,37 @@
+# Wave 0 — OpenTelemetry Operator (manages the two collector CRs in wave 1).
+# Default collector image is set to -contrib because the core image lacks the
+# filelog, kubeletstats, and deltatocumulative components this stack requires
+# (ADR D3 / primer §1, §3).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: otel-operator
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  source:
+    repoURL: https://open-telemetry.github.io/opentelemetry-helm-charts
+    chart: opentelemetry-operator
+    targetRevision: 0.114.1              # operator app 0.152.0 (latest stable as of 2026-05-30)
+    helm:
+      values: |
+        manager:
+          collectorImage:
+            # tag tracks the operator appVersion (0.152.0) — contrib publishes the same tags
+            repository: otel/opentelemetry-collector-contrib
+        admissionWebhooks:
+          certManager:
+            enabled: false              # don't hard-depend on cert-manager for the webhook
+          autoGenerateCert:
+            enabled: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true

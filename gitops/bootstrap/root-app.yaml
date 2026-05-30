@@ -1,0 +1,44 @@
+# App-of-apps root (ADR 0001 D4). Apply this once; ArgoCD then reconciles the
+# whole observability stack from gitops/apps/observability/.
+#
+#   kubectl apply -f gitops/bootstrap/
+#
+# The directory is synced with recurse=true: it contains both child Application
+# CRs (operators, grafana) and raw CRs (VMSingle, VLogs, collectors). Sync-wave
+# annotations on each resource enforce the ordering the ADR calls load-bearing
+# (operators+CRDs wave 0 → CRs wave 1 → dashboards/monitors/alerts wave 2).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: observability
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    # Private repo: register creds in ArgoCD first (argocd repo add ... or a repo Secret).
+    repoURL: https://github.com/rbansal9148/super-lamp.git
+    targetRevision: main
+    path: gitops/apps/observability
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated:
+      # ADR guardrail 4: prune/selfHeal are ON, but data PVCs are created by the
+      # operators (not tracked in git) so ArgoCD never prunes them, and the CRs
+      # set removePvcAfterDelete:false as a second backstop.
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false        # namespace.yaml owns the namespace explicitly
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 5                        # covers operator-Healthy → CR-apply races at wave boundaries
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m

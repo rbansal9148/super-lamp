@@ -1,0 +1,28 @@
+# Wave 1 — single-node metrics backend (ADR D1). Receives OTLP pushes from the
+# collectors at :8428/opentelemetry/v1/metrics. Creates Service "vmsingle-obs:8428".
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMSingle
+metadata:
+  name: obs
+  namespace: observability
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  retentionPeriod: "3"                   # 3 months — ADR guardrail 1: retention cap from day one
+  removePvcAfterDelete: false            # ADR guardrail 4: never auto-delete the data PVC
+  storage:
+    accessModes:
+      - ReadWriteOnce
+    storageClassName: local-path         # k3s built-in local-path-provisioner
+    resources:
+      requests:
+        storage: 20Gi
+  extraArgs:
+    dedup.minScrapeInterval: 30s
+  resources:
+    requests:
+      memory: 512Mi
+      cpu: 250m
+    limits:
+      memory: 2Gi
+      cpu: "2"

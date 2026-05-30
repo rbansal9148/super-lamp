@@ -1,0 +1,66 @@
+# Wave 2 — external access via Traefik IngressRoute (k3s ships Traefik as the
+# default ingress controller). Domain-based + TLS, consistent with the existing
+# Traefik + Let's Encrypt setup. TLS certs are issued by cert-manager (prerequisite:
+# a ClusterIssuer named "letsencrypt-prod" — see gitops/README.md).
+#
+# ONLY Grafana is exposed publicly — it owns its own authentication. The VM (vmui)
+# and VictoriaLogs UIs have NO built-in auth; exposing them would publish all metrics
+# and logs unauthenticated. They are intentionally left internal (reach them with
+# `kubectl port-forward`). To expose them, first stand up an Authelia forward-auth
+# Middleware in-cluster and attach it (commented block at the bottom).
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: grafana-tls
+  namespace: observability
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  secretName: grafana-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+    - grafana.my-blue-car.work
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: grafana
+  namespace: observability
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  entryPoints:
+    - websecure
+  routes:
+    - match: Host(`grafana.my-blue-car.work`)
+      kind: Rule
+      services:
+        - name: grafana
+          port: 80
+  tls:
+    secretName: grafana-tls
+# ──────────────────────────────────────────────────────────────────────────────
+# DO NOT uncomment until an Authelia Middleware exists in this namespace — these
+# backends are unauthenticated.
+#
+# ---
+# apiVersion: traefik.io/v1alpha1
+# kind: IngressRoute
+# metadata:
+#   name: vmui
+#   namespace: observability
+# spec:
+#   entryPoints: [websecure]
+#   routes:
+#     - match: Host(`vm.my-blue-car.work`)
+#       kind: Rule
+#       services:
+#         - name: vmsingle-obs
+#           port: 8428
+#       middlewares:
+#         - name: authelia        # Traefik Middleware CR backed by Authelia forward-auth
+#   tls:
+#     secretName: vm-tls

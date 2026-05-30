@@ -1,0 +1,63 @@
+# Wave 2 — alerting. The live routing (contact point + notification policy → ntfy)
+# is provisioned in grafana.yaml. Alert RULES are environment-specific; this file
+# carries one concrete, symptom-based example (primer §6: alert on symptoms, not
+# causes) and documents both authoring paths.
+#
+# ── Path A (active in this stack): Grafana-managed alert rule ──────────────────
+# Provision via a ConfigMap the Grafana alerting sidecar loads. Enable it by adding
+#   sidecar: { alerts: { enabled: true, label: grafana_alert } }
+# to grafana.yaml, then ship a ConfigMap like:
+#
+#   apiVersion: v1
+#   kind: ConfigMap
+#   metadata:
+#     name: alert-traefik-5xx
+#     namespace: observability
+#     labels: { grafana_alert: "1" }
+#   data:
+#     traefik-5xx.yaml: |
+#       apiVersion: 1
+#       groups:
+#         - orgId: 1
+#           name: traefik
+#           folder: platform
+#           interval: 1m
+#           rules:
+#             - uid: traefik-5xx-rate
+#               title: Traefik 5xx rate elevated
+#               condition: C
+#               for: 5m                       # primer §6: the anti-flap knob
+#               data:
+#                 - refId: A
+#                   datasourceUid: victoriametrics
+#                   model:
+#                     expr: sum(rate(traefik_router_requests_total{code=~"5.."}[5m]))
+#                   ...
+#
+# ── Path B (VM-native alternative, ADR D5): VMRule ─────────────────────────────
+# Evaluated by VMAlert. NOT active here — this topology has no VMAlert deployment
+# (alerting is consolidated on Grafana). Included as the documented alternative if
+# you later add VMAlert + a notifier. It is harmless/inert without VMAlert.
+---
+apiVersion: operator.victoriametrics.com/v1beta1
+kind: VMRule
+metadata:
+  name: traefik-symptoms
+  namespace: observability
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  groups:
+    - name: traefik.symptoms
+      interval: 1m
+      rules:
+        - alert: TraefikHigh5xxRate
+          expr: |-
+            sum by (router) (rate(traefik_router_requests_total{code=~"5.."}[5m]))
+              /
+            sum by (router) (rate(traefik_router_requests_total[5m])) > 0.05
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Traefik router {{ $labels.router }} 5xx rate >5% for 5m"
