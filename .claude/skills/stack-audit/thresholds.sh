@@ -172,6 +172,21 @@
 : "${MODE:=quick}"  # quick | deep
 : "${OUTPUT:=md}"   # md | json
 
+# --- Determinism / bounded execution ---
+# Hard wall-clock cap per check, enforced by the orchestrator. A check that
+# exceeds this is killed (SIGTERM) and replaced by a single visible marker
+# finding, so the audit always terminates in bounded time and its output is
+# reproducible run-to-run instead of racing an external timeout.
+: "${CHECK_TIMEOUT_SECS:=25}"
+# statement_timeout injected into every `docker exec ... psql` invocation via
+# PGOPTIONS. Set deliberately ABOVE CHECK_TIMEOUT_SECS: a query that finishes
+# under the check budget yields its real finding; one that exceeds the budget
+# lets the orchestrator kill the check and emit a *visible* timeout marker
+# (rather than the query self-aborting to an empty result and silently dropping
+# a real finding), while this bound still reaps the orphaned server-side query
+# moments later instead of leaving it running on the DB.
+: "${PG_STATEMENT_TIMEOUT_MS:=27000}"
+
 # --- Image updates (check 42) ---
 # Registry digest lookups are network round-trips; this check is --deep only.
 : "${IMAGE_CHECK_PARALLEL:=8}"     # concurrent `buildx imagetools inspect` calls

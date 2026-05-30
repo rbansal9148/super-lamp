@@ -10,7 +10,10 @@ set -u
 
 docker ps --format '{{.Names}}' | grep -q '^stremthru_postgres$' || exit 0
 
-PSQL="docker exec stremthru_postgres psql -U stremthru -d stremthru -At -c"
+# Bound the anti-join scan; passed through by name (-e PGOPTIONS) so the value's
+# internal space survives the unquoted $PSQL word-split.
+export PGOPTIONS="-c statement_timeout=${PG_STATEMENT_TIMEOUT_MS}"
+PSQL="docker exec -e PGOPTIONS stremthru_postgres psql -U stremthru -d stremthru -At -c"
 
 orphans=$($PSQL "
 SELECT count(*) FROM torrent_stream ts
