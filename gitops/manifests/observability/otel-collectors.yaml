@@ -71,7 +71,12 @@ spec:
   config:
     receivers:
       prometheus:
-        config: {}                       # operator + Target Allocator inject scrape_configs
+        config:
+          # `scrape_configs` MUST be present (even empty) or the Target Allocator
+          # reconcile fails: "no scrape_configs available as part of the
+          # configuration" and the TA pod is never created. The TA injects the
+          # ServiceMonitor/PodMonitor-derived jobs into this list at runtime.
+          scrape_configs: []
     processors:
       memory_limiter:
         check_interval: 5s
