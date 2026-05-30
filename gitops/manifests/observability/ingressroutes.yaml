@@ -16,15 +16,14 @@ metadata:
   namespace: observability
   annotations:
     argocd.argoproj.io/sync-wave: "2"
-    # CRD (Certificate) comes from cert-manager (not yet installed). Skip pre-sync
-    # dry-run so it doesn't block the rest of the sync; stays unsynced until
-    # cert-manager + a ClusterIssuer exist. Grafana still serves on Traefik's
-    # default cert until then.
-    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   secretName: grafana-tls
+  # Self-signed issuer (see cluster-issuer.yaml). Real Let's Encrypt is NOT
+  # possible here: HTTP-01 needs :80, which the live Docker Traefik owns; switch
+  # to an ACME DNS-01 ClusterIssuer (needs your DNS-provider API creds) for a
+  # publicly-trusted cert.
   issuerRef:
-    name: letsencrypt-prod
+    name: selfsigned
     kind: ClusterIssuer
   dnsNames:
     - grafana.my-blue-car.work

@@ -1,0 +1,16 @@
+# Wave 0 — self-signed ClusterIssuer for internal/homelab TLS (cert-manager).
+# Used by grafana-tls (ingressroutes.yaml). Gives a stable, cert-manager-managed
+# cert so the Certificate goes Ready — browsers show an untrusted warning, which
+# is fine for internal access.
+#
+# For a publicly-trusted cert, replace with an ACME DNS-01 ClusterIssuer (e.g.
+# Cloudflare/duckdns). HTTP-01 is NOT viable on this host: the ACME challenge
+# needs port :80, which the live Docker Traefik owns.
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: selfsigned
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  selfSigned: {}
