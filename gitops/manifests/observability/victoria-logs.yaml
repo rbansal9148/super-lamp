@@ -1,14 +1,17 @@
 # Wave 1 — single-node logs backend (ADR D2). Receives OTLP log pushes from the
 # DaemonSet collector at :9428/insert/opentelemetry/v1/logs. Creates Service
-# "vlogs-obs:9428". retentionPeriod is a required field (schema-enforced cap).
-apiVersion: operator.victoriametrics.com/v1beta1
-kind: VLogs
+# "vlsingle-obs:9428".
+# NOTE: kind VLogs is deprecated in vm-operator v0.70.1 (it transits to read-only
+# state — "Please migrate to the VLSingle"). VLSingle is the current single-node
+# logs CR (apiVersion operator.victoriametrics.com/v1).
+apiVersion: operator.victoriametrics.com/v1
+kind: VLSingle
 metadata:
   name: obs
   namespace: observability
   annotations:
     argocd.argoproj.io/sync-wave: "1"
-    # CRD (VLogs) installed by vm-operator earlier in the sync — skip pre-sync dry-run.
+    # CRD (VLSingle) installed by vm-operator earlier in the sync — skip pre-sync dry-run.
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   retentionPeriod: "1"                   # 1 month — required field; cap from day one (primer §5)

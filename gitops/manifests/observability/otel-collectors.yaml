@@ -173,7 +173,8 @@ spec:
       # pipeline before this stack goes wide.
     exporters:
       otlphttp/vlogs:
-        logs_endpoint: http://vlogs-obs.observability.svc:9428/insert/opentelemetry/v1/logs
+        # VLSingle 'obs' -> Service "vlsingle-obs" (vm-operator naming)
+        logs_endpoint: http://vlsingle-obs.observability.svc:9428/insert/opentelemetry/v1/logs
       otlphttp/vm:
         metrics_endpoint: http://vmsingle-obs.observability.svc:8428/opentelemetry/v1/metrics
     service:
