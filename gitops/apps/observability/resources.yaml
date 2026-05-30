@@ -1,0 +1,38 @@
+# Wave 1 — the CRs that depend on operator CRDs (VMSingle / VLogs /
+# OpenTelemetryCollector / ServiceMonitor / VMRule / Certificate), split into their
+# own Application so they sync only AFTER the wave-0 operator apps report Healthy
+# (i.e. their CRDs are installed). Keeping these as raw resources in the root app
+# caused "synchronization tasks are not valid" — the CRDs don't exist at the root's
+# pre-sync dry-run, and they're installed by separate child apps.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: observability-resources
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:rbansal9148/super-lamp.git
+    # BRING-UP: tracking the feature branch; change to main at merge time.
+    targetRevision: feat/k3s-bootstrap
+    path: gitops/manifests/observability
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 10              # absorbs the operator-Healthy -> CRD-registered window
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
