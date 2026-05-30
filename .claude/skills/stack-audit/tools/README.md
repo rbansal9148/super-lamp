@@ -19,6 +19,7 @@ Deterministic, idempotent fixers that complement the read-only checks in `checks
 | `recreate_dependents.sh`   | Recreate containers whose `network_mode: container:X` target was replaced | catches the gost-after-gluetun-recreate footgun |
 | `refresh_image_pins.sh`    | Move drifted `@sha256` image pins forward to the tag's current digest (check 42) | pinned-only; same tag, never a version bump; edits files, never restarts |
 | `refresh_and_redeploy.sh`  | Run `refresh_image_pins`, then recreate only RUNNING aio services whose declared pin ≠ running digest | unattended-safe; never starts stopped/profile-gated services; `--managed` self-schedules via cron until all pins resolve or MAX_ATTEMPTS |
+| `orphan_scan.sh`           | Off-peak exact count of stremthru `torrent_stream` orphans (too slow to run inline); writes `.orphan_scan.json` for check 29 to read | cron daily 04:30 UTC; generous statement_timeout; `--dry-run`; lock-guarded |
 
 ## Test suite
 
