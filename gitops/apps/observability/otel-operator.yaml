@@ -22,10 +22,14 @@ spec:
             # tag tracks the operator appVersion (0.152.0) — contrib publishes the same tags
             repository: otel/opentelemetry-collector-contrib
         admissionWebhooks:
+          # cert-manager issues a STABLE webhook cert + injects the caBundle.
+          # autoGenerateCert uses Helm genSignedCert, which is non-deterministic
+          # under ArgoCD (re-rendered every sync) → caBundle/serving-cert drift →
+          # x509 "unknown authority". cert-manager is the ArgoCD-safe fix.
           certManager:
-            enabled: false              # don't hard-depend on cert-manager for the webhook
-          autoGenerateCert:
             enabled: true
+          autoGenerateCert:
+            enabled: false
   destination:
     server: https://kubernetes.default.svc
     namespace: observability
