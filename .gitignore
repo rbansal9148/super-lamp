@@ -10,6 +10,9 @@ data
 *.env
 !**/config.env
 
+# Scheduler runtime state (loop/scheduled-task lock)
+/.claude/scheduled_tasks.lock
+
 # Runtime-cloned nested repos (not tracked here)
 /Indexers/
 /apps/calibre-web-automated/heroofhearts/
