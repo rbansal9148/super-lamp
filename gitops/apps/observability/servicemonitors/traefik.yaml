@@ -20,6 +20,14 @@ spec:
         addServicesLabels: true
         addRoutersLabels: true
     ports:
+      # Keep host :80/:443 with the live Docker Traefik during the transition;
+      # k3s Traefik ingress stays on :8080/:8443 (matches the bootstrap override
+      # at /var/lib/rancher/k3s/server/manifests/traefik-ports.yaml). Dropping
+      # these would revert k3s Traefik to 80/443 and collide with the Docker stack.
+      web:
+        exposedPort: 8080
+      websecure:
+        exposedPort: 8443
       metrics:
         port: 9100
         expose:
