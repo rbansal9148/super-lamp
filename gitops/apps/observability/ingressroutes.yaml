@@ -16,6 +16,11 @@ metadata:
   namespace: observability
   annotations:
     argocd.argoproj.io/sync-wave: "2"
+    # CRD (Certificate) comes from cert-manager (not yet installed). Skip pre-sync
+    # dry-run so it doesn't block the rest of the sync; stays unsynced until
+    # cert-manager + a ClusterIssuer exist. Grafana still serves on Traefik's
+    # default cert until then.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   secretName: grafana-tls
   issuerRef:

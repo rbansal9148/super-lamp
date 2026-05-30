@@ -17,8 +17,9 @@ metadata:
 spec:
   project: default
   source:
-    # Private repo: register creds in ArgoCD first (argocd repo add ... or a repo Secret).
-    repoURL: https://github.com/rbansal9148/super-lamp.git
+    # Private repo: SSH form — matches the ArgoCD repository Secret holding the
+    # host deploy key (argocd.argoproj.io/secret-type=repository).
+    repoURL: git@github.com:rbansal9148/super-lamp.git
     targetRevision: main
     path: gitops/apps/observability
     directory:

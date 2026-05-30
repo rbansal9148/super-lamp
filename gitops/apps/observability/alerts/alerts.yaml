@@ -46,6 +46,8 @@ metadata:
   namespace: observability
   annotations:
     argocd.argoproj.io/sync-wave: "2"
+    # CRD (VMRule) installed by vm-operator earlier — skip pre-sync dry-run.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   groups:
     - name: traefik.symptoms

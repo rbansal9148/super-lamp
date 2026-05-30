@@ -55,6 +55,8 @@ metadata:
   namespace: observability
   annotations:
     argocd.argoproj.io/sync-wave: "1"
+    # CRD (OpenTelemetryCollector) installed by otel-operator earlier — skip pre-sync dry-run.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   mode: statefulset
   replicas: 1                            # ADR D7: scale via TA sharding when target count demands
@@ -101,6 +103,8 @@ metadata:
   namespace: observability
   annotations:
     argocd.argoproj.io/sync-wave: "1"
+    # CRD (OpenTelemetryCollector) installed by otel-operator earlier — skip pre-sync dry-run.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   mode: daemonset
   daemonSetUpdateStrategy:
