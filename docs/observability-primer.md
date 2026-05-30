@@ -225,6 +225,42 @@ bootstrap an entire stack from a single root, manage it as a unit. Scales to
 
 ---
 
+## 8. Autoscaling & cardinality — where §1's villain meets the cluster
+
+**Concept.** Cardinality (§1, §5) is usually framed as a *labelling* mistake — put
+`user_id` in a label, explode the series count. But on K8s there's a second source that
+isn't a mistake at all: **the platform manufactures churn for you.** Every pod carries
+its own identity labels (`pod`, `instance`, often a ReplicaSet hash). A Deployment that
+scales 1→N multiplies that workload's series by N *while N pods live*; an HPA that scales
+up and back down leaves the old pods' series as **stale-but-indexed** entries for the rest
+of the retention window. The label set is perfectly bounded at any instant — the *churn
+over time* is what accumulates.
+
+**Why it bites here specifically.** Vertical-pod restarts, rolling deploys, and HPA
+flapping all mint new pod identities. A workload that reschedules a few times an hour can,
+over a multi-week retention window, leave thousands of dead series indexed — none of them
+a labelling bug, all of them RAM. This is the operational form of ADR 0001's **D7**: only
+Tier-A (autoscaled) workloads generate it, and it scales with replica *count × churn rate*,
+not with request volume. VM single-node has the headroom (~1000× under its line), but
+active-series is the budget that closes first, not samples/sec.
+
+**Gotchas:**
+- **Drop per-pod labels where the aggregate is what you query.** If you only ever look at
+  a workload's metrics summed across replicas (`sum by (service) (...)`), the `pod` /
+  `instance` labels are pure churn — drop or relabel them at the Collector for Tier-A
+  Deployments. Keep them only where you genuinely debug per-pod.
+- **`histogram_quantile` over churning pods inflates the bucket count** — every pod
+  contributes its own `le`-labelled series; relabel before the buckets fan out, not after.
+- **Alert on active-series growth, not just disk.** Disk fills slowly and visibly; series
+  count climbs quietly and OOMs the TSDB first. A `vm_rows` / active-series panel + a `for:`
+  threshold is the early-warning that catches a churn regression before it pages you as an
+  outage.
+- **Scale-to-zero is the cardinality-friendly direction.** A workload idled to zero stops
+  minting new series; the existing ones age out under retention. The §D7 "scale-to-zero
+  over scale-out" lean is also the lower-cardinality lean — they reinforce.
+
+---
+
 ## The cross-cutting themes, distilled
 
 1. **Cardinality is the recurring villain** — in metric labels *and* log labels.

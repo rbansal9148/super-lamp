@@ -130,6 +130,55 @@ kuma + beszel + crowdsec + 3-notifier fragmentation onto infrastructure already 
   a self-hosted 100-service host. (Pricing not independently verified; revisit if assumptions change.)
 - **A compose-era telemetry backend** — imminent K8s migration makes it build-and-teardown waste.
 
+### D7 — Workload & observability scaling model (decide-now, deploy-later)
+
+Grounded in the current fleet: **124 apps, 100 mount persistent volumes, only 3 carry any
+`deploy:`/replicas stanza** — this was built as singletons. The "stateless" Stremio resolvers
+each ship a **private datastore** (aiostreams→postgres+redis, comet→postgres,
+mediafusion→postgres+redis, stremthru→redis, zilean→postgres, prowlarr→postgres); across the
+stack: 29 postgres, 15 redis, 4 valkey, 3 mariadb, 2 mongo, 2 clickhouse, 1 mysql. So the app
+tier is ~124 singleton processes each 1:1 with a private DB.
+
+**The scaling discriminator is single-writer / leader-only background work — not "has a
+volume."** Externalising the DB to Postgres does not make an app replicable if it runs
+schedulers, file management, or sync loops that assume one instance.
+
+| Tier | What | K8s object | Scaling |
+|---|---|---|---|
+| **A — pure request resolvers** | stremthru, comet, aiostreams, proxy-shaped addons | `Deployment` | **Horizontal (HPA-capable).** No durable local state, no leader job. The *only* tier where scale-out is real. |
+| **B — resolvers + ingestion worker** | zilean (DMM scraper), mediafusion, prowlarr sync | `Deployment` replicas:1, or split web/worker | Request path replicable; the **background worker is leader-only**. Scale only by splitting web from worker (worker stays 1). |
+| **C — stateful management apps** | the \*arr stack, immich, bitmagnet, media managers (the ~100 volume-mounters) | `StatefulSet` / replicas:1 | **Vertical only.** Single-writer logic + RWO PVC (no multi-attach). `replicas: 2` corrupts state. |
+| **D — datastores** | the 29 postgres / 15 redis / … | `StatefulSet`, RWO PVC | **Vertical**, or each engine's own primitive (Postgres streaming replicas + PgBouncer; Redis already capped `maxmemory allkeys-lru`). Never plain `replicas: N`. |
+| **E — singleton-by-protocol** | gluetun, traefik, authelia | special | gluetun **must** stay 1 (N replicas = N tunnels); traefik 1–2; authelia scales only with a shared session store, else sticky. |
+
+**Of 124 services, a single-digit handful (Tier A) are genuine horizontal-scale candidates.**
+Everything else is vertical or fixed-at-1.
+
+**Highest-leverage direction for this profile is scale-to-*zero*, not scale-out.** Workload is
+~1000× under VM's single-node line (drivers above); HPA solves a problem this host does not
+have, while most of the 124 services sit idle holding RAM 24/7. Scale-to-zero (KEDA
+`http-add-on` / request-activated proxy) reclaims that — **Tier A only**, accepting a 1–3 s
+cold-start stall on the first call after idle. Tier C cannot (slow start, loses warm cache).
+
+**App scaling pressures the obs stack through cardinality, not throughput.** Each pod carries
+its own `pod`/`instance` label, so a Deployment going 1→N N×'s its series and HPA churn
+accumulates churned series across the retention window — *this* is VictoriaMetrics' RAM budget,
+not sample rate. Consequent design rules:
+
+1. **HPA on Tier A only, gated on `metrics-server`** — not part of the VM stack; absent, HPA
+   silently no-ops. CPU trigger by default; RPS via `prometheus-adapter`/KEDA-VM as an upgrade.
+2. **Cardinality governance becomes a first-class cap** alongside the retention cap (guardrail 1
+   below): drop high-churn labels (`pod`, `instance`) at the collector where per-Service
+   aggregate suffices; alert on VM active-series growth.
+3. **VM/VLogs stay single-node** — scaling = vertical + retention; the only horizontal lever is
+   collector-tier TA sharding (D3), and only when target/node count demands it. Cluster-VM is
+   the named escape hatch (**F1**), not a scaling decision.
+
+**Killed as premature (revisit when Tier-A HPA actually ramps):** PgBouncer across the 29
+Postgres (connection exhaustion only bites when replicas × pool-size > `max_connections`;
+pre-decided, not pre-deployed); VM cluster mode / vmagent remote-write sharding (~1000×
+premature — that is fork F1).
+
 ---
 
 ## Target architecture
@@ -210,6 +259,10 @@ be fully applied before any custom resource that uses them (wave 1), or CRs fail
   either way; the ServiceMonitor authoring is unchanged.
 - **F2 — Flux over ArgoCD** *if* footprint / CLI-purity / native-SOPS matters more
   than the UI. Same Helm charts underneath; not a lock-in.
+- **F3 — KEDA over plain HPA** *only if* scale-to-zero of idle addons (D7) or
+  queue/event triggers are wanted. Otherwise HPA v2 is fewer moving parts.
+- **F4 — Split Tier-B web/worker** *only if* a resolver's request path saturates
+  while its scraper sits idle. Measure before splitting.
 
 ## Inputs still needed to generate manifests
 
@@ -220,4 +273,4 @@ be fully applied before any custom resource that uses them (wave 1), or CRs fail
 
 ---
 
-<sub>ADR generated 2026-05-30 against commit `44f9235`. Decisions D1–D6 accepted; forks F1–F2 open. Supersede rather than edit.</sub>
+<sub>ADR generated 2026-05-30 against commit `44f9235`. Edited 2026-05-30: added D7 (workload & obs scaling model) and forks F3–F4. Decisions D1–D7 accepted; forks F1–F4 open.</sub>
