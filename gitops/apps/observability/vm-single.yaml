@@ -7,6 +7,9 @@ metadata:
   namespace: observability
   annotations:
     argocd.argoproj.io/sync-wave: "1"
+    # CRD (VMSingle) is installed by the vm-operator app earlier in the sync;
+    # skip the pre-sync dry-run so app-of-apps doesn't reject the whole sync.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   retentionPeriod: "3"                   # 3 months — ADR guardrail 1: retention cap from day one
   removePvcAfterDelete: false            # ADR guardrail 4: never auto-delete the data PVC

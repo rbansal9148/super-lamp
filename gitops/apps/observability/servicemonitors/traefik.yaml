@@ -42,6 +42,8 @@ metadata:
   namespace: observability
   annotations:
     argocd.argoproj.io/sync-wave: "2"
+    # CRD (ServiceMonitor) installed by prometheus-operator-crds earlier — skip pre-sync dry-run.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   namespaceSelector:
     matchNames:

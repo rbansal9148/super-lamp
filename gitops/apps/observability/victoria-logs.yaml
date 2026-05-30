@@ -8,6 +8,8 @@ metadata:
   namespace: observability
   annotations:
     argocd.argoproj.io/sync-wave: "1"
+    # CRD (VLogs) installed by vm-operator earlier in the sync — skip pre-sync dry-run.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   retentionPeriod: "1"                   # 1 month — required field; cap from day one (primer §5)
   removePvcAfterDelete: false            # ADR guardrail 4
