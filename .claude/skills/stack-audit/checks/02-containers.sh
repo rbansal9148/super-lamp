@@ -50,12 +50,15 @@ docker ps --format '{{.Names}}' | while read c; do
   fi
 done
 
-# Memory usage vs cap (for containers with explicit mem_limit)
+# Memory usage vs cap (for containers with explicit mem_limit).
+# One bulk `docker stats --no-stream` for all containers — calling it
+# per-container (twice) waits a full sample cycle each time and blows the
+# check's wall-clock past 100s on a ~50-container host. Sample once, look up.
+STATS=$(docker stats --no-stream --format '{{.Name}} {{.MemPerc}}' 2>/dev/null)
 docker ps --format '{{.Names}}' | while read c; do
   cap=$(docker inspect --format '{{.HostConfig.Memory}}' "$c" 2>/dev/null)
   [ "$cap" = "0" ] && continue
-  used=$(docker stats --no-stream --format '{{.MemUsage}}' "$c" 2>/dev/null | awk -F'/' '{print $1}' | sed 's/[^0-9.]//g')
-  pct=$(docker stats --no-stream --format '{{.MemPerc}}' "$c" 2>/dev/null | tr -d '%')
+  pct=$(printf '%s\n' "$STATS" | awk -v n="$c" '$1==n {print $2}' | tr -d '%')
   [ -z "$pct" ] && continue
   pct_int=$(printf '%.0f' "$pct")
   if [ "$pct_int" -ge "$MEM_PCT_OF_CAP_CRIT" ] 2>/dev/null; then

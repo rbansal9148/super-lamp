@@ -5,7 +5,10 @@ set -u
 
 docker ps --format '{{.Names}}' | grep -q '^stremthru_postgres$' || exit 0
 
-PSQL="docker exec stremthru_postgres psql -U stremthru -d stremthru -At -c"
+# Bound every query below; passed through to the container by name (-e PGOPTIONS)
+# so the value's internal space survives the unquoted $PSQL word-split.
+export PGOPTIONS="-c statement_timeout=${PG_STATEMENT_TIMEOUT_MS}"
+PSQL="docker exec -e PGOPTIONS stremthru_postgres psql -U stremthru -d stremthru -At -c"
 
 # 1. Prune sidecar running
 if ! docker ps --format '{{.Names}}' | grep -q '^stremthru_prune$'; then

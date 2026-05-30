@@ -81,7 +81,15 @@ for s in $scripts; do
   if [ -n "$ONLY" ] && ! echo ",$ONLY," | grep -q ",$stem,"; then
     continue
   fi
-  bash "$s" 2>/dev/null >> "$TMP" || true
+  # Bound every check by CHECK_TIMEOUT_SECS. Capturing into a var (not a direct
+  # >>append) keeps the write atomic: a check killed mid-run contributes only
+  # what it had fully emitted, never a torn line. On timeout (rc 124) we emit a
+  # visible marker so a dropped check is deterministic and obvious, not silent.
+  out=$(timeout "$CHECK_TIMEOUT_SECS" bash "$s" 2>/dev/null); rc=$?
+  [ -n "$out" ] && printf '%s\n' "$out" >> "$TMP"
+  if [ "$rc" = 124 ]; then
+    echo "LOW|audit/$stem|check exceeded ${CHECK_TIMEOUT_SECS}s and was killed — its findings are incomplete this run|profile checks/$stem.sh; bound slow queries/commands" >> "$TMP"
+  fi
 done
 
 # Apply suppression list (regex per line in .audit-ignore)
@@ -92,6 +100,14 @@ if [ -f "$IGNORE_FILE" ]; then
   grep -vE -f <(grep -vE '^[[:space:]]*(#|$)' "$IGNORE_FILE") "$TMP" > "$FILTERED" || true
   mv "$FILTERED" "$TMP"
 fi
+
+# Deterministic finding order. Checks emit in their own internal order — many
+# iterate `docker ps`, whose ordering reshuffles after any container recreate.
+# A stable, locale-pinned sort here makes two audits of an unchanged system
+# byte-identical in line order, so a diff surfaces only substantive changes
+# (new/cleared findings, changed live values) rather than reordered lines.
+# Severity grouping in the renderer is unaffected — it re-buckets via grep.
+LC_ALL=C sort -o "$TMP" "$TMP"
 
 # --fix mode: extract distinct FIX_TOOL hints from findings, run each.
 #

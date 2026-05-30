@@ -24,6 +24,11 @@ bash /opt/docker/.claude/skills/stack-audit/audit.sh --json    # machine-readabl
 
 **Default path is purely deterministic.** Run `bash audit.sh` and present the output as-is. No LLM judgement, no parallel agents, no editorial layer — the bash checks already encode the rules. This makes audit results reproducible run-to-run and free of model variance.
 
+Three mechanics enforce that reproducibility (see `audit.sh` / `thresholds.sh`):
+- **Stable ordering.** Findings are sorted (`LC_ALL=C`) before rendering, so checks that iterate `docker ps` (whose order reshuffles on container recreate) no longer reorder the output. Two audits of an unchanged system diff to nothing but the timestamp header.
+- **Bounded completion.** Every check is wrapped in `timeout CHECK_TIMEOUT_SECS` (default 25). A check that exceeds it is killed and replaced by a single `LOW|audit/<check>|...` marker, so the run always terminates in bounded time and a dropped check is *visible*, never silent or hung.
+- **Bounded DB queries.** `count(*)`/anti-join scans on large tables run with `PGOPTIONS` `statement_timeout` (`PG_STATEMENT_TIMEOUT_MS`, default 27000 — deliberately above the check budget so a real finding is never silently aborted; the orchestrator marker handles the over-budget case and this reaps the orphaned server-side query).
+
 If a finding looks wrong, **fix the check script** (so the next run produces the right answer) rather than overriding it case-by-case in your response.
 
 ### Discovery mode (opt-in only — `--discover` or "expand the audit")
