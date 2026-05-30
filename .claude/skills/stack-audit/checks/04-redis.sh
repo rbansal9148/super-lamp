@@ -41,12 +41,17 @@ for r in $REDIS_CONTAINERS; do
     echo "MED|redis/$r|eviction policy is '$policy' (expected allkeys-lru) — keys never expire on memory pressure|add --maxmemory-policy allkeys-lru"
   fi
 
-  # No-TTL key leak (sample at most 5000 keys for speed)
+  # No-TTL key leak (sample at most 5000 keys for speed).
+  # Batch the TTL lookups through a single piped redis-cli invocation — one
+  # `docker exec` per key (the previous shape) is thousands of round-trips and
+  # blows deep-mode wall-clock past the per-check budget.
   if [ "$MODE" = "deep" ]; then
-    no_ttl=$(docker exec "$r" "$CLI" --scan COUNT 5000 2>/dev/null | head -5000 | while read k; do
-      ttl=$(docker exec "$r" "$CLI" TTL "$k" 2>/dev/null)
-      [ "$ttl" = "-1" ] && echo x
-    done | wc -l)
+    keys=$(docker exec "$r" "$CLI" --scan COUNT 1000 2>/dev/null | head -5000)
+    no_ttl=0
+    if [ -n "$keys" ]; then
+      no_ttl=$(printf 'TTL %s\n' $keys | docker exec -i "$r" "$CLI" 2>/dev/null \
+                 | awk '$0=="-1"{n++} END{print n+0}')
+    fi
     if [ "$no_ttl" -ge "$REDIS_NO_TTL_KEYS_WARN" ]; then
       echo "MED|redis/$r|$no_ttl keys with no TTL (warn ≥${REDIS_NO_TTL_KEYS_WARN}) — slow leak|disable metrics-key accumulation in the upstream app"
     fi

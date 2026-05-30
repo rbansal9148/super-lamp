@@ -75,20 +75,24 @@ export MODE OUTPUT
 TMP=$(mktemp)
 trap "rm -f $TMP" EXIT
 
+# Per-check wall-clock budget — larger in deep mode (see thresholds.sh).
+CHECK_BUDGET="$CHECK_TIMEOUT_SECS"
+[ "$MODE" = "deep" ] && CHECK_BUDGET="$CHECK_TIMEOUT_SECS_DEEP"
+
 scripts=$(find "$CHECKS_DIR" -maxdepth 1 -name '*.sh' -type f | sort)
 for s in $scripts; do
   stem=$(basename "$s" .sh)
   if [ -n "$ONLY" ] && ! echo ",$ONLY," | grep -q ",$stem,"; then
     continue
   fi
-  # Bound every check by CHECK_TIMEOUT_SECS. Capturing into a var (not a direct
+  # Bound every check by CHECK_BUDGET. Capturing into a var (not a direct
   # >>append) keeps the write atomic: a check killed mid-run contributes only
   # what it had fully emitted, never a torn line. On timeout (rc 124) we emit a
   # visible marker so a dropped check is deterministic and obvious, not silent.
-  out=$(timeout "$CHECK_TIMEOUT_SECS" bash "$s" 2>/dev/null); rc=$?
+  out=$(timeout "$CHECK_BUDGET" bash "$s" 2>/dev/null); rc=$?
   [ -n "$out" ] && printf '%s\n' "$out" >> "$TMP"
   if [ "$rc" = 124 ]; then
-    echo "LOW|audit/$stem|check exceeded ${CHECK_TIMEOUT_SECS}s and was killed — its findings are incomplete this run|profile checks/$stem.sh; bound slow queries/commands" >> "$TMP"
+    echo "LOW|audit/$stem|check exceeded ${CHECK_BUDGET}s and was killed — its findings are incomplete this run|profile checks/$stem.sh; bound slow queries/commands" >> "$TMP"
   fi
 done
 
