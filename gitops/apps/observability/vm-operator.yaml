@@ -1,0 +1,38 @@
+# Wave 0 — VictoriaMetrics Operator (manages the VMSingle + VLogs CRs in wave 1).
+# In this topology VM does NOT scrape — the OTel collector scrapes and pushes OTLP
+# to VM. So the Prometheus→VMServiceScrape converter is disabled to avoid creating
+# inert duplicate scrape objects (ADR D3). ServiceMonitors are consumed by the OTel
+# Target Allocator, not by VM.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: vm-operator
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  source:
+    repoURL: https://victoriametrics.github.io/helm-charts/
+    chart: victoria-metrics-operator
+    targetRevision: 0.63.1               # operator app v0.70.1 (latest stable as of 2026-05-30)
+    helm:
+      values: |
+        # We author Prometheus-Operator CRDs ourselves (prometheus-operator-crds app),
+        # so the operator must not ship/own its own copy.
+        crds:
+          plain: false
+          cleanup:
+            enabled: false
+        operator:
+          # VM isn't scraping in this stack; skip the ServiceMonitor→VMServiceScrape conversion.
+          disable_prometheus_converter: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true

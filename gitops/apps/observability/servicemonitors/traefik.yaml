@@ -1,0 +1,47 @@
+# Wave 2 — close the ADR's stated gap: Traefik currently exposes NO Prometheus
+# metrics endpoint (0001:28-29). On k3s, Traefik is installed via a HelmChart, so
+# its values are patched through a HelmChartConfig in kube-system. Then a
+# ServiceMonitor points the OTel Target Allocator at it for golden-signal metrics
+# (request rate, latency percentiles, 4xx/5xx per router — ADR D-context, D5).
+---
+apiVersion: helm.cattle.io/v1
+kind: HelmChartConfig
+metadata:
+  name: traefik
+  namespace: kube-system
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  valuesContent: |-
+    metrics:
+      prometheus:
+        entryPoint: metrics
+        addEntryPointsLabels: true
+        addServicesLabels: true
+        addRoutersLabels: true
+    ports:
+      metrics:
+        port: 9100
+        expose:
+          default: true
+        exposedPort: 9100
+        protocol: TCP
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: traefik
+  namespace: observability
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  namespaceSelector:
+    matchNames:
+      - kube-system
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: traefik
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s

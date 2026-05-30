@@ -1,0 +1,184 @@
+# Wave 1 — the two-tier OTel Collector topology (ADR D3, primer §3).
+#   - "scrape" (StatefulSet + Target Allocator): discovers ServiceMonitors, scrapes
+#     /metrics, pushes OTLP metrics to VictoriaMetrics.
+#   - "node" (DaemonSet): node-local logs (filelog) + host/kubelet metrics, pushes
+#     OTLP logs to VictoriaLogs and metrics to VictoriaMetrics.
+#
+# RBAC: the operator creates the ServiceAccounts (<name>-collector, scrape-targetallocator)
+# but cluster-scoped read permissions must be granted explicitly.
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: observability-otel
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+rules:
+  - apiGroups: [""]
+    resources: [nodes, nodes/metrics, nodes/stats, nodes/proxy, services, endpoints, pods, namespaces, configmaps]
+    verbs: [get, list, watch]
+  - apiGroups: [discovery.k8s.io]
+    resources: [endpointslices]
+    verbs: [get, list, watch]
+  - apiGroups: [monitoring.coreos.com]
+    resources: [servicemonitors, podmonitors, probes, scrapeconfigs]
+    verbs: [get, list, watch]
+  - nonResourceURLs: ["/metrics", "/metrics/cadvisor"]
+    verbs: [get]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: observability-otel
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: observability-otel
+subjects:
+  - kind: ServiceAccount
+    name: scrape-collector
+    namespace: observability
+  - kind: ServiceAccount
+    name: scrape-targetallocator
+    namespace: observability
+  - kind: ServiceAccount
+    name: node-collector
+    namespace: observability
+---
+# ── Tier 1: scrape collector (StatefulSet) + Target Allocator ──────────────────
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: scrape
+  namespace: observability
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  mode: statefulset
+  replicas: 1                            # ADR D7: scale via TA sharding when target count demands
+  targetAllocator:
+    enabled: true
+    allocationStrategy: consistent-hashing
+    prometheusCR:
+      enabled: true
+      serviceMonitorSelector: {}         # all ServiceMonitors
+      podMonitorSelector: {}             # all PodMonitors
+      scrapeInterval: 30s
+  config:
+    receivers:
+      prometheus:
+        config: {}                       # operator + Target Allocator inject scrape_configs
+    processors:
+      memory_limiter:
+        check_interval: 5s
+        limit_percentage: 80
+        spike_limit_percentage: 25
+      deltatocumulative: {}              # MANDATORY — VM rejects delta temporality (ADR D3 / primer §1)
+      batch:
+        send_batch_size: 8192
+        timeout: 5s
+      # ADR D7 §8: for autoscaled Tier-A workloads, drop high-churn pod identity labels
+      # here once HPA is in play, e.g. a transform/metricstransform processor stripping
+      # the `pod`/`instance` labels where only the per-Service aggregate is queried.
+    exporters:
+      otlphttp/vm:
+        # otlphttp posts to the exact VM OTLP path (ADR D3 verified endpoint)
+        metrics_endpoint: http://vmsingle-obs.observability.svc:8428/opentelemetry/v1/metrics
+    service:
+      pipelines:
+        metrics:
+          receivers: [prometheus]
+          processors: [memory_limiter, deltatocumulative, batch]
+          exporters: [otlphttp/vm]
+---
+# ── Tier 2: node collector (DaemonSet) — logs + host/kubelet metrics ───────────
+apiVersion: opentelemetry.io/v1beta1
+kind: OpenTelemetryCollector
+metadata:
+  name: node
+  namespace: observability
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  mode: daemonset
+  daemonSetUpdateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+  tolerations:
+    - key: node-role.kubernetes.io/control-plane
+      operator: Exists
+      effect: NoSchedule
+  env:
+    - name: K8S_NODE_NAME
+      valueFrom:
+        fieldRef:
+          fieldPath: spec.nodeName
+  volumeMounts:
+    - name: varlogpods
+      mountPath: /var/log/pods
+      readOnly: true
+  volumes:
+    - name: varlogpods
+      hostPath:
+        path: /var/log/pods
+  config:
+    receivers:
+      otlp:                              # apps that emit OTLP directly (future-facing)
+        protocols:
+          grpc:
+            endpoint: 0.0.0.0:4317
+          http:
+            endpoint: 0.0.0.0:4318
+      filelog:
+        include:
+          - /var/log/pods/*/*/*.log
+        include_file_path: true
+        operators:
+          - type: container              # parses the CRI/containerd log envelope (contrib)
+      hostmetrics:
+        collection_interval: 30s
+        scrapers:
+          cpu: {}
+          memory: {}
+          load: {}
+          filesystem: {}
+          network: {}
+      kubeletstats:                      # per-pod/container metrics from the local kubelet
+        collection_interval: 30s
+        auth_type: serviceAccount
+        endpoint: https://${env:K8S_NODE_NAME}:10250
+        insecure_skip_verify: true
+        metric_groups: [node, pod, container, volume]
+    processors:
+      memory_limiter:
+        check_interval: 5s
+        limit_percentage: 80
+        spike_limit_percentage: 25
+      resourcedetection:
+        detectors: [env, system]
+        system:
+          hostname_sources: [os]
+      batch:
+        timeout: 5s
+      deltatocumulative: {}
+      # ADR guardrail 2: do NOT ship all 100+ services' logs. Add a filter processor
+      # here (drop by k8s.namespace/health-check noise) and reference it in the logs
+      # pipeline before this stack goes wide.
+    exporters:
+      otlphttp/vlogs:
+        logs_endpoint: http://vlogs-obs.observability.svc:9428/insert/opentelemetry/v1/logs
+      otlphttp/vm:
+        metrics_endpoint: http://vmsingle-obs.observability.svc:8428/opentelemetry/v1/metrics
+    service:
+      pipelines:
+        logs:
+          receivers: [filelog, otlp]
+          processors: [memory_limiter, resourcedetection, batch]
+          exporters: [otlphttp/vlogs]
+        metrics:
+          receivers: [hostmetrics, kubeletstats, otlp]
+          processors: [memory_limiter, resourcedetection, deltatocumulative, batch]
+          exporters: [otlphttp/vm]

@@ -1,0 +1,25 @@
+# Wave 0 — ServiceMonitor/PodMonitor/Probe/ScrapeConfig CRDs, installed STANDALONE
+# (no Prometheus). The OTel Target Allocator consumes the CRD *shape*; Prometheus
+# itself is not deployed (ADR D3, primer §4 gotcha).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prometheus-operator-crds
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+spec:
+  project: default
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: prometheus-operator-crds
+    targetRevision: 29.0.0                # CRDs v0.91.0 (latest stable as of 2026-05-30)
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true              # large CRDs exceed the last-applied annotation limit

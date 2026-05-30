@@ -1,0 +1,89 @@
+# Wave 1 — Grafana: query frontend over VM + VictoriaLogs, unified alerting → ntfy
+# (ADR D5, primer §6). Dashboards/datasources/alerting are provisioned from git;
+# do not click-build in the UI (they live in Grafana's DB and vanish on redeploy).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: grafana
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  project: default
+  source:
+    repoURL: https://grafana.github.io/helm-charts
+    chart: grafana
+    targetRevision: 10.5.15              # Grafana app 12.3.1 (latest stable as of 2026-05-30)
+    helm:
+      releaseName: grafana
+      values: |
+        admin:
+          existingSecret: grafana-admin   # from a SealedSecret — see secrets/README.md
+          userKey: admin-user
+          passwordKey: admin-password
+        persistence:
+          enabled: true
+          storageClassName: local-path
+          size: 2Gi
+        # VictoriaLogs datasource is a plugin
+        plugins:
+          - victoriametrics-logs-datasource
+        datasources:
+          datasources.yaml:
+            apiVersion: 1
+            datasources:
+              - name: VictoriaMetrics
+                uid: victoriametrics
+                type: prometheus
+                access: proxy
+                url: http://vmsingle-obs.observability.svc:8428
+                isDefault: true
+              - name: VictoriaLogs
+                uid: victorialogs
+                type: victoriametrics-logs-datasource
+                access: proxy
+                url: http://vlogs-obs.observability.svc:9428
+        # sidecar discovers dashboards from ConfigMaps labelled grafana_dashboard
+        sidecar:
+          dashboards:
+            enabled: true
+            label: grafana_dashboard
+            searchNamespace: observability
+          datasources:
+            enabled: true
+        # Unified alerting: contact point + default policy → ntfy. Alert RULES are
+        # environment-specific and live in alerts/ (need datasource UIDs filled in).
+        alerting:
+          contactpoints.yaml:
+            apiVersion: 1
+            contactPoints:
+              - orgId: 1
+                name: ntfy
+                receivers:
+                  - uid: ntfy-webhook
+                    type: webhook
+                    settings:
+                      url: https://ntfy.my-blue-car.work/alerts   # set your ntfy topic
+                      httpMethod: POST
+                    # ntfy auth token injected from a Secret env var — see secrets/README.md
+                    secureSettings:
+                      authorization_credentials: ${NTFY_TOKEN}
+          policies.yaml:
+            apiVersion: 1
+            policies:
+              - orgId: 1
+                receiver: ntfy
+                group_by: [grafana_folder, alertname]
+        # surface the ntfy token from the SealedSecret-backed Secret as an env var
+        envFromSecret: grafana-ntfy
+        grafana.ini:
+          server:
+            root_url: https://grafana.my-blue-car.work
+            # Grafana owns its own auth; it is NOT placed behind Authelia (primer §6).
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: observability
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
