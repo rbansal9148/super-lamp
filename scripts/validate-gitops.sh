@@ -69,6 +69,13 @@ kubeconform \
   "${FILES[@]}" || die "kubeconform reported schema errors"
 
 # ── Layer 3 (optional): real server-side dry-run ───────────────────────────────
+# Needs kubectl + a reachable cluster. Install kubectl (no sudo, lands on PATH);
+# match the host arch — an amd64 binary on this aarch64 host fails with
+# "Exec format error":
+#   K=$(case "$(uname -m)" in aarch64|arm64) echo arm64;; *) echo amd64;; esac)
+#   V=$(curl -fsSL https://dl.k8s.io/release/stable.txt)
+#   curl -fsSL "https://dl.k8s.io/release/$V/bin/linux/$K/kubectl" -o "$(go env GOPATH)/bin/kubectl"
+#   chmod +x "$(go env GOPATH)/bin/kubectl"
 if command -v kubectl >/dev/null 2>&1; then
   srv="$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}' 2>/dev/null || true)"
   hostport="${srv#*://}"; host="${hostport%%:*}"; port="${hostport##*:}"
@@ -80,7 +87,7 @@ if command -v kubectl >/dev/null 2>&1; then
     warn "kubectl present but cluster unreachable ($srv) — skipping server dry-run"
   fi
 else
-  warn "kubectl not installed — skipping server-side dry-run (offline checks only)"
+  warn "kubectl not installed — skipping server-side dry-run (offline checks only; see install note above)"
 fi
 
 log "done"
