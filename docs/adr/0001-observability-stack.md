@@ -264,13 +264,45 @@ be fully applied before any custom resource that uses them (wave 1), or CRs fail
 - **F4 — Split Tier-B web/worker** *only if* a resolver's request path saturates
   while its scraper sits idle. Measure before splitting.
 
-## Inputs still needed to generate manifests
+## Resolved inputs (were "still needed to generate manifests")
 
-1. **Distro** — k3s / vanilla / managed (drives storage class, ingress defaults).
-2. **Ingress on K8s** — does Traefik remain the ingress (golden-signal dashboard
-   targets Traefik), or switch to ingress-nginx / Gateway API?
-3. **Secret backend** — Sealed Secrets vs External Secrets Operator vs SOPS.
+1. **Distro → k3s.** Drives `storageClassName: local-path` (k3s's built-in
+   provisioner) and reuses the bundled Traefik. *(Note: the host's existing
+   kubeconfig targets a kubeadm cluster at `10.0.0.79:6443`, currently unreachable —
+   treated as stale; the k3s assumption stands until a real cluster contradicts it.)*
+2. **Ingress → Traefik (`IngressRoute` CRD).** Keeps the golden-signal dashboard's
+   Traefik target, reuses the Authelia-middleware + LE-TLS model, and is the only
+   option needing no second controller or re-plumbed auth on k3s. Gateway API
+   deferred as a no-regret later move (Traefik can serve `HTTPRoute` without
+   re-choosing the controller).
+3. **Secret backend → Sealed Secrets.** GitOps-native, no external store; raw
+   secrets never committed (the `kubeseal` recipes live in `gitops/.../secrets/`).
+
+## Implementation status
+
+**Manifests generated and committed** under `gitops/` (ArgoCD app-of-apps, this
+repo): operators + CRDs (wave 0) → VMSingle/VLogs/OTel collectors/Grafana (wave 1)
+→ ServiceMonitors/IngressRoute/alerts (wave 2). Chart versions pinned to latest
+stable as of 2026-05-30 (sealed-secrets 2.18.6, prometheus-operator-crds 29.0.0,
+opentelemetry-operator 0.114.1, victoria-metrics-operator 0.63.1, grafana 10.5.15);
+the table + bootstrap steps are in `gitops/README.md`.
+
+- **Validated, not deployed.** `scripts/validate-gitops.sh` (yq grammar + embedded
+  Helm values, then kubeconform against k8s 1.31.0 + the CRD catalog) passes
+  **18/18 resources, 0 skipped** — every custom kind schema-checked under `-strict`.
+  A real `kubectl apply --dry-run=server` is blocked: no cluster exists/reachable yet
+  (consistent with "migration weeks away"). The script auto-runs the server dry-run
+  once a cluster is reachable.
+- **Remaining before first sync** (per `gitops/README.md`): stand up the k3s cluster
+  + ArgoCD + cert-manager (`ClusterIssuer letsencrypt-prod`); seal the `grafana-admin`
+  and `grafana-ntfy` secrets; set the ntfy topic URL.
+- **Deliberately not built yet:** kube-state-metrics; HPA/KEDA for Tier-A (D7 / F3–F4 —
+  designed, not deployed); ntfy itself (kept as existing infra, only the Grafana
+  contact point is wired).
 
 ---
 
-<sub>ADR generated 2026-05-30 against commit `44f9235`. Edited 2026-05-30: added D7 (workload & obs scaling model) and forks F3–F4. Decisions D1–D7 accepted; forks F1–F4 open.</sub>
+<sub>ADR generated 2026-05-30 against commit `44f9235`. Edited 2026-05-30: added D7
+(workload & obs scaling model), forks F3–F4, and the resolved-inputs + implementation
+status (k3s / Traefik / Sealed Secrets; manifests generated under `gitops/`, validated
+18/18, not yet deployed). Decisions D1–D7 accepted; forks F1–F4 open.</sub>
