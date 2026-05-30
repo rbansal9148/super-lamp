@@ -1,6 +1,6 @@
 services:
   stremthru:
-    image: muniftanjim/stremthru@sha256:2c81b7d3d3083b8fb1f85c5734c56cc2b924b44e149f033102f7e000f8ea1fa6
+    image: muniftanjim/stremthru@sha256:d4eb85a8aef5b91ab81081959b9695aace0675e3790427a5a8f892d86c53ff6b
     container_name: stremthru
     restart: unless-stopped
     logging:
