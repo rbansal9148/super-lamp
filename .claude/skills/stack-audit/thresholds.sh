@@ -177,15 +177,19 @@
 # exceeds this is killed (SIGTERM) and replaced by a single visible marker
 # finding, so the audit always terminates in bounded time and its output is
 # reproducible run-to-run instead of racing an external timeout.
+# Deep mode gets a larger budget — it is explicitly the thorough (~2 min) mode
+# and runs intrinsically expensive checks (e.g. the stremthru orphan anti-join
+# over ~800k rows) that legitimately need more than the quick-mode budget.
 : "${CHECK_TIMEOUT_SECS:=25}"
+: "${CHECK_TIMEOUT_SECS_DEEP:=60}"
 # statement_timeout injected into every `docker exec ... psql` invocation via
-# PGOPTIONS. Set deliberately ABOVE CHECK_TIMEOUT_SECS: a query that finishes
-# under the check budget yields its real finding; one that exceeds the budget
+# PGOPTIONS. Set deliberately ABOVE the largest per-check budget (deep): a query
+# that finishes under the budget yields its real finding; one that exceeds it
 # lets the orchestrator kill the check and emit a *visible* timeout marker
 # (rather than the query self-aborting to an empty result and silently dropping
 # a real finding), while this bound still reaps the orphaned server-side query
 # moments later instead of leaving it running on the DB.
-: "${PG_STATEMENT_TIMEOUT_MS:=27000}"
+: "${PG_STATEMENT_TIMEOUT_MS:=62000}"
 
 # --- Image updates (check 42) ---
 # Registry digest lookups are network round-trips; this check is --deep only.
