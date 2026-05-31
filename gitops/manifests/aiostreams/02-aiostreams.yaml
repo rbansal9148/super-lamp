@@ -1,0 +1,70 @@
+# aiostreams app — the mesh orchestrator. Config+secrets sealed (envFrom). Mesh peers
+# (comet/prowlarr/zilean/mediafusion/stremthru) resolved same-namespace; egress via
+# gluetun:8888. NOTE: STREAM_URL_MAPPINGS still points playback at public *.my-blue-car.work
+# (Docker Traefik) — those resolve only after the public :443 cutover.
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: aiostreams, namespace: apps, labels: { app: aiostreams } }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: aiostreams } }
+  template:
+    metadata: { labels: { app: aiostreams } }
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: aiostreams
+          image: ghcr.io/viren070/aiostreams:v2.30.0
+          envFrom: [{ secretRef: { name: aiostreams-secrets } }]
+          ports: [{ containerPort: 3000, name: http }]
+          resources: { requests: { memory: 128Mi, cpu: 50m }, limits: { memory: 1Gi, cpu: "1" } }
+          volumeMounts: [{ name: data, mountPath: /app/data }]
+          readinessProbe: { httpGet: { path: /, port: 3000 }, initialDelaySeconds: 15, periodSeconds: 20, timeoutSeconds: 8 }
+      volumes: [{ name: data, emptyDir: {} }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: aiostreams, namespace: apps }
+spec: { selector: { app: aiostreams }, ports: [{ name: http, port: 3000, targetPort: 3000 }] }
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata: { name: aiostreams-tls, namespace: apps }
+spec:
+  secretName: aiostreams-tls
+  issuerRef: { name: selfsigned, kind: ClusterIssuer }
+  dnsNames: [aiostreams.k8s.my-blue-car.work]
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata: { name: aiostreams, namespace: apps }
+spec:
+  entryPoints: [websecure]
+  routes:
+    - match: Host(`aiostreams.k8s.my-blue-car.work`)
+      kind: Rule
+      middlewares: [{ name: authelia }]
+      services: [{ name: aiostreams, port: 3000 }]
+  tls: { secretName: aiostreams-tls }
+---
+apiVersion: batch/v1
+kind: CronJob
+metadata: { name: aiostreams-vacuum, namespace: apps }
+spec:
+  schedule: "50 3 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          enableServiceLinks: false
+          restartPolicy: Never
+          containers:
+            - name: vacuum
+              image: postgres:18.4
+              env: [{ name: PGPASSWORD, valueFrom: { secretKeyRef: { name: aiostreams-db, key: POSTGRES_PASSWORD } } }]
+              command: ["psql","-h","aiostreams-postgres","-U","aiostreams","-d","aiostreams","-c","VACUUM (ANALYZE);"]
+              resources: { requests: { memory: 32Mi, cpu: 25m }, limits: { memory: 128Mi, cpu: 250m } }
