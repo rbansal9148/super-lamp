@@ -1,0 +1,60 @@
+# Tailscale namespace + tailnet Ingresses. The operator (gitops/apps/tailscale-operator.yaml)
+# watches Ingresses with ingressClassName: tailscale and publishes each to the tailnet as
+# <tls.hosts[0]>.<your-tailnet>.ts.net with an automatic, trusted Tailscale HTTPS cert.
+# Tailnet membership is the auth boundary — these backends need no other auth here.
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: tailscale
+---
+# Grafana (has its own login) -> https://grafana.<tailnet>.ts.net
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ts-grafana
+  namespace: observability
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: grafana
+      port:
+        number: 80
+  tls:
+    - hosts:
+        - grafana
+---
+# vmui (VictoriaMetrics UI) -> https://vmui.<tailnet>.ts.net/vmui/
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ts-vmui
+  namespace: observability
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: vmsingle-obs
+      port:
+        number: 8428
+  tls:
+    - hosts:
+        - vmui
+---
+# VictoriaLogs UI -> https://vlogs.<tailnet>.ts.net/select/vmui/
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ts-vlogs
+  namespace: observability
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: vlsingle-obs
+      port:
+        number: 9428
+  tls:
+    - hosts:
+        - vlogs
