@@ -83,6 +83,9 @@ spec:
     metadata:
       labels: { app: authelia }
     spec:
+      # k8s injects <SVC>_SERVICE_* / <SVC>_PORT_* env vars; Authelia reads any AUTHELIA_*
+      # env as config, so the injected 'port' collides with server.address -> fatal. Off.
+      enableServiceLinks: false
       securityContext:
         fsGroup: 1000
       containers:
