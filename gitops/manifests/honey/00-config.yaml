@@ -1,0 +1,97 @@
+apiVersion: v1
+data:
+  config.json: "{\n\t\"ui\": {\n\t\t\"name\": \"Dashboard\",\n\t\t\"desc\": \"Nice
+    and sweet place for all your self-hosted services.\",\n\t\t\"icon\": \"img/icon.png\",\n\t\t\"wallpaper\":
+    \"img/background.jpg\",\n\t\t\"wallpaper_dark\": \"img/background-dark.jpg\",\n\t\t\"dark_mode\":
+    true,\n\t\t\"open_new_tab\": true,\n\t\t\"ping_dots\": true,\n\t\t\"blur\": true,\n\t\t\"animations\":
+    true,\n\t\t\"trusted_domains\": [\n\t\t\t\"my-blue-car.work\"\n\t\t]\n\t},\n\t\"services\":
+    [\n\t\t{\n\t\t\t\"name\": \"Authelia\",\n\t\t\t\"desc\": \"Authentication and
+    Authorization service.\",\n\t\t\t\"href\": \"https://auth.my-blue-car.work\",\n\t\t\t\"icon\":
+    \"https://raw.githubusercontent.com/authelia/authelia/refs/heads/master/docs/static/svgs/branding/logo-cropped.svg\"\n\t\t},\n\t\t{\n\t\t\t\"name\":
+    \"Traefik\",\n\t\t\t\"desc\": \"HTTP reverse proxy and load balancer.\",\n\t\t\t\"href\":
+    \"https://traefik.my-blue-car.work\",\n\t\t\t\"icon\": \"https://icon.icepanel.io/Technology/svg/Traefik-Proxy.svg\"\n\t\t},\n\t\t{\n\t\t\t\"name\":
+    \"dash.\",\n\t\t\t\"desc\": \"A modern Server dashboard.\",\n\t\t\t\"href\": \"https://dash.my-blue-car.work\",\n\t\t\t\"icon\":
+    \"https://getdashdot.com/img/logo512.png\"\n\t\t},\n\t\t{\n\t\t\t\"name\": \"Dozzle\",\n\t\t\t\"desc\":
+    \"Docker logs in the browser.\",\n\t\t\t\"href\": \"https://dozzle.my-blue-car.work\",\n\t\t\t\"icon\":
+    \"https://raw.githubusercontent.com/amir20/dozzle/19bb8659135e4232523d45ff8e948a0907b2701c/docs/public/logo.svg\"\n\t\t},\n\t\t{\n\t\t\t\"name\":
+    \"AIOStreams\",\n\t\t\t\"desc\": \"All-In-One streaming add-on for Stremio.\",\n\t\t\t\"href\":
+    \"https://aiostreams.my-blue-car.work\",\n\t\t\t\"icon\": \"https://raw.githubusercontent.com/Viren070/AIOStreams/refs/heads/main/packages/frontend/public/assets/logo.png\"\n\t\t},\n\t\t{\n\t\t\t\"name\":
+    \"Comet\",\n\t\t\t\"desc\": \"Torrent/Debrid indexer for Stremio.\",\n\t\t\t\"href\":
+    \"https://comet.my-blue-car.work\",\n\t\t\t\"icon\": \"https://i.imgur.com/jmVoVMu.jpeg\"\n\t\t},\n\t\t{\n\t\t\t\"name\":
+    \"MediaFusion\",\n\t\t\t\"desc\": \"Torrent/Debrid indexer for Stremio/Kodi.\",\n\t\t\t\"href\":
+    \"https://mediafusion.my-blue-car.work\",\n\t\t\t\"icon\": \"https://raw.githubusercontent.com/mhdzumair/MediaFusion/main/resources/images/mediafusion_logo.png\"\n\t\t},\n\t\t{\n\t\t\t\"name\":
+    \"StremThru\",\n\t\t\t\"desc\": \"Companion suite for Stremio.\",\n\t\t\t\"href\":
+    \"https://stremthru.my-blue-car.work\",\n\t\t\t\"icon\": \"https://emojiapi.dev/api/v1/sparkles/256.png\"\n\t\t},\n\t\t{\n\t\t\t\"name\":
+    \"Aiometadata\",\n\t\t\t\"desc\": \"Metadata catalog add-on for Stremio.\",\n\t\t\t\"href\":
+    \"https://aiometadata.my-blue-car.work\",\n\t\t\t\"icon\": \"https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/stremio.svg\"\n\t\t},\n\t\t{\n\t\t\t\"name\":
+    \"Zilean\",\n\t\t\t\"desc\": \"DebridMediaManager-powered search for Stremio.\",\n\t\t\t\"href\":
+    \"https://zilean.my-blue-car.work\",\n\t\t\t\"icon\": \"https://raw.githubusercontent.com/iPromKnight/zilean/main/src/Zilean.ApiService/wwwroot/images/zilean-logo.png\"\n\t\t},\n\t\t{\n\t\t\t\"name\":
+    \"Prowlarr\",\n\t\t\t\"desc\": \"Indexer manager.\",\n\t\t\t\"href\": \"https://prowlarr.my-blue-car.work\",\n\t\t\t\"icon\":
+    \"https://raw.githubusercontent.com/Prowlarr/Prowlarr/refs/heads/develop/Logo/512.png\"\n\t\t},\n\t\t{\n\t\t\t\"name\":
+    \"Bitmagnet\",\n\t\t\t\"desc\": \"Self-hosted DHT crawler and torrent indexer.\",\n\t\t\t\"href\":
+    \"https://bitmagnet.my-blue-car.work\",\n\t\t\t\"icon\": \"https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/bitmagnet.png\"\n\t\t},\n\t\t{\n\t\t\t\"name\":
+    \"SearXNG\",\n\t\t\t\"desc\": \"Privacy-respecting search engine.\",\n\t\t\t\"href\":
+    \"https://searxng.my-blue-car.work\",\n\t\t\t\"icon\": \"https://raw.githubusercontent.com/searxng/searxng/refs/heads/master/searx/static/themes/simple/img/favicon.png\"\n\t\t},\n\t\t{\n\t\t\t\"name\":
+    \"Calibre-Web Automated\",\n\t\t\t\"desc\": \"Self-hosted ebook library and reader.\",\n\t\t\t\"href\":
+    \"https://calibre.my-blue-car.work\",\n\t\t\t\"icon\": \"https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/calibre-web.png\"\n\t\t},\n\t\t{\n\t\t\t\"name\":
+    \"Shelfmark\",\n\t\t\t\"desc\": \"Modern reading UI for Calibre-Web.\",\n\t\t\t\"href\":
+    \"https://shelfmark.my-blue-car.work\",\n\t\t\t\"icon\": \"https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/shelfmark.png\"\n\t\t},\n\t\t{\n\t\t\t\"name\":
+    \"libremdb\",\n\t\t\t\"desc\": \"Privacy-friendly IMDb front-end.\",\n\t\t\t\"href\":
+    \"https://libremdb.my-blue-car.work\",\n\t\t\t\"icon\": \"https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/libremdb.png\"\n\t\t},\n\t\t{\n\t\t\t\"name\":
+    \"Syncio\",\n\t\t\t\"desc\": \"Stremio library and progress sync.\",\n\t\t\t\"href\":
+    \"https://syncio.my-blue-car.work\",\n\t\t\t\"icon\": \"https://raw.githubusercontent.com/iamneur0/syncio/main/client/public/logo-white.png\"\n\t\t}\n\t]\n}"
+kind: ConfigMap
+metadata:
+  name: honey-config
+  namespace: apps
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: honey, namespace: apps, labels: { app: honey } }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: honey } }
+  template:
+    metadata: { labels: { app: honey } }
+    spec:
+      enableServiceLinks: false
+      securityContext: { runAsUser: 1001, runAsGroup: 1001 }
+      containers:
+        - name: honey
+          image: ghcr.io/dani3l0/honey:latest@sha256:0af531af34ec047d72ecbbbb4627b8b45039835755c10338f6e2428ee23e7dd5
+          ports: [{ containerPort: 4173, name: http }]
+          resources: { requests: { memory: 32Mi, cpu: 10m }, limits: { memory: 128Mi, cpu: 250m } }
+          volumeMounts:
+            - { name: config, mountPath: /app/dist/config/config.json, subPath: config.json, readOnly: true }
+            - { name: img, mountPath: /app/dist/img/custom }
+          readinessProbe: { httpGet: { path: /, port: 4173 }, initialDelaySeconds: 10, periodSeconds: 20 }
+      volumes:
+        - name: config
+          configMap: { name: honey-config }
+        - name: img
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata: { name: honey, namespace: apps }
+spec: { selector: { app: honey }, ports: [{ name: http, port: 4173, targetPort: 4173 }] }
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata: { name: honey-tls, namespace: apps }
+spec:
+  secretName: honey-tls
+  issuerRef: { name: selfsigned, kind: ClusterIssuer }
+  dnsNames: [honey.k8s.my-blue-car.work]
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata: { name: honey, namespace: apps }
+spec:
+  entryPoints: [websecure]
+  routes:
+    - match: Host(`honey.k8s.my-blue-car.work`)
+      kind: Rule
+      middlewares: [{ name: authelia }]
+      services: [{ name: honey, port: 4173 }]
+  tls: { secretName: honey-tls }
