@@ -1,0 +1,122 @@
+# bitmagnet — DHT crawler. FULL-NETNS VPN: gluetun + bitmagnet in ONE pod (shared netns),
+# so all bitmagnet egress (DHT/peer UDP+TCP) goes through the Mullvad tunnel — an HTTP
+# proxy can't carry DHT, hence the sidecar (mirrors Docker network_mode: service:bitmagnet_vpn).
+# gluetun: DNS_KEEP_NAMESERVER=on keeps k8s DNS (so bitmagnet resolves bitmagnet-postgres);
+# FIREWALL_OUTBOUND_SUBNETS allows the cluster CIDRs through the killswitch (DB reachable
+# pre-tunnel); FIREWALL_INPUT_PORTS=3333 lets the cluster reach the web UI in the netns.
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: bitmagnet, namespace: apps, labels: { app: bitmagnet } }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: bitmagnet } }
+  template:
+    metadata: { labels: { app: bitmagnet } }
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: gluetun
+          image: qmcgaw/gluetun@sha256:10b4895fde4499c2d1d9fbd8e681d040ede0efe8c6cfe5d0c51daf0461836ee8
+          securityContext:
+            capabilities: { add: ["NET_ADMIN"] }
+          env:
+            - { name: VPN_SERVICE_PROVIDER, value: "mullvad" }
+            - { name: VPN_TYPE, value: "wireguard" }
+            - { name: WIREGUARD_ADDRESSES, value: "10.67.194.217/32" }
+            - { name: SERVER_COUNTRIES, value: "Singapore" }
+            - { name: DOT, value: "off" }
+            - { name: DNS_KEEP_NAMESERVER, value: "on" }       # keep k8s DNS for svc resolution
+            - { name: FIREWALL_OUTBOUND_SUBNETS, value: "10.42.0.0/16,10.43.0.0/16" }
+            - { name: FIREWALL_INPUT_PORTS, value: "3333" }    # allow cluster -> bitmagnet UI
+            - name: WIREGUARD_PRIVATE_KEY
+              valueFrom: { secretKeyRef: { name: gluetun-wg, key: WIREGUARD_PRIVATE_KEY } }
+          resources: { requests: { memory: 64Mi, cpu: 50m }, limits: { memory: 256Mi, cpu: 500m } }
+          readinessProbe:
+            exec: { command: ["/gluetun-entrypoint","healthcheck"] }
+            initialDelaySeconds: 20
+            periodSeconds: 30
+        - name: bitmagnet
+          image: ghcr.io/bitmagnet-io/bitmagnet@sha256:cf2c16fac5b51f1c18e630b4710175d35d7e44b83012cfd05a2b43712feec05e
+          command: ["bitmagnet","worker","run","--all"]
+          env:
+            - { name: POSTGRES_HOST, value: "bitmagnet-postgres" }
+            - { name: POSTGRES_DB, value: "bitmagnet" }
+            - { name: POSTGRES_USER, value: "bitmagnet" }
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: bitmagnet-secrets, key: POSTGRES_PASSWORD } }
+            - { name: TMDB_ENABLED, value: "true" }
+            - name: TMDB_API_KEY
+              valueFrom: { secretKeyRef: { name: bitmagnet-secrets, key: TMDB_API_KEY } }
+            - { name: "DHT_CRAWLER.SCALING_FACTOR", value: "2" }
+            - { name: PROCESSOR_CONCURRENCY, value: "10" }
+            - { name: BM_FILTER_CATEGORIES, value: "2000,5000" }
+            - { name: LOG_FILE_ROTATOR_ENABLED, value: "false" }
+          ports: [{ containerPort: 3333, name: http }]
+          resources: { requests: { memory: 128Mi, cpu: 100m }, limits: { memory: 1Gi, cpu: "2" } }
+          readinessProbe:
+            httpGet: { path: /, port: 3333 }
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 8
+---
+apiVersion: v1
+kind: Service
+metadata: { name: bitmagnet, namespace: apps }
+spec: { selector: { app: bitmagnet }, ports: [{ name: http, port: 3333, targetPort: 3333 }] }
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata: { name: bitmagnet-tls, namespace: apps }
+spec:
+  secretName: bitmagnet-tls
+  issuerRef: { name: selfsigned, kind: ClusterIssuer }
+  dnsNames: [bitmagnet.k8s.my-blue-car.work]
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata: { name: bitmagnet, namespace: apps }
+spec:
+  entryPoints: [websecure]
+  routes:
+    - match: Host(`bitmagnet.k8s.my-blue-car.work`)
+      kind: Rule
+      middlewares: [{ name: authelia }]
+      services: [{ name: bitmagnet, port: 3333 }]
+  tls: { secretName: bitmagnet-tls }
+---
+# bitmagnet_prune sidecar -> CronJob every 6h: delete unclassified torrents in batches.
+apiVersion: batch/v1
+kind: CronJob
+metadata: { name: bitmagnet-prune, namespace: apps }
+spec:
+  schedule: "0 */6 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 3600
+      template:
+        spec:
+          enableServiceLinks: false
+          restartPolicy: Never
+          containers:
+            - name: prune
+              image: postgres:16-alpine
+              env:
+                - name: PGPASSWORD
+                  valueFrom: { secretKeyRef: { name: bitmagnet-secrets, key: POSTGRES_PASSWORD } }
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  for i in 1 2 3 4 5 6 7; do
+                    OUT=$(psql -h bitmagnet-postgres -U bitmagnet -d bitmagnet -At -c "SET lock_timeout='30s'; WITH d AS (DELETE FROM torrents WHERE info_hash IN (SELECT t.info_hash FROM torrents t LEFT JOIN torrent_contents tc ON tc.info_hash=t.info_hash WHERE tc.content_type IS NULL LIMIT 50000) RETURNING 1) SELECT count(*) FROM d;" 2>&1 | tr '\n' ' ')
+                    echo "batch=$i result=$OUT"
+                    case "$OUT" in *" 0 "*|*"|0"*) [ "${OUT% }" = "0" ] && break ;; esac
+                    printf '%s' "$OUT" | { read -r n _; [ "$n" = "0" ] && exit 0; }
+                    sleep 10
+                  done
+              resources: { requests: { memory: 64Mi, cpu: 50m }, limits: { memory: 256Mi, cpu: 500m } }
