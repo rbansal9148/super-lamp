@@ -36,4 +36,7 @@ spec:
 apiVersion: v1
 kind: Service
 metadata: { name: bitmagnet-postgres, namespace: apps }
-spec: { selector: { app: bitmagnet-postgres }, ports: [{ name: postgres, port: 5432, targetPort: 5432 }] }
+spec:
+  clusterIP: 10.43.36.31        # pinned: referenced by bitmagnet's hostAliases (gluetun netns)
+  selector: { app: bitmagnet-postgres }
+  ports: [{ name: postgres, port: 5432, targetPort: 5432 }]
