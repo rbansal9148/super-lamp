@@ -1,0 +1,26 @@
+# Wildcard cert for the public domain, used as k3s Traefik's DEFAULT cert (TLSStore
+# default in kube-system). Every IngressRoute without an explicit secret serves this,
+# so public hostnames get a valid LE cert with no per-app Certificate churn.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: wildcard-my-blue-car
+  namespace: kube-system
+spec:
+  secretName: wildcard-my-blue-car-tls
+  issuerRef:
+    name: letsencrypt
+    kind: ClusterIssuer
+  commonName: "*.my-blue-car.work"
+  dnsNames:
+    - "*.my-blue-car.work"
+    - "my-blue-car.work"
+---
+apiVersion: traefik.io/v1alpha1
+kind: TLSStore
+metadata:
+  name: default
+  namespace: kube-system
+spec:
+  defaultCertificate:
+    secretName: wildcard-my-blue-car-tls
