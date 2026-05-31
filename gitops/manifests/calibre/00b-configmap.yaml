@@ -1,0 +1,42 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: shelfmark-config
+  namespace: apps
+  labels:
+    app: calibre
+data:
+  AA_BASE_URL: auto
+  AA_MIRROR_URLS: https://annas-archive.gl,https://annas-archive.gd,https://annas-archive.pk
+  BOOK_LANGUAGE: en
+  CALIBRE_WEB_URL: https://calibre.k8s.my-blue-car.work
+  COVERS_CACHE_ENABLED: 'true'
+  CWA_DB_PATH: /config/app.db
+  DIRECT_DOWNLOAD_ENABLED: 'true'
+  DOCKERMODE: 'true'
+  ENABLE_LOGGING: 'true'
+  EXT_BYPASSER_URL: http://flaresolverr:8191
+  GOOGLEBOOKS_ENABLED: 'true'
+  INGEST_DIR: /books
+  LIBGEN_MIRROR_URLS: https://libgen.li,https://libgen.rs,https://libgen.is
+  MAX_CONCURRENT_DOWNLOADS: '3'
+  METADATA_CACHE_ENABLED: 'true'
+  METADATA_PROVIDER: googlebooks
+  ONBOARDING: 'false'
+  OPENLIBRARY_ENABLED: 'true'
+  PGID: '1001'
+  PROWLARR_AUTO_EXPAND: 'true'
+  PROWLARR_ENABLED: 'true'
+  PROWLARR_INDEXERS: 21,24,25,20,9,8,37
+  PROWLARR_URL: http://prowlarr:9696
+  PUID: '1001'
+  SEARCH_MODE: universal
+  SESSION_COOKIE_SECURE: 'true'
+  SHOW_RELEASE_SOURCE_LINKS: 'true'
+  SUPPORTED_FORMATS: epub,mobi,azw3,fb2,djvu,cbz,cbr,pdf
+  TZ: Asia/Kolkata
+  USE_CF_BYPASS: 'true'
+  USING_EXTERNAL_BYPASSER: 'true'
+  WELIB_MIRROR_URLS: ''
+  ZLIB_MIRROR_URLS: https://z-library.se,https://zlibrary-global.se

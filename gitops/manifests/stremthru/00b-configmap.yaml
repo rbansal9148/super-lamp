@@ -1,0 +1,19 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: stremthru-config
+  namespace: apps
+  labels:
+    app: stremthru
+data:
+  STREMTHRU_BASE_URL: https://stremthru.my-blue-car.work
+  STREMTHRU_CONTENT_PROXY_CONNECTION_LIMIT: '*:0'
+  STREMTHRU_INTEGRATION_BITMAGNET_BASE_URL: http://bitmagnet:3333
+  STREMTHRU_LOG_FORMAT: json
+  STREMTHRU_LOG_LEVEL: INFO
+  STREMTHRU_REDIS_URI: redis://stremthru-redis:6379
+  STREMTHRU_STORE_CONTENT_PROXY: '*:true,easydebrid:false,premiumize:false'
+  STREMTHRU_STORE_TUNNEL: torbox:false,*:true
+  STREMTHRU_STREMIO_TORZ_LAZY_PULL: 'true'
+  STREMTHRU_TUNNEL: bitmagnet:false,bitmagnet-postgres:false,stremthru-postgres:false,stremthru-redis:false,*:true
