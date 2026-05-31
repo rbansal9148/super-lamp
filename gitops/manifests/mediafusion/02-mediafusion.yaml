@@ -14,7 +14,7 @@ spec:
       containers:
         - name: mediafusion
           image: mhdzumair/mediafusion:6.0.0-beta.12
-          envFrom: [{ secretRef: { name: mediafusion-secrets } }]
+          envFrom: [{ configMapRef: { name: mediafusion-config } }, { secretRef: { name: mediafusion-secrets } }]
           ports: [{ containerPort: 8000, name: http }]
           resources: { requests: { memory: 256Mi, cpu: 100m }, limits: { memory: 3Gi, cpu: "2" } }
           readinessProbe: { httpGet: { path: /health, port: 8000 }, initialDelaySeconds: 20, periodSeconds: 20, timeoutSeconds: 8 }
