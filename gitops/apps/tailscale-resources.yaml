@@ -1,0 +1,34 @@
+# Tailscale namespace, operator-oauth SealedSecret, and the tailnet Ingresses.
+# Apply once:  kubectl apply -f gitops/apps/tailscale-resources.yaml
+# (apply this BEFORE tailscale-operator so operator-oauth exists when the operator starts;
+#  ArgoCD retry/selfHeal absorbs the ordering either way.)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tailscale-resources
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:rbansal9148/super-lamp.git
+    # BRING-UP: tracking the feature branch; change to main at merge time.
+    targetRevision: feat/k3s-bootstrap
+    path: gitops/manifests/tailscale
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: tailscale
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m

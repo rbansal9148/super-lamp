@@ -1,0 +1,34 @@
+# Tailscale Kubernetes Operator (Helm). Authenticates via the pre-created
+# 'operator-oauth' SealedSecret (manifests/tailscale/) — the chart's oauth.* values
+# are left at their empty defaults, which makes it consume that existing secret.
+# Apply once:  kubectl apply -f gitops/apps/tailscale-operator.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tailscale-operator
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: https://pkgs.tailscale.com/helmcharts
+    chart: tailscale-operator
+    targetRevision: 1.98.4            # operator app v1.98.4 (latest stable as of 2026-05-31)
+    helm:
+      values: |
+        installCRDs: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: tailscale
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true          # idempotent; the Namespace resource also lives in tailscale-resources
+      - ServerSideApply=true          # tailscale CRDs are large
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
