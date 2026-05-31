@@ -1,0 +1,134 @@
+# zilean app — DMM/torrent scraper. Egress goes through the in-cluster gluetun HTTP
+# proxy (gluetun.apps.svc.cluster.local:8888) to avoid leaking the host IP to public
+# trackers/DMM — same intent as the Docker HTTP_PROXY=http://gluetun:8080 (gost), now
+# pointed at gluetun's built-in proxy. NO_PROXY keeps cluster-internal traffic (the DB,
+# *.svc, pod/svc CIDRs) off the tunnel.
+#
+# Exposed on :8443 at zilean.k8s.my-blue-car.work behind the k8s Authelia forward-auth
+# Middleware (apps/authelia) — mirrors the Docker authelia@docker gate. Runs ALONGSIDE
+# the Docker instance on a distinct hostname until cutover.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: zilean
+  namespace: apps
+  labels: { app: zilean }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: zilean }
+  template:
+    metadata:
+      labels: { app: zilean }
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: zilean
+          image: ipromknight/zilean@sha256:1b828ac0604235de7adb7757d11c88c1b3bb1a6319071b0c9d99325bc0f9d477
+          env:
+            - { name: HTTP_PROXY,  value: "http://gluetun.apps.svc.cluster.local:8888" }
+            - { name: HTTPS_PROXY, value: "http://gluetun.apps.svc.cluster.local:8888" }
+            # Keep cluster-internal traffic off the VPN tunnel (DB, k8s svc/pod CIDRs).
+            - { name: NO_PROXY, value: "localhost,127.0.0.1,zilean-postgres,.svc,.cluster.local,10.42.0.0/16,10.43.0.0/16" }
+            - { name: Zilean__EnableDashboard, value: "true" }
+            - name: Zilean__Database__ConnectionString
+              valueFrom:
+                secretKeyRef: { name: zilean-db, key: CONNECTION_STRING }
+            - { name: Zilean__Imdb__UseAllCores, value: "true" }
+            - { name: Zilean__Imdb__UseLucene, value: "true" }
+            - { name: Zilean__Parsing__BatchSize, value: "100000" }
+            - { name: Zilean__Dmm__ScrapeSchedule, value: "0 */6 * * *" }   # every 6h (hourly → DMM 429s)
+            - { name: Zilean__Torrents__EnableEndpoint, value: "true" }
+            - { name: Zilean__Torrents__EnableScrapeEndpoint, value: "true" }
+          ports:
+            - { containerPort: 8181, name: http }
+          resources:
+            requests: { memory: 256Mi, cpu: 100m }
+            limits: { memory: 4Gi, cpu: "2" }      # compose mem_limit: 4g
+          volumeMounts:
+            - { name: tmp, mountPath: /tmp }
+          readinessProbe:
+            httpGet: { path: /healthchecks/ping, port: 8181 }
+            initialDelaySeconds: 20
+            periodSeconds: 30
+            timeoutSeconds: 10
+          livenessProbe:
+            httpGet: { path: /healthchecks/ping, port: 8181 }
+            initialDelaySeconds: 60
+            periodSeconds: 60
+            timeoutSeconds: 10
+      volumes:
+        - name: tmp
+          emptyDir: {}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: zilean
+  namespace: apps
+spec:
+  selector: { app: zilean }
+  ports:
+    - { name: http, port: 8181, targetPort: 8181 }
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: zilean-tls
+  namespace: apps
+spec:
+  secretName: zilean-tls
+  issuerRef:
+    name: selfsigned
+    kind: ClusterIssuer
+  dnsNames:
+    - zilean.k8s.my-blue-car.work
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: zilean
+  namespace: apps
+spec:
+  entryPoints: [websecure]              # k3s Traefik :8443 (Docker Traefik owns :443)
+  routes:
+    - match: Host(`zilean.k8s.my-blue-car.work`)
+      kind: Rule
+      middlewares:
+        - name: authelia                # forward-auth gate (apps/authelia Middleware)
+      services:
+        - name: zilean
+          port: 8181
+  tls:
+    secretName: zilean-tls
+---
+# Daily VACUUM (ANALYZE) — replaces the zilean_vacuum sidecar (compose.yaml:110-136).
+# CronJob is the idiomatic k8s shape for a periodic maintenance task vs a sleep-loop.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: zilean-vacuum
+  namespace: apps
+spec:
+  schedule: "0 3 * * *"                  # daily 03:00 (sidecar ran every 86400s)
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          enableServiceLinks: false
+          restartPolicy: Never
+          containers:
+            - name: vacuum
+              image: postgres:17.10-alpine
+              env:
+                - name: PGPASSWORD
+                  valueFrom:
+                    secretKeyRef: { name: zilean-db, key: POSTGRES_PASSWORD }
+              command: ["psql", "-h", "zilean-postgres", "-U", "zilean", "-d", "zilean", "-c", "VACUUM (ANALYZE);"]
+              resources:
+                requests: { memory: 64Mi, cpu: 50m }
+                limits: { memory: 256Mi, cpu: 500m }
