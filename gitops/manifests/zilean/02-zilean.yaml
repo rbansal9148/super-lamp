@@ -67,9 +67,16 @@ metadata:
   name: zilean
   namespace: apps
 spec:
+  # NodePort BRIDGE: the streaming mesh (comet/mediafusion/aiostreams) is still on
+  # Docker and references zilean by internal name. k8s ClusterIP isn't routable from
+  # the Docker network, so we expose zilean on a host port; Docker consumers reach it
+  # at http://172.18.0.1:30181 (aio_network gateway). Retired once the mesh moves to k3s.
+  # NOTE: nodePort binds 0.0.0.0 on the host — ensure :30181 is NOT open at the cloud
+  # firewall / Oracle security list (internal Docker-bridge access only).
+  type: NodePort
   selector: { app: zilean }
   ports:
-    - { name: http, port: 8181, targetPort: 8181 }
+    - { name: http, port: 8181, targetPort: 8181, nodePort: 30181 }
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
