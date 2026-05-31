@@ -1,0 +1,95 @@
+# In-cluster Mullvad (WireGuard) VPN egress — k8s replacement for the Docker
+# gluetun+gost pair. gost is dropped: gluetun's built-in HTTP proxy (HTTPPROXY=on,
+# :8888) serves the proxy path. VPN-coupled apps (zilean, prowlarr, comet, searxng,
+# bitmagnet) reach it via HTTP_PROXY=http://gluetun.apps.svc.cluster.local:8888,
+# or run gluetun as a sidecar (template at bottom) for full-netns routing.
+#
+# FIREWALL_OUTBOUND_SUBNETS allowlists the k3s pod (10.42/16) + service (10.43/16)
+# CIDRs through gluetun's killswitch — without it the proxy Service is unreachable
+# from other pods (the #1 gluetun-in-k8s gotcha).
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gluetun
+  namespace: apps
+  labels: { app: gluetun }
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate            # single tunnel; don't run two during a rollout
+  selector:
+    matchLabels: { app: gluetun }
+  template:
+    metadata:
+      labels: { app: gluetun }
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: gluetun
+          image: qmcgaw/gluetun@sha256:10b4895fde4499c2d1d9fbd8e681d040ede0efe8c6cfe5d0c51daf0461836ee8
+          securityContext:
+            capabilities:
+              add: ["NET_ADMIN"]   # gluetun creates /dev/net/tun + manages the tunnel
+          env:
+            - name: VPN_SERVICE_PROVIDER
+              value: "mullvad"
+            - name: VPN_TYPE
+              value: "wireguard"
+            - name: WIREGUARD_ADDRESSES
+              value: "10.67.194.217/32"
+            - name: SERVER_COUNTRIES
+              value: "Singapore"
+            - name: HTTPPROXY
+              value: "on"          # built-in HTTP proxy on :8888 (replaces gost)
+            - name: FIREWALL_OUTBOUND_SUBNETS
+              value: "10.42.0.0/16,10.43.0.0/16"   # k3s pod + service CIDRs
+            - name: WIREGUARD_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: gluetun-wg
+                  key: WIREGUARD_PRIVATE_KEY
+          ports:
+            - { containerPort: 8888, name: httpproxy }
+          resources:
+            requests: { memory: 64Mi, cpu: 50m }
+            limits: { memory: 256Mi, cpu: 500m }
+          readinessProbe:
+            tcpSocket: { port: 8888 }     # proxy listens once the tunnel is up
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          livenessProbe:
+            exec:
+              command: ["/gluetun-entrypoint", "healthcheck"]
+            initialDelaySeconds: 30
+            periodSeconds: 60
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gluetun
+  namespace: apps
+spec:
+  selector: { app: gluetun }
+  ports:
+    - name: httpproxy
+      port: 8888
+      targetPort: 8888
+# ──────────────────────────────────────────────────────────────────────────────
+# SIDECAR TEMPLATE — for apps that need FULL-netns routing (Docker's
+# network_mode: service:gluetun), e.g. bitmagnet. Put gluetun in the SAME pod; the
+# app shares its network namespace and ALL its egress goes through the VPN. The app
+# then talks to its own DB via 127.0.0.1 (same netns), and you expose the app via a
+# separate Service on the gluetun-owning pod.
+#
+#   spec:
+#     template:
+#       spec:
+#         containers:
+#           - name: gluetun
+#             image: qmcgaw/gluetun@sha256:10b4895...
+#             securityContext: { capabilities: { add: ["NET_ADMIN"] } }
+#             env: [ ...same VPN_* env as above... ]
+#           - name: <app>
+#             image: <app-image>
+#             # no ports/netns of its own — shares gluetun's. Reaches the internet
+#             # only through the tunnel; reaches its DB sidecar via 127.0.0.1.

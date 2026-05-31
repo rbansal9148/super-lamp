@@ -1,0 +1,33 @@
+# In-cluster VPN egress (Mullvad/WireGuard) — gluetun Deployment + Service + sealed
+# WG key. Unblocks the VPN-coupled app tier (zilean/prowlarr/comet/searxng/bitmagnet)
+# for migration. Apply once:  kubectl apply -f gitops/apps/gluetun.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: gluetun
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:rbansal9148/super-lamp.git
+    # BRING-UP: tracking the feature branch; change to main at merge time.
+    targetRevision: feat/k3s-bootstrap
+    path: gitops/manifests/gluetun
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: apps
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
