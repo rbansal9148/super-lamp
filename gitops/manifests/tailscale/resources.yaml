@@ -58,3 +58,22 @@ spec:
   tls:
     - hosts:
         - vlogs
+---
+# ArgoCD UI -> https://argocd.<tailnet>.ts.net
+# argocd-server already runs server.insecure=true (serves plain HTTP on :80->8080),
+# so Tailscale terminates TLS and forwards HTTP with no redirect-loop.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: ts-argocd
+  namespace: argocd
+spec:
+  ingressClassName: tailscale
+  defaultBackend:
+    service:
+      name: argocd-server
+      port:
+        number: 80
+  tls:
+    - hosts:
+        - argocd
