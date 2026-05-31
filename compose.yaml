@@ -62,7 +62,7 @@ include:
   # - apps/plex-trakt-sync/compose.yaml
   # - apps/plexio/compose.yaml
   # - apps/portainer/compose.yaml
-  - apps/prowlarr/compose.yaml
+  # - apps/prowlarr/compose.yaml         # MIGRATED to k3s (gitops/manifests/prowlarr, hostPath-reuse)
   # - apps/quetre/compose.yaml
   # - apps/radarr/compose.yaml
   - apps/redlib/compose.yaml
