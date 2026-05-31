@@ -1,0 +1,33 @@
+# Self-contained Authelia for the k8s realm. Provides the forward-auth Middleware
+# that auth-gated app migrations attach to. Apply once:
+#   kubectl apply -f gitops/apps/authelia.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: authelia
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:rbansal9148/super-lamp.git
+    # BRING-UP: tracking the feature branch; change to main at merge time.
+    targetRevision: feat/k3s-bootstrap
+    path: gitops/manifests/authelia
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: apps
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true         # 'apps' ns is owned by the it-tools app; just ensure it exists
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
