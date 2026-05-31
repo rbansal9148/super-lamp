@@ -1,0 +1,63 @@
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: dash-config, namespace: apps }
+data:
+  DASHDOT_PAGE_TITLE: "dash."
+  DASHDOT_SHOW_HOST: "true"
+  DASHDOT_ALWAYS_SHOW_PERCENTAGES: "true"
+  DASHDOT_ACCEPT_OOKLA_EULA: "false"
+  DASHDOT_NETWORK_SPEED_AS_BYTES: "false"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: dash, namespace: apps, labels: { app: dash } }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: dash } }
+  template:
+    metadata: { labels: { app: dash } }
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: dash
+          image: mauricenino/dashdot:latest@sha256:434a54d2937411a06b09c50e55709cc7d3b092c0fe173a9e5c986f9b5a33c7c6
+          envFrom: [{ configMapRef: { name: dash-config } }]
+          ports: [{ containerPort: 3001, name: http }]
+          resources: { requests: { memory: 64Mi, cpu: 25m }, limits: { memory: 256Mi, cpu: 500m } }
+          securityContext: { allowPrivilegeEscalation: false }
+          volumeMounts:
+            - { name: host-root, mountPath: /mnt/host, readOnly: true }
+            - { name: host-proc, mountPath: /host/proc, readOnly: true }
+            - { name: host-sys, mountPath: /host/sys, readOnly: true }
+            - { name: os-release, mountPath: /etc/os-release, readOnly: true }
+          readinessProbe: { httpGet: { path: /, port: 3001 }, initialDelaySeconds: 15, periodSeconds: 30 }
+      volumes:
+        - { name: host-root, hostPath: { path: / } }
+        - { name: host-proc, hostPath: { path: /proc } }
+        - { name: host-sys, hostPath: { path: /sys } }
+        - { name: os-release, hostPath: { path: /etc/os-release } }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: dash, namespace: apps }
+spec: { selector: { app: dash }, ports: [{ name: http, port: 3001, targetPort: 3001 }] }
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata: { name: dash-tls, namespace: apps }
+spec:
+  secretName: dash-tls
+  issuerRef: { name: selfsigned, kind: ClusterIssuer }
+  dnsNames: [dash.k8s.my-blue-car.work]
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata: { name: dash, namespace: apps }
+spec:
+  entryPoints: [websecure]
+  routes:
+    - match: Host(`dash.k8s.my-blue-car.work`)
+      kind: Rule
+      middlewares: [{ name: authelia }]
+      services: [{ name: dash, port: 3001 }]
+  tls: { secretName: dash-tls }
