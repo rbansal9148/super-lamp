@@ -28,7 +28,8 @@ spec:
             - { name: POSTGRES_USER, value: mediafusion }
             - { name: POSTGRES_DB, value: mediafusion }
             - { name: POSTGRES_INITDB_ARGS, value: "--data-checksums" }
-            - { name: POSTGRES_PASSWORD, value: mediafusion }
+            - name: POSTGRES_PASSWORD
+              valueFrom: { secretKeyRef: { name: mediafusion-secrets, key: POSTGRES_PASSWORD } }
           ports: [{ containerPort: 5432, name: postgres }]
           resources: { requests: { memory: 256Mi, cpu: 100m }, limits: { memory: 2Gi, cpu: "1" } }
           volumeMounts:

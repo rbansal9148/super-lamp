@@ -62,6 +62,8 @@ spec:
           containers:
             - name: vacuum
               image: postgres:18.4
-              env: [{ name: PGPASSWORD, value: aiometadata }]
+              env:
+                - name: PGPASSWORD
+                  valueFrom: { secretKeyRef: { name: aiometadata-secrets, key: POSTGRES_PASSWORD } }
               command: ["psql","-h","aiometadata-postgres","-U","aiometadata","-d","aiometadata","-c","VACUUM (ANALYZE);"]
               resources: { requests: { memory: 32Mi, cpu: 25m }, limits: { memory: 128Mi, cpu: 250m } }
