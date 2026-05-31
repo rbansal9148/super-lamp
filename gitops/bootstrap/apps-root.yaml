@@ -1,0 +1,47 @@
+# App-of-apps root for the application tier. Reconciles every Application CR under
+# gitops/apps/ (cert-manager + the ~21 streaming/infra apps) so the whole stack is
+# git-managed and reproducible from one bootstrap command — previously these were
+# standalone roots applied by hand (`kubectl apply -f gitops/apps/<app>.yaml` each),
+# which meant a deleted app was never pruned and a new one was dead YAML until
+# someone remembered to apply it.
+#
+#   kubectl apply -f gitops/bootstrap/        (applies root-app + sealed-secrets + this)
+#
+# The observability subtree is EXCLUDED: it is its own app-of-apps owned by
+# bootstrap/root-app.yaml (gitops/apps/observability/). Double-management would
+# fight over the same child Application CRs.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: apps-root
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:rbansal9148/super-lamp.git
+    targetRevision: main
+    path: gitops/apps
+    directory:
+      recurse: true
+      exclude: 'observability/**'        # owned by bootstrap/root-app.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd                     # Application CRs live in argocd
+  syncPolicy:
+    automated:
+      # prune removes an app CR when its file is deleted from git. Safe: the app CRs
+      # are git-tracked here; the data PVCs they create are not, so pruning an app
+      # never deletes its data (retain SC / hostPath survive).
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false             # argocd namespace already exists
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m

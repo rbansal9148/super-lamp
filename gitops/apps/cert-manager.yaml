@@ -1,0 +1,18 @@
+# cert-manager resources — the Cloudflare API token (SealedSecret), the letsencrypt
+# DNS-01 ClusterIssuer, and the wildcard Certificate + default TLSStore that every
+# public IngressRoute serves via `tls: {}`. cert-manager (the controller) itself is a
+# cluster prerequisite installed out-of-band; this app only ships the CRs that depend
+# on it. Previously orphaned (no Application reconciled gitops/manifests/cert-manager),
+# so the public-TLS chain lived only as hand-applied objects — now under GitOps.
+#
+#   kubectl apply -f gitops/apps/cert-manager.yaml   (or via the apps-root in bootstrap/)
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata: { name: cert-manager, namespace: argocd }
+spec:
+  project: default
+  source: { repoURL: git@github.com:rbansal9148/super-lamp.git, targetRevision: main, path: gitops/manifests/cert-manager, directory: { recurse: true } }
+  # Resources carry their own namespaces (cert-manager / kube-system); CreateNamespace
+  # is off because the cert-manager namespace is owned by the controller install.
+  destination: { server: https://kubernetes.default.svc, namespace: cert-manager }
+  syncPolicy: { automated: { prune: true, selfHeal: true }, syncOptions: [CreateNamespace=false, ApplyOutOfSyncOnly=true] }
