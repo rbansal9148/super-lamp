@@ -52,7 +52,7 @@ spec:
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
-metadata: { name: calibre, namespace: apps }
+metadata: { name: calibre, namespace: apps, annotations: { external-dns.alpha.kubernetes.io/target: "161.118.165.53" } }
 spec:
   entryPoints: [websecure]
   routes:
@@ -102,7 +102,7 @@ spec:
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
-metadata: { name: shelfmark, namespace: apps }
+metadata: { name: shelfmark, namespace: apps, annotations: { external-dns.alpha.kubernetes.io/target: "161.118.165.53" } }
 spec:
   entryPoints: [websecure]
   routes:

@@ -65,7 +65,7 @@ spec:
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
-metadata: { name: searxng, namespace: apps }
+metadata: { name: searxng, namespace: apps, annotations: { external-dns.alpha.kubernetes.io/target: "161.118.165.53" } }
 spec:
   entryPoints: [websecure]
   routes:
