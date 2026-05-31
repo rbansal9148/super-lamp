@@ -4,7 +4,7 @@ include:
   # - apps/adguard/compose.yaml
   # - apps/aiolists/compose.yaml
   - apps/aiometadata/compose.yaml
-  - apps/aiostreams/compose.yaml
+  # - apps/aiostreams/compose.yaml       # MIGRATED to k3s (gitops/manifests/aiostreams)
   # - apps/aiostremio/compose.yaml
   # - apps/altmount/compose.yaml
   # - apps/anime-kitsu/compose.yaml
