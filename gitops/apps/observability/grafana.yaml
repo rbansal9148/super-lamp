@@ -42,7 +42,7 @@ spec:
                 uid: victorialogs
                 type: victoriametrics-logs-datasource
                 access: proxy
-                url: http://vlogs-obs.observability.svc:9428
+                url: http://vlsingle-obs.observability.svc:9428
         # sidecar discovers dashboards from ConfigMaps labelled grafana_dashboard
         sidecar:
           dashboards:

@@ -1,4 +1,4 @@
-# Wave 0 — VictoriaMetrics Operator (manages the VMSingle + VLogs CRs in wave 1).
+# Wave 0 — VictoriaMetrics Operator (manages the VMSingle + VLSingle CRs in wave 1).
 # In this topology VM does NOT scrape — the OTel collector scrapes and pushes OTLP
 # to VM. So the Prometheus→VMServiceScrape converter is disabled to avoid creating
 # inert duplicate scrape objects (ADR D3). ServiceMonitors are consumed by the OTel

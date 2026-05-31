@@ -12,7 +12,10 @@ metadata:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   retentionPeriod: "3"                   # 3 months — ADR guardrail 1: retention cap from day one
-  removePvcAfterDelete: false            # ADR guardrail 4: never auto-delete the data PVC
+  removePvcAfterDelete: false            # ADR guardrail 4: retain PVC when the CR is deleted.
+                                         # NOTE: only covers CR-deletion. local-path's SC is
+                                         # reclaimPolicy=Delete, so deleting the PVC itself still
+                                         # wipes data — full guardrail needs PV reclaimPolicy=Retain.
   storage:
     accessModes:
       - ReadWriteOnce

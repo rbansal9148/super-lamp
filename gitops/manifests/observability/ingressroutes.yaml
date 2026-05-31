@@ -1,7 +1,7 @@
 # Wave 2 — external access via Traefik IngressRoute (k3s ships Traefik as the
-# default ingress controller). Domain-based + TLS, consistent with the existing
-# Traefik + Let's Encrypt setup. TLS certs are issued by cert-manager (prerequisite:
-# a ClusterIssuer named "letsencrypt-prod" — see gitops/README.md).
+# default ingress controller). Domain-based + TLS. TLS certs are issued by cert-manager via the
+# "selfsigned" ClusterIssuer (cluster-issuer.yaml) — browsers show an untrusted
+# warning (fine internal); swap to an ACME DNS-01 ClusterIssuer for a trusted cert.
 #
 # ONLY Grafana is exposed publicly — it owns its own authentication. The VM (vmui)
 # and VictoriaLogs UIs have NO built-in auth; exposing them would publish all metrics
