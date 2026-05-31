@@ -72,6 +72,8 @@ kind: IngressRoute
 metadata:
   name: it-tools
   namespace: apps
+  annotations:
+    external-dns.alpha.kubernetes.io/target: "161.118.165.53"
 spec:
   entryPoints: [websecure]            # k3s Traefik websecure = :8443 (Docker Traefik owns :443)
   routes:
