@@ -1,0 +1,38 @@
+# Standalone Application for the it-tools migration. Mirrors the observability
+# pattern (Application in gitops/apps/ → raw manifests in gitops/manifests/), but is
+# its own root: the "observability" app-of-apps is scoped to the observability
+# namespace, so general apps get their own Application. Apply once:
+#
+#   kubectl apply -f gitops/apps/it-tools.yaml
+#
+# ArgoCD then adopts the live resources and reconciles them from git.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: it-tools
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:rbansal9148/super-lamp.git
+    # BRING-UP: tracking the feature branch; change to main at merge time.
+    targetRevision: feat/k3s-bootstrap
+    path: gitops/manifests/it-tools
+    directory:
+      recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: apps
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false        # the Namespace resource owns 'apps' explicitly
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 3m
