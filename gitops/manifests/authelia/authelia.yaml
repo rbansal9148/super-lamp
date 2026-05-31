@@ -88,7 +88,7 @@ spec:
       containers:
         - name: authelia
           image: authelia/authelia:4.39.20
-          args: ['--config=/config/configuration.yml']
+          # No args: the image's default entrypoint reads /config/configuration.yml.
           ports:
             - containerPort: 9091
           env:
