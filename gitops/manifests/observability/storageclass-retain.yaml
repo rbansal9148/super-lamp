@@ -1,0 +1,20 @@
+# Wave 0 — durable StorageClass for stateful observability data (ADR guardrail 4).
+# Identical to k3s's built-in local-path EXCEPT reclaimPolicy: Retain, so a deleted
+# PVC leaves the PV (and on-disk data) intact instead of being wiped.
+#
+# NOT the cluster default (would change every future PVC, incl. ephemeral system
+# volumes). Opt-in: set `storageClassName: local-path-retain` on a CR's storage spec.
+#
+# MIGRATION CAVEAT: storageClassName on a bound PVC is immutable. The existing
+# vmsingle-obs / vlsingle-obs / grafana PVCs stay on `local-path` and were patched to
+# Retain out-of-band (see vm-single.yaml). Repointing them here would require a planned
+# PVC recreation — do NOT just flip the field. New stateful workloads should use this SC.
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: local-path-retain
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+provisioner: rancher.io/local-path
+reclaimPolicy: Retain
+volumeBindingMode: WaitForFirstConsumer
