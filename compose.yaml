@@ -106,7 +106,7 @@ include:
   # - apps/watchtower/compose.yaml
   # - apps/webstreamr/compose.yaml
   # - apps/yamtrack/compose.yaml
-  - apps/zilean/compose.yaml
+  # - apps/zilean/compose.yaml          # MIGRATED to k3s (gitops/manifests/zilean); data dir retained for rollback
   - apps/flaresolverr/compose.yaml
   # - apps/ollama/compose.yaml
   # - apps/zipline/compose.yaml
