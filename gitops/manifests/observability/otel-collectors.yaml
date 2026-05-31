@@ -15,7 +15,7 @@ metadata:
     argocd.argoproj.io/sync-wave: "1"
 rules:
   - apiGroups: [""]
-    resources: [nodes, nodes/metrics, nodes/stats, nodes/proxy, services, endpoints, pods, namespaces, configmaps]
+    resources: [nodes, nodes/metrics, nodes/stats, nodes/proxy, services, endpoints, pods, namespaces, configmaps, secrets]
     verbs: [get, list, watch]
   - apiGroups: [discovery.k8s.io]
     resources: [endpointslices]
