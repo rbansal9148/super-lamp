@@ -1,0 +1,46 @@
+# comet Postgres (PG18). DATABASE_TYPE=postgresql (the /app/data SQLite is vestigial).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: comet-db-data, namespace: apps }
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path-retain
+  resources: { requests: { storage: 2Gi } }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: comet-postgres, namespace: apps, labels: { app: comet-postgres } }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: comet-postgres } }
+  template:
+    metadata: { labels: { app: comet-postgres } }
+    spec:
+      enableServiceLinks: false
+      securityContext: { fsGroup: 999 }
+      containers:
+        - name: postgres
+          image: postgres:18.4
+          args: ["postgres","-c","shared_buffers=128MB","-c","effective_cache_size=384MB","-c","maintenance_work_mem=64MB","-c","checkpoint_completion_target=0.9","-c","wal_buffers=8MB","-c","random_page_cost=1.1","-c","effective_io_concurrency=200","-c","work_mem=8MB","-c","max_connections=100","-c","log_min_duration_statement=1000","-c","idle_in_transaction_session_timeout=300000","-c","idle_session_timeout=900000"]
+          env:
+            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
+            - { name: POSTGRES_USER, value: comet }
+            - { name: POSTGRES_DB, value: comet }
+            - { name: POSTGRES_PASSWORD, value: comet }
+          ports: [{ containerPort: 5432, name: postgres }]
+          resources: { requests: { memory: 128Mi, cpu: 50m }, limits: { memory: 1Gi, cpu: 500m } }
+          volumeMounts:
+            - { name: data, mountPath: /var/lib/postgresql/data }
+            - { name: dshm, mountPath: /dev/shm }
+          readinessProbe: { exec: { command: ["pg_isready","-U","comet","-d","comet"] }, initialDelaySeconds: 10, periodSeconds: 10 }
+      volumes:
+        - name: data
+          persistentVolumeClaim: { claimName: comet-db-data }
+        - name: dshm
+          emptyDir: { medium: Memory, sizeLimit: 256Mi }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: comet-postgres, namespace: apps }
+spec: { selector: { app: comet-postgres }, ports: [{ name: postgres, port: 5432, targetPort: 5432 }] }
