@@ -1,0 +1,33 @@
+# Daily VACUUM (ANALYZE) on the mediafusion DB — restores the Docker
+# mediafusion_vacuum sidecar (it ran psql VACUUM (ANALYZE) every 86400s and was
+# missed during the migration). Mirrors the zilean/syncio/comet vacuum CronJobs.
+# Credentials come from the sealed POSTGRES_URI (no plaintext in git); the
+# +asyncpg SQLAlchemy driver suffix is stripped at runtime so libpq/psql can parse it.
+apiVersion: batch/v1
+kind: CronJob
+metadata: { name: mediafusion-vacuum, namespace: apps }
+spec:
+  schedule: "20 4 * * *"                 # staggered after the other nightly vacuums
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          enableServiceLinks: false
+          restartPolicy: Never
+          containers:
+            - name: vacuum
+              image: postgres:18-alpine
+              env:
+                - name: POSTGRES_URI
+                  valueFrom:
+                    secretKeyRef: { name: mediafusion-secrets, key: POSTGRES_URI }
+              command: ["/bin/sh", "-c"]
+              args:
+                - psql "$(printf '%s' "$POSTGRES_URI" | sed 's/+asyncpg//')" -c "VACUUM (ANALYZE);"
+              resources:
+                requests: { memory: 64Mi, cpu: 50m }
+                limits: { memory: 256Mi, cpu: 500m }
