@@ -5,7 +5,7 @@ spec:
   project: default
   source:
     repoURL: git@github.com:rbansal9148/super-lamp.git
-    targetRevision: feat/k3s-bootstrap
+    targetRevision: main
     path: gitops/manifests/flaresolverr
     directory: { recurse: true }
   destination: { server: https://kubernetes.default.svc, namespace: apps }

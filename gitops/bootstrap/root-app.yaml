@@ -20,8 +20,8 @@ spec:
     # Private repo: SSH form — matches the ArgoCD repository Secret holding the
     # host deploy key (argocd.argoproj.io/secret-type=repository).
     repoURL: git@github.com:rbansal9148/super-lamp.git
-    # BRING-UP: tracking the feature branch; change to main at merge time.
-    targetRevision: feat/k3s-bootstrap
+    # Tracking main (migration complete; was feat/k3s-bootstrap during bring-up).
+    targetRevision: main
     path: gitops/apps/observability
     directory:
       recurse: true

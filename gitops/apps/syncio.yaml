@@ -8,7 +8,7 @@ spec:
   project: default
   source:
     repoURL: git@github.com:rbansal9148/super-lamp.git
-    targetRevision: feat/k3s-bootstrap
+    targetRevision: main
     path: gitops/manifests/syncio
     directory: { recurse: true }
   destination:
