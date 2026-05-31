@@ -1,0 +1,113 @@
+# calibre-web-automated (+ shelfmark companion) — book library. hostPath-REUSE of the
+# existing Docker dirs (config 1.3G + calibre-library 522M + book-ingest/books) shared by
+# both pods, exactly as the Docker compose shares them. LSIO images: start as root, drop
+# to PUID 1001 (which owns the dirs). shelfmark reaches prowlarr/flaresolverr same-namespace.
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: calibre-web-automated, namespace: apps, labels: { app: calibre-web-automated } }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: calibre-web-automated } }
+  template:
+    metadata: { labels: { app: calibre-web-automated } }
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: calibre
+          image: crocodilestick/calibre-web-automated:latest@sha256:c31a738b6d5ec6982c050063dd3f063b6943eb1051fc81144789f840d9093a8d
+          env:
+            - { name: PUID, value: "1001" }
+            - { name: PGID, value: "1001" }
+            - { name: TZ, value: "Asia/Kolkata" }
+            - { name: DOCKER_MODS, value: "lscr.io/linuxserver/mods:universal-calibre-v9.9.0@sha256:559ca4caf90d80410b7b7cc8870c15b55469fa60ff15c2b5cc0c570d2eda111f" }
+            - { name: LOG_LEVEL, value: "INFO" }
+            - { name: SESSION_COOKIE_SECURE, value: "true" }
+          ports: [{ containerPort: 8083, name: http }]
+          resources: { requests: { memory: 256Mi, cpu: 100m }, limits: { memory: 2Gi, cpu: "2" } }
+          volumeMounts:
+            - { name: config, mountPath: /config }
+            - { name: book-ingest, mountPath: /cwa-book-ingest }
+            - { name: calibre-library, mountPath: /calibre-library }
+            - { name: books, mountPath: /books }
+          readinessProbe: { httpGet: { path: /, port: 8083 }, initialDelaySeconds: 30, periodSeconds: 30, timeoutSeconds: 10 }
+      volumes:
+        - { name: config, hostPath: { path: /opt/docker/data/calibre-web-automated/config, type: Directory } }
+        - { name: book-ingest, hostPath: { path: /opt/docker/data/calibre-web-automated/book-ingest, type: Directory } }
+        - { name: calibre-library, hostPath: { path: /opt/docker/data/calibre-web-automated/calibre-library, type: Directory } }
+        - { name: books, hostPath: { path: /opt/docker/data/calibre-web-automated/books, type: Directory } }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: calibre-web-automated, namespace: apps }
+spec: { selector: { app: calibre-web-automated }, ports: [{ name: http, port: 8083, targetPort: 8083 }] }
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata: { name: calibre-tls, namespace: apps }
+spec:
+  secretName: calibre-tls
+  issuerRef: { name: selfsigned, kind: ClusterIssuer }
+  dnsNames: [calibre.k8s.my-blue-car.work]
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata: { name: calibre, namespace: apps }
+spec:
+  entryPoints: [websecure]
+  routes:
+    - match: Host(`calibre.k8s.my-blue-car.work`)
+      kind: Rule
+      middlewares: [{ name: authelia }]
+      services: [{ name: calibre-web-automated, port: 8083 }]
+  tls: { secretName: calibre-tls }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: shelfmark, namespace: apps, labels: { app: shelfmark } }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }
+  selector: { matchLabels: { app: shelfmark } }
+  template:
+    metadata: { labels: { app: shelfmark } }
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: shelfmark
+          image: ghcr.io/calibrain/shelfmark:latest@sha256:e891eda444b261da48a839db652034bce4e20ac09c167f14adf939dedf96b572
+          envFrom: [{ secretRef: { name: shelfmark-secrets } }]
+          ports: [{ containerPort: 8084, name: http }]
+          resources: { requests: { memory: 128Mi, cpu: 50m }, limits: { memory: 1Gi, cpu: "1" } }
+          volumeMounts:
+            - { name: book-ingest, mountPath: /books }
+            - { name: config, mountPath: /config }
+          readinessProbe: { httpGet: { path: /api/health, port: 8084 }, initialDelaySeconds: 20, periodSeconds: 30, timeoutSeconds: 10 }
+      volumes:
+        - { name: config, hostPath: { path: /opt/docker/data/calibre-web-automated/config, type: Directory } }
+        - { name: book-ingest, hostPath: { path: /opt/docker/data/calibre-web-automated/book-ingest, type: Directory } }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: shelfmark, namespace: apps }
+spec: { selector: { app: shelfmark }, ports: [{ name: http, port: 8084, targetPort: 8084 }] }
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata: { name: shelfmark-tls, namespace: apps }
+spec:
+  secretName: shelfmark-tls
+  issuerRef: { name: selfsigned, kind: ClusterIssuer }
+  dnsNames: [shelfmark.k8s.my-blue-car.work]
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata: { name: shelfmark, namespace: apps }
+spec:
+  entryPoints: [websecure]
+  routes:
+    - match: Host(`shelfmark.k8s.my-blue-car.work`)
+      kind: Rule
+      middlewares: [{ name: authelia }]
+      services: [{ name: shelfmark, port: 8084 }]
+  tls: { secretName: shelfmark-tls }
