@@ -31,7 +31,7 @@ metadata: { name: comet-tls, namespace: apps }
 spec:
   secretName: comet-tls
   issuerRef: { name: selfsigned, kind: ClusterIssuer }
-  dnsNames: [comet.k8s.my-blue-car.work]
+  dnsNames: [comet.my-blue-car.work]
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
@@ -39,11 +39,10 @@ metadata: { name: comet, namespace: apps }
 spec:
   entryPoints: [websecure]
   routes:
-    - match: Host(`comet.k8s.my-blue-car.work`)
+    - match: Host(`comet.my-blue-car.work`)
       kind: Rule
-      middlewares: [{ name: authelia }]
       services: [{ name: comet, port: 2020 }]
-  tls: { secretName: comet-tls }
+  tls: {}
 ---
 apiVersion: batch/v1
 kind: CronJob

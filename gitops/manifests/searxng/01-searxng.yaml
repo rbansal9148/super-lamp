@@ -37,7 +37,7 @@ spec:
         - name: searxng
           image: searxng/searxng:latest@sha256:75e85884da87a717655d6313421c8fb42aede84219b06873311179ae830ab396
           env:
-            - { name: SEARXNG_BASE_URL, value: "https://searxng.k8s.my-blue-car.work/" }
+            - { name: SEARXNG_BASE_URL, value: "https://searxng.my-blue-car.work/" }
             - { name: UWSGI_WORKERS, value: "2" }
             - { name: UWSGI_THREADS, value: "2" }
             - { name: SEARXNG_LIMITER, value: "false" }
@@ -61,7 +61,7 @@ metadata: { name: searxng-tls, namespace: apps }
 spec:
   secretName: searxng-tls
   issuerRef: { name: selfsigned, kind: ClusterIssuer }
-  dnsNames: [searxng.k8s.my-blue-car.work]
+  dnsNames: [searxng.my-blue-car.work]
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
@@ -69,8 +69,8 @@ metadata: { name: searxng, namespace: apps }
 spec:
   entryPoints: [websecure]
   routes:
-    - match: Host(`searxng.k8s.my-blue-car.work`)
+    - match: Host(`searxng.my-blue-car.work`)
       kind: Rule
       middlewares: [{ name: authelia }]
       services: [{ name: searxng, port: 8080 }]
-  tls: { secretName: searxng-tls }
+  tls: {}

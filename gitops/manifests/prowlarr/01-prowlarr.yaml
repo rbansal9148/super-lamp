@@ -93,7 +93,7 @@ metadata: { name: prowlarr-tls, namespace: apps }
 spec:
   secretName: prowlarr-tls
   issuerRef: { name: selfsigned, kind: ClusterIssuer }
-  dnsNames: [prowlarr.k8s.my-blue-car.work]
+  dnsNames: [prowlarr.my-blue-car.work]
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
@@ -101,11 +101,11 @@ metadata: { name: prowlarr, namespace: apps }
 spec:
   entryPoints: [websecure]
   routes:
-    - match: Host(`prowlarr.k8s.my-blue-car.work`)
+    - match: Host(`prowlarr.my-blue-car.work`)
       kind: Rule
       middlewares: [{ name: authelia }]
       services: [{ name: prowlarr, port: 9696 }]
-  tls: { secretName: prowlarr-tls }
+  tls: {}
 ---
 # prowlarr_history_prune sidecar -> CronJob (prune History >7d, Logs >3d)
 apiVersion: batch/v1

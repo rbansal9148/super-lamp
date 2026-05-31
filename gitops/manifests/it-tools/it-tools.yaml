@@ -65,7 +65,7 @@ spec:
     name: selfsigned
     kind: ClusterIssuer
   dnsNames:
-    - it-tools.k8s.my-blue-car.work
+    - it-tools.my-blue-car.work
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
@@ -75,10 +75,9 @@ metadata:
 spec:
   entryPoints: [websecure]            # k3s Traefik websecure = :8443 (Docker Traefik owns :443)
   routes:
-    - match: Host(`it-tools.k8s.my-blue-car.work`)
+    - match: Host(`it-tools.my-blue-car.work`)
       kind: Rule
       services:
         - name: it-tools
           port: 80
-  tls:
-    secretName: it-tools-tls
+  tls: {}

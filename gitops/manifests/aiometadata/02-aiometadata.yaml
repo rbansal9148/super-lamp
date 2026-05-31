@@ -31,7 +31,7 @@ metadata: { name: aiometadata-tls, namespace: apps }
 spec:
   secretName: aiometadata-tls
   issuerRef: { name: selfsigned, kind: ClusterIssuer }
-  dnsNames: [aiometadata.k8s.my-blue-car.work]
+  dnsNames: [aiometadata.my-blue-car.work]
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
@@ -39,11 +39,10 @@ metadata: { name: aiometadata, namespace: apps }
 spec:
   entryPoints: [websecure]
   routes:
-    - match: Host(`aiometadata.k8s.my-blue-car.work`)
+    - match: Host(`aiometadata.my-blue-car.work`)
       kind: Rule
-      middlewares: [{ name: authelia }]
       services: [{ name: aiometadata, port: 1337 }]
-  tls: { secretName: aiometadata-tls }
+  tls: {}
 ---
 apiVersion: batch/v1
 kind: CronJob

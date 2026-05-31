@@ -1,6 +1,6 @@
 # syncio app (watchlist sync). Independent of the streaming mesh. Env (incl. JWT/
 # encryption secrets + DATABASE_URL/REDIS_URL) comes from the sealed syncio-secrets.
-# Exposed at syncio.k8s.my-blue-car.work (:8443) behind k8s Authelia forward-auth.
+# Exposed at syncio.my-blue-car.work (:8443) behind k8s Authelia forward-auth.
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -46,7 +46,7 @@ metadata: { name: syncio-tls, namespace: apps }
 spec:
   secretName: syncio-tls
   issuerRef: { name: selfsigned, kind: ClusterIssuer }
-  dnsNames: [syncio.k8s.my-blue-car.work]
+  dnsNames: [syncio.my-blue-car.work]
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
@@ -54,15 +54,14 @@ metadata: { name: syncio, namespace: apps }
 spec:
   entryPoints: [websecure]
   routes:
-    - match: Host(`syncio.k8s.my-blue-car.work`)
+    - match: Host(`syncio.my-blue-car.work`)
       kind: Rule
       middlewares:
         - name: authelia
       services:
         - name: syncio
           port: 3000
-  tls:
-    secretName: syncio-tls
+  tls: {}
 ---
 # daily VACUUM (ANALYZE) — replaces syncio_vacuum sidecar
 apiVersion: batch/v1
