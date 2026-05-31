@@ -1,0 +1,20 @@
+# syncio — watchlist sync (independent of streaming mesh). PG18 + redis cache.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: syncio
+  namespace: argocd
+spec:
+  project: default
+  source:
+    repoURL: git@github.com:rbansal9148/super-lamp.git
+    targetRevision: feat/k3s-bootstrap
+    path: gitops/manifests/syncio
+    directory: { recurse: true }
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: apps
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=true, ApplyOutOfSyncOnly=true]
+    retry: { limit: 5, backoff: { duration: 10s, factor: 2, maxDuration: 3m } }

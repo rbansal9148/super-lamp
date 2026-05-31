@@ -1,0 +1,92 @@
+# syncio app (watchlist sync). Independent of the streaming mesh. Env (incl. JWT/
+# encryption secrets + DATABASE_URL/REDIS_URL) comes from the sealed syncio-secrets.
+# Exposed at syncio.k8s.my-blue-car.work (:8443) behind k8s Authelia forward-auth.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: syncio
+  namespace: apps
+  labels: { app: syncio }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: syncio }
+  template:
+    metadata:
+      labels: { app: syncio }
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: syncio
+          image: ghcr.io/iamneur0/syncio:public@sha256:bffe1ce0113f516d8de034d2caa2a3ddf2c68f596ba8880b5673ab7a37e902bb
+          envFrom:
+            - secretRef: { name: syncio-secrets }
+          env:
+            - { name: TZ, value: "Asia/Kolkata" }
+          ports: [{ containerPort: 3000, name: http }]
+          resources:
+            requests: { memory: 128Mi, cpu: 50m }
+            limits: { memory: 1Gi, cpu: "1" }
+          readinessProbe:
+            httpGet: { path: /, port: 3000 }
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 8
+---
+apiVersion: v1
+kind: Service
+metadata: { name: syncio, namespace: apps }
+spec:
+  selector: { app: syncio }
+  ports: [{ name: http, port: 3000, targetPort: 3000 }]
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata: { name: syncio-tls, namespace: apps }
+spec:
+  secretName: syncio-tls
+  issuerRef: { name: selfsigned, kind: ClusterIssuer }
+  dnsNames: [syncio.k8s.my-blue-car.work]
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata: { name: syncio, namespace: apps }
+spec:
+  entryPoints: [websecure]
+  routes:
+    - match: Host(`syncio.k8s.my-blue-car.work`)
+      kind: Rule
+      middlewares:
+        - name: authelia
+      services:
+        - name: syncio
+          port: 3000
+  tls:
+    secretName: syncio-tls
+---
+# daily VACUUM (ANALYZE) — replaces syncio_vacuum sidecar
+apiVersion: batch/v1
+kind: CronJob
+metadata: { name: syncio-vacuum, namespace: apps }
+spec:
+  schedule: "30 3 * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 1
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      template:
+        spec:
+          enableServiceLinks: false
+          restartPolicy: Never
+          containers:
+            - name: vacuum
+              image: postgres:18.4
+              env:
+                - name: PGPASSWORD
+                  valueFrom: { secretKeyRef: { name: syncio-secrets, key: POSTGRES_PASSWORD } }
+              command: ["psql","-h","syncio-postgres","-U","syncio","-d","syncio","-c","VACUUM (ANALYZE);"]
+              resources:
+                requests: { memory: 32Mi, cpu: 25m }
+                limits: { memory: 128Mi, cpu: 250m }
