@@ -1,0 +1,189 @@
+# Self-contained Authelia for the k8s realm (ADR: k8s auth, separate from Docker).
+# DISTINCT cookie domain (k8s.my-blue-car.work) + portal (auth.k8s.my-blue-car.work)
+# so it never collides with the Docker Authelia's cookie on the parent domain.
+# Storage: local SQLite on local-path-retain PVC. Sessions: in-memory (single replica,
+# redis omitted). Secrets (session/storage-encryption/jwt + users.yml) come from the
+# SealedSecret 'authelia-secrets' (sealedsecret.yaml), mounted at /secrets.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: authelia-config
+  namespace: apps
+data:
+  configuration.yml: |
+    theme: 'dark'
+    server:
+      address: 'tcp://:9091'
+      endpoints:
+        authz:
+          forward-auth:
+            implementation: 'ForwardAuth'
+    log:
+      level: 'info'
+      format: 'text'
+    totp:
+      issuer: 'k8s.my-blue-car.work'
+    authentication_backend:
+      # Secret-mounted (read-only): password reset won't persist — disable it to avoid errors.
+      password_reset:
+        disable: true
+      file:
+        path: '/secrets/users.yml'
+    access_control:
+      default_policy: 'deny'
+      rules:
+        - domain: '*.k8s.my-blue-car.work'
+          policy: 'one_factor'          # password-only for now; flip to two_factor once TOTP is enrolled
+        - domain: 'k8s.my-blue-car.work'
+          policy: 'one_factor'
+    session:
+      cookies:
+        - name: 'authelia_session'
+          domain: 'k8s.my-blue-car.work'
+          authelia_url: 'https://auth.k8s.my-blue-car.work'
+          default_redirection_url: 'https://it-tools.k8s.my-blue-car.work'
+          same_site: 'lax'
+    storage:
+      local:
+        path: '/data/db.sqlite3'
+    notifier:
+      filesystem:
+        filename: '/data/notification.txt'
+    regulation:
+      max_retries: 3
+      find_time: '2 minutes'
+      ban_time: '5 minutes'
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: authelia-data
+  namespace: apps
+spec:
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path-retain      # durable: survives PVC deletion (ADR guardrail 4)
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: authelia
+  namespace: apps
+  labels: { app: authelia }
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate            # RWO PVC + SQLite + in-memory sessions => single instance only
+  selector:
+    matchLabels: { app: authelia }
+  template:
+    metadata:
+      labels: { app: authelia }
+    spec:
+      securityContext:
+        fsGroup: 1000
+      containers:
+        - name: authelia
+          image: authelia/authelia:4.39.20
+          args: ['--config=/config/configuration.yml']
+          ports:
+            - containerPort: 9091
+          env:
+            - name: AUTHELIA_SESSION_SECRET_FILE
+              value: /secrets/SESSION_SECRET
+            - name: AUTHELIA_STORAGE_ENCRYPTION_KEY_FILE
+              value: /secrets/STORAGE_ENCRYPTION_KEY
+            - name: AUTHELIA_IDENTITY_VALIDATION_RESET_PASSWORD_JWT_SECRET_FILE
+              value: /secrets/JWT_SECRET
+          volumeMounts:
+            - name: config
+              mountPath: /config/configuration.yml
+              subPath: configuration.yml
+            - name: secrets
+              mountPath: /secrets
+              readOnly: true
+            - name: data
+              mountPath: /data
+          resources:
+            requests: { memory: 64Mi, cpu: 50m }
+            limits: { memory: 256Mi, cpu: 500m }
+          readinessProbe:
+            httpGet: { path: /api/health, port: 9091 }
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /api/health, port: 9091 }
+            initialDelaySeconds: 20
+            periodSeconds: 30
+      volumes:
+        - name: config
+          configMap:
+            name: authelia-config
+        - name: secrets
+          secret:
+            secretName: authelia-secrets
+        - name: data
+          persistentVolumeClaim:
+            claimName: authelia-data
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: authelia
+  namespace: apps
+spec:
+  selector: { app: authelia }
+  ports:
+    - name: http
+      port: 9091
+      targetPort: 9091
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: authelia-tls
+  namespace: apps
+spec:
+  secretName: authelia-tls
+  issuerRef:
+    name: selfsigned
+    kind: ClusterIssuer
+  dnsNames:
+    - auth.k8s.my-blue-car.work
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: authelia
+  namespace: apps
+spec:
+  entryPoints: [websecure]
+  routes:
+    - match: Host(`auth.k8s.my-blue-car.work`)
+      kind: Rule
+      services:
+        - name: authelia
+          port: 9091
+  tls:
+    secretName: authelia-tls
+---
+# The forward-auth Middleware — attach to any app's IngressRoute via
+#   middlewares: [{ name: authelia, namespace: apps }]
+# Mirrors the Docker authelia@docker middleware (same endpoint + response headers).
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: authelia
+  namespace: apps
+spec:
+  forwardAuth:
+    address: 'http://authelia.apps.svc.cluster.local:9091/api/authz/forward-auth'
+    trustForwardHeader: true
+    authResponseHeaders:
+      - Remote-User
+      - Remote-Groups
+      - Remote-Email
+      - Remote-Name
