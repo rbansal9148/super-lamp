@@ -112,7 +112,7 @@ include:
   # - apps/zipline/compose.yaml
   # - apps/neko/compose.yaml
   # - apps/booklore/compose.yaml
-  - apps/libremdb/compose.yaml
+  # - apps/libremdb/compose.yaml         # MIGRATED to k3s (gitops/manifests/libremdb)
   - apps/calibre-web-automated/compose.yaml
   # - apps/invidious/compose.yaml
   # - apps/nuviostreams/compose.yaml
