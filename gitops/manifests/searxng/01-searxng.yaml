@@ -1,0 +1,76 @@
+# searxng — metasearch. valkey cache (ephemeral) + settings.yml (sealed, has secret_key)
+# mounted via subPath. NOT VPN-coupled (network_mode was commented in compose).
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: searxng-redis, namespace: apps, labels: { app: searxng-redis } }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: searxng-redis } }
+  template:
+    metadata: { labels: { app: searxng-redis } }
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: valkey
+          image: valkey/valkey:9.1.0
+          args: ["valkey-server","--save","","--maxmemory","64mb","--maxmemory-policy","allkeys-lru"]
+          ports: [{ containerPort: 6379 }]
+          resources: { requests: { memory: 16Mi, cpu: 10m }, limits: { memory: 96Mi, cpu: 200m } }
+          readinessProbe: { exec: { command: ["valkey-cli","ping"] }, initialDelaySeconds: 5, periodSeconds: 10 }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: searxng-redis, namespace: apps }
+spec: { selector: { app: searxng-redis }, ports: [{ name: redis, port: 6379, targetPort: 6379 }] }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: searxng, namespace: apps, labels: { app: searxng } }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: searxng } }
+  template:
+    metadata: { labels: { app: searxng } }
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: searxng
+          image: searxng/searxng:latest@sha256:75e85884da87a717655d6313421c8fb42aede84219b06873311179ae830ab396
+          env:
+            - { name: SEARXNG_BASE_URL, value: "https://searxng.k8s.my-blue-car.work/" }
+            - { name: UWSGI_WORKERS, value: "2" }
+            - { name: UWSGI_THREADS, value: "2" }
+            - { name: SEARXNG_LIMITER, value: "false" }
+          ports: [{ containerPort: 8080, name: http }]
+          resources: { requests: { memory: 96Mi, cpu: 50m }, limits: { memory: 512Mi, cpu: "1" } }
+          volumeMounts:
+            - { name: settings, mountPath: /etc/searxng/settings.yml, subPath: settings.yml, readOnly: true }
+          readinessProbe: { httpGet: { path: /healthz, port: 8080 }, initialDelaySeconds: 15, periodSeconds: 20, timeoutSeconds: 8 }
+      volumes:
+        - name: settings
+          secret: { secretName: searxng-settings }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: searxng, namespace: apps }
+spec: { selector: { app: searxng }, ports: [{ name: http, port: 8080, targetPort: 8080 }] }
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata: { name: searxng-tls, namespace: apps }
+spec:
+  secretName: searxng-tls
+  issuerRef: { name: selfsigned, kind: ClusterIssuer }
+  dnsNames: [searxng.k8s.my-blue-car.work]
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata: { name: searxng, namespace: apps }
+spec:
+  entryPoints: [websecure]
+  routes:
+    - match: Host(`searxng.k8s.my-blue-car.work`)
+      kind: Rule
+      middlewares: [{ name: authelia }]
+      services: [{ name: searxng, port: 8080 }]
+  tls: { secretName: searxng-tls }
