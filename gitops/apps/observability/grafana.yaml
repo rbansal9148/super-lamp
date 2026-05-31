@@ -60,6 +60,12 @@ spec:
             searchNamespace: observability
           datasources:
             enabled: true
+          # alert rules provisioned from ConfigMaps labelled grafana_alert
+          # (see manifests/observability/alerts/). Routing → ntfy is below.
+          alerts:
+            enabled: true
+            label: grafana_alert
+            searchNamespace: observability
         # Unified alerting: contact point + default policy → ntfy. Alert RULES are
         # environment-specific and live in alerts/ (need datasource UIDs filled in).
         alerting:

@@ -1,0 +1,122 @@
+# Wave 2 — active Grafana-provisioned alert rules (Path A from alerts.yaml).
+# Loaded by the Grafana alerting sidecar (label grafana_alert, enabled in
+# grafana.yaml). Routing contact point + policy → ntfy are provisioned in
+# grafana.yaml; these are the RULES that actually fire into that pipe.
+#
+# Scope: the failure classes the single operator cannot self-detect by using the
+# apps — silent disk-fill (the ADR's #1 documented failure mode, on Delete-reclaim
+# local-path PVCs where a full disk corrupts the TSDB) and scrape-target-down.
+# All PromQL uses metrics VERIFIED flowing in VMSingle (OTLP dotted names render
+# with underscores via the Prometheus query API):
+#   k8s_volume_available_bytes / k8s_volume_capacity_bytes  (kubeletstats, per-PVC)
+#   system_filesystem_usage_bytes{state=...}                (hostmetrics, per-mount)
+#   up                                                       (scrape health)
+#
+# NOTE: pod-crashloop alerting is intentionally omitted — it needs
+# kube-state-metrics (kube_pod_container_status_restarts_total), which is not
+# deployed. kubeletstats emits resource usage only, no restart counters. Adding
+# KSM + a crashloop rule is a separate follow-up.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-platform-alerts
+  namespace: observability
+  labels:
+    grafana_alert: "1"
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+data:
+  platform-alerts.yaml: |
+    apiVersion: 1
+    groups:
+      - orgId: 1
+        name: platform-capacity
+        folder: platform
+        interval: 1m
+        rules:
+          # ── PVC nearly full: <15% free on any kubeletstats-reported volume ──
+          - uid: pvc-low-space
+            title: PVC low free space (<15%)
+            condition: C
+            for: 10m
+            data:
+              - refId: A
+                relativeTimeRange: { from: 600, to: 0 }
+                datasourceUid: victoriametrics
+                model:
+                  refId: A
+                  instant: true
+                  expr: min by (k8s_persistentvolumeclaim_name) (k8s_volume_available_bytes / k8s_volume_capacity_bytes)
+              - refId: C
+                datasourceUid: __expr__
+                model:
+                  refId: C
+                  type: threshold
+                  expression: A
+                  conditions:
+                    - evaluator: { type: lt, params: [0.15] }
+            labels: { severity: warning }
+            annotations:
+              summary: "PVC {{ $labels.k8s_persistentvolumeclaim_name }} below 15% free space"
+
+          # ── Node filesystem nearly full: >85% used on any mount ──
+          - uid: node-disk-full
+            title: Node filesystem >85% used
+            condition: C
+            for: 10m
+            data:
+              - refId: A
+                relativeTimeRange: { from: 600, to: 0 }
+                datasourceUid: victoriametrics
+                model:
+                  refId: A
+                  instant: true
+                  expr: |-
+                    max by (device) (
+                      system_filesystem_usage_bytes{state="used"}
+                      /
+                      (system_filesystem_usage_bytes{state="used"} + system_filesystem_usage_bytes{state="free"})
+                    )
+              - refId: C
+                datasourceUid: __expr__
+                model:
+                  refId: C
+                  type: threshold
+                  expression: A
+                  conditions:
+                    - evaluator: { type: gt, params: [0.85] }
+            labels: { severity: warning }
+            annotations:
+              summary: "Node filesystem {{ $labels.device }} over 85% used"
+
+      - orgId: 1
+        name: platform-scrape
+        folder: platform
+        interval: 1m
+        rules:
+          # ── Scrape target down: any monitored endpoint not responding ──
+          # (caught the traefik/authelia targets; also the exact silent-failure
+          # class hit twice this week — TA RBAC, empty scrape_configs.)
+          - uid: scrape-target-down
+            title: Scrape target down
+            condition: C
+            for: 5m
+            data:
+              - refId: A
+                relativeTimeRange: { from: 300, to: 0 }
+                datasourceUid: victoriametrics
+                model:
+                  refId: A
+                  instant: true
+                  expr: min by (job) (up)
+              - refId: C
+                datasourceUid: __expr__
+                model:
+                  refId: C
+                  type: threshold
+                  expression: A
+                  conditions:
+                    - evaluator: { type: lt, params: [1] }
+            labels: { severity: critical }
+            annotations:
+              summary: "Scrape target {{ $labels.job }} is down (up=0)"
