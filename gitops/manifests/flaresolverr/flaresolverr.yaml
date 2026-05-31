@@ -1,0 +1,40 @@
+# flaresolverr — Cloudflare/JS challenge solver. Internal-only (no ingress); consumed
+# by mediafusion/prowlarr at http://flaresolverr:8191 (same-namespace DNS). Egresses
+# via the gluetun proxy, matching the Docker PROXY_URL=http://gluetun:8080.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: flaresolverr
+  namespace: apps
+  labels: { app: flaresolverr }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: flaresolverr }
+  template:
+    metadata:
+      labels: { app: flaresolverr }
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: flaresolverr
+          image: ghcr.io/flaresolverr/flaresolverr:latest@sha256:139dfee1c6f89249c8d665d1333a42e8ec74ec0a86bc6bb1c8461e10d3a66a47
+          env:
+            - { name: TZ, value: "Asia/Kolkata" }
+            - { name: PROXY_URL, value: "http://gluetun.apps.svc.cluster.local:8888" }
+          ports: [{ containerPort: 8191, name: http }]
+          resources:
+            requests: { memory: 256Mi, cpu: 100m }
+            limits: { memory: 1Gi, cpu: "1" }   # chromium is heavy
+          readinessProbe:
+            httpGet: { path: /health, port: 8191 }
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 8
+---
+apiVersion: v1
+kind: Service
+metadata: { name: flaresolverr, namespace: apps }
+spec:
+  selector: { app: flaresolverr }
+  ports: [{ name: http, port: 8191, targetPort: 8191 }]
