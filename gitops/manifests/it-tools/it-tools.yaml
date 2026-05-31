@@ -79,6 +79,8 @@ spec:
   routes:
     - match: Host(`it-tools.my-blue-car.work`)
       kind: Rule
+      middlewares:
+        - name: authelia                # gate behind Authelia (no longer public/unauthenticated)
       services:
         - name: it-tools
           port: 80
