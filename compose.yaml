@@ -70,7 +70,7 @@ include:
   # - apps/recyclarr/compose.yaml
   # - apps/rss-bridge/compose.yaml
   # - apps/seanime/compose.yaml
-  - apps/searxng/compose.yaml
+  # - apps/searxng/compose.yaml          # MIGRATED to k3s (gitops/manifests/searxng)
   # - apps/searxng-mcp/compose.yaml
   # - apps/sonarr/compose.yaml
   # - apps/speedtest-tracker/compose.yaml
