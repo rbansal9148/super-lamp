@@ -86,7 +86,7 @@ include:
   # - apps/stremio-server/compose.yaml
   # - apps/stremio-streaming-catalogs/compose.yaml
   # - apps/stremio-trakt-addon/compose.yaml
-  - apps/stremthru/compose.yaml
+  # - apps/stremthru/compose.yaml        # MIGRATED to k3s (gitops/manifests/stremthru, hostPath-reuse)
   # - apps/syncio/compose.yaml          # MIGRATED to k3s (gitops/manifests/syncio); data dir retained
   # - apps/syncribullet/compose.yaml
   # - apps/tandoor/compose.yaml
