@@ -48,7 +48,7 @@ metadata: { name: dash-tls, namespace: apps }
 spec:
   secretName: dash-tls
   issuerRef: { name: selfsigned, kind: ClusterIssuer }
-  dnsNames: [dash.k8s.my-blue-car.work]
+  dnsNames: [dash.my-blue-car.work]
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
@@ -56,8 +56,8 @@ metadata: { name: dash, namespace: apps }
 spec:
   entryPoints: [websecure]
   routes:
-    - match: Host(`dash.k8s.my-blue-car.work`)
+    - match: Host(`dash.my-blue-car.work`)
       kind: Rule
       middlewares: [{ name: authelia }]
       services: [{ name: dash, port: 3001 }]
-  tls: { secretName: dash-tls }
+  tls: {}

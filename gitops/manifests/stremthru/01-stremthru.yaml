@@ -97,7 +97,7 @@ metadata: { name: stremthru-tls, namespace: apps }
 spec:
   secretName: stremthru-tls
   issuerRef: { name: selfsigned, kind: ClusterIssuer }
-  dnsNames: [stremthru.k8s.my-blue-car.work]
+  dnsNames: [stremthru.my-blue-car.work]
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
@@ -105,11 +105,10 @@ metadata: { name: stremthru, namespace: apps }
 spec:
   entryPoints: [websecure]
   routes:
-    - match: Host(`stremthru.k8s.my-blue-car.work`)
+    - match: Host(`stremthru.my-blue-car.work`)
       kind: Rule
-      middlewares: [{ name: authelia }]
       services: [{ name: stremthru, port: 8080 }]
-  tls: { secretName: stremthru-tls }
+  tls: {}
 ---
 apiVersion: batch/v1
 kind: CronJob

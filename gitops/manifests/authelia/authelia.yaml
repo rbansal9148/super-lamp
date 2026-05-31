@@ -27,7 +27,7 @@ data:
         enabled: true
         address: 'tcp://:9959/metrics'   # scraped by the OTel TA via the ServiceMonitor below
     totp:
-      issuer: 'k8s.my-blue-car.work'
+      issuer: 'my-blue-car.work'
     authentication_backend:
       # Secret-mounted (read-only): password reset won't persist — disable it to avoid errors.
       password_reset:
@@ -37,16 +37,29 @@ data:
     access_control:
       default_policy: 'deny'
       rules:
-        - domain: '*.k8s.my-blue-car.work'
-          policy: 'one_factor'          # password-only for now; flip to two_factor once TOTP is enrolled
-        - domain: 'k8s.my-blue-car.work'
+        # Stremio addons: API/manifest URLs fetched by clients that can't 2FA -> bypass
+        # (matches the Docker realm's TEMPLATE_STREMIO_ADDON_HOSTNAMES bypass list). Their
+        # IngressRoutes also omit the forward-auth Middleware; this is belt-and-suspenders.
+        - domain:
+            - 'zilean.my-blue-car.work'
+            - 'comet.my-blue-car.work'
+            - 'mediafusion.my-blue-car.work'
+            - 'aiostreams.my-blue-car.work'
+            - 'stremthru.my-blue-car.work'
+            - 'aiometadata.my-blue-car.work'
+          policy: 'bypass'
+        # Everything else (management UIs) -> password auth. Flip to two_factor after
+        # users enroll TOTP (Docker TOTP secrets don't migrate — different encryption key).
+        - domain: '*.my-blue-car.work'
+          policy: 'one_factor'
+        - domain: 'my-blue-car.work'
           policy: 'one_factor'
     session:
       cookies:
         - name: 'authelia_session'
-          domain: 'k8s.my-blue-car.work'
-          authelia_url: 'https://auth.k8s.my-blue-car.work'
-          default_redirection_url: 'https://it-tools.k8s.my-blue-car.work'
+          domain: 'my-blue-car.work'
+          authelia_url: 'https://auth.my-blue-car.work'
+          default_redirection_url: 'https://it-tools.my-blue-car.work'
           same_site: 'lax'
     storage:
       local:
@@ -166,7 +179,7 @@ spec:
     name: selfsigned
     kind: ClusterIssuer
   dnsNames:
-    - auth.k8s.my-blue-car.work
+    - auth.my-blue-car.work
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
@@ -176,13 +189,12 @@ metadata:
 spec:
   entryPoints: [websecure]
   routes:
-    - match: Host(`auth.k8s.my-blue-car.work`)
+    - match: Host(`auth.my-blue-car.work`)
       kind: Rule
       services:
         - name: authelia
           port: 9091
-  tls:
-    secretName: authelia-tls
+  tls: {}              # serve the wildcard *.my-blue-car.work default cert (TLSStore default)
 ---
 # The forward-auth Middleware — attach to any app's IngressRoute via
 #   middlewares: [{ name: authelia, namespace: apps }]

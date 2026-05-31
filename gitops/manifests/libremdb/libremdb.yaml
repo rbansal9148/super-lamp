@@ -4,7 +4,7 @@ apiVersion: v1
 kind: ConfigMap
 metadata: { name: libremdb-config, namespace: apps }
 data:
-  NEXT_PUBLIC_URL: "https://libremdb.k8s.my-blue-car.work"
+  NEXT_PUBLIC_URL: "https://libremdb.my-blue-car.work"
   AXIOS_USERAGENT: "Mozilla/5.0 (X11; Linux x86_64; rv:104.0) Gecko/20100101 Firefox/104.0"
   AXIOS_ACCEPT: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"
   NEXT_TELEMETRY_DISABLED: "1"
@@ -76,7 +76,7 @@ metadata: { name: libremdb-tls, namespace: apps }
 spec:
   secretName: libremdb-tls
   issuerRef: { name: selfsigned, kind: ClusterIssuer }
-  dnsNames: [libremdb.k8s.my-blue-car.work]
+  dnsNames: [libremdb.my-blue-car.work]
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
@@ -84,8 +84,8 @@ metadata: { name: libremdb, namespace: apps }
 spec:
   entryPoints: [websecure]
   routes:
-    - match: Host(`libremdb.k8s.my-blue-car.work`)
+    - match: Host(`libremdb.my-blue-car.work`)
       kind: Rule
       middlewares: [{ name: authelia }]
       services: [{ name: libremdb, port: 3000 }]
-  tls: { secretName: libremdb-tls }
+  tls: {}

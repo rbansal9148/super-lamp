@@ -4,7 +4,7 @@
 # pointed at gluetun's built-in proxy. NO_PROXY keeps cluster-internal traffic (the DB,
 # *.svc, pod/svc CIDRs) off the tunnel.
 #
-# Exposed on :8443 at zilean.k8s.my-blue-car.work behind the k8s Authelia forward-auth
+# Exposed on :8443 at zilean.my-blue-car.work behind the k8s Authelia forward-auth
 # Middleware (apps/authelia) — mirrors the Docker authelia@docker gate. Runs ALONGSIDE
 # the Docker instance on a distinct hostname until cutover.
 apiVersion: apps/v1
@@ -85,7 +85,7 @@ spec:
     name: selfsigned
     kind: ClusterIssuer
   dnsNames:
-    - zilean.k8s.my-blue-car.work
+    - zilean.my-blue-car.work
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
@@ -95,15 +95,12 @@ metadata:
 spec:
   entryPoints: [websecure]              # k3s Traefik :8443 (Docker Traefik owns :443)
   routes:
-    - match: Host(`zilean.k8s.my-blue-car.work`)
+    - match: Host(`zilean.my-blue-car.work`)
       kind: Rule
-      middlewares:
-        - name: authelia                # forward-auth gate (apps/authelia Middleware)
       services:
         - name: zilean
           port: 8181
-  tls:
-    secretName: zilean-tls
+  tls: {}
 ---
 # Daily VACUUM (ANALYZE) — replaces the zilean_vacuum sidecar (compose.yaml:110-136).
 # CronJob is the idiomatic k8s shape for a periodic maintenance task vs a sleep-loop.
