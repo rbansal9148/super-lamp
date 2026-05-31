@@ -113,7 +113,7 @@ include:
   # - apps/neko/compose.yaml
   # - apps/booklore/compose.yaml
   # - apps/libremdb/compose.yaml         # MIGRATED to k3s (gitops/manifests/libremdb)
-  - apps/calibre-web-automated/compose.yaml
+  # - apps/calibre-web-automated/compose.yaml   # MIGRATED to k3s (gitops/manifests/calibre, hostPath-reuse)
   # - apps/invidious/compose.yaml
   # - apps/nuviostreams/compose.yaml
   # - apps/iptv/compose.yaml
