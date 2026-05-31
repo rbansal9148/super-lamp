@@ -4,115 +4,116 @@
 # migrates). Consumed in-namespace as stremthru:8080. One-way (hostPath, no Docker rollback).
 apiVersion: apps/v1
 kind: Deployment
-metadata: { name: stremthru-postgres, namespace: apps, labels: { app: stremthru-postgres } }
+metadata: {name: stremthru-postgres, namespace: apps, labels: {app: stremthru-postgres}}
 spec:
   replicas: 1
-  strategy: { type: Recreate }
-  selector: { matchLabels: { app: stremthru-postgres } }
+  strategy: {type: Recreate}
+  selector: {matchLabels: {app: stremthru-postgres}}
   template:
-    metadata: { labels: { app: stremthru-postgres } }
+    metadata: {labels: {app: stremthru-postgres}}
     spec:
       enableServiceLinks: false
       containers:
         - name: postgres
           image: postgres:18.4
-          args: ["postgres","-c","shared_buffers=512MB","-c","effective_cache_size=1536MB","-c","maintenance_work_mem=256MB","-c","checkpoint_completion_target=0.9","-c","wal_buffers=16MB","-c","random_page_cost=1.1","-c","effective_io_concurrency=200","-c","work_mem=16MB","-c","max_connections=100","-c","log_min_duration_statement=1000"]
+          args: ["postgres", "-c", "shared_buffers=512MB", "-c", "effective_cache_size=1536MB", "-c", "maintenance_work_mem=256MB", "-c", "checkpoint_completion_target=0.9", "-c", "wal_buffers=16MB", "-c", "random_page_cost=1.1", "-c", "effective_io_concurrency=200", "-c", "work_mem=16MB", "-c", "max_connections=100", "-c", "log_min_duration_statement=1000"]
           env:
-            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
-            - { name: POSTGRES_USER, value: stremthru }
-            - { name: POSTGRES_DB, value: stremthru }
+            - {name: PGDATA, value: /var/lib/postgresql/data/pgdata}
+            - {name: POSTGRES_USER, value: stremthru}
+            - {name: POSTGRES_DB, value: stremthru}
             - name: POSTGRES_PASSWORD
-              valueFrom: { secretKeyRef: { name: stremthru-secrets, key: POSTGRES_PASSWORD } }
-          ports: [{ containerPort: 5432, name: postgres }]
-          resources: { requests: { memory: 512Mi, cpu: 100m }, limits: { memory: 2Gi, cpu: "1" } }
+              valueFrom: {secretKeyRef: {name: stremthru-secrets, key: POSTGRES_PASSWORD}}
+          ports: [{containerPort: 5432, name: postgres}]
+          resources: {requests: {memory: 512Mi, cpu: 100m}, limits: {memory: 2Gi, cpu: "1"}}
           volumeMounts:
-            - { name: pgdata, mountPath: /var/lib/postgresql/data }
-            - { name: dshm, mountPath: /dev/shm }
-          readinessProbe: { exec: { command: ["pg_isready","-U","stremthru","-d","stremthru"] }, initialDelaySeconds: 10, periodSeconds: 10 }
+            - {name: pgdata, mountPath: /var/lib/postgresql/data}
+            - {name: dshm, mountPath: /dev/shm}
+          readinessProbe: {exec: {command: ["pg_isready", "-U", "stremthru", "-d", "stremthru"]}, initialDelaySeconds: 10, periodSeconds: 10}
       volumes:
         - name: pgdata
-          hostPath: { path: /opt/docker/data/stremthru/db, type: Directory }
+          hostPath: {path: /opt/docker/data/stremthru/db, type: Directory}
         - name: dshm
-          emptyDir: { medium: Memory, sizeLimit: 512Mi }
+          emptyDir: {medium: Memory, sizeLimit: 512Mi}
+      priorityClassName: data-tier
 ---
 apiVersion: v1
 kind: Service
-metadata: { name: stremthru-postgres, namespace: apps }
-spec: { selector: { app: stremthru-postgres }, ports: [{ name: postgres, port: 5432, targetPort: 5432 }] }
+metadata: {name: stremthru-postgres, namespace: apps}
+spec: {selector: {app: stremthru-postgres}, ports: [{name: postgres, port: 5432, targetPort: 5432}]}
 ---
 apiVersion: apps/v1
 kind: Deployment
-metadata: { name: stremthru-redis, namespace: apps, labels: { app: stremthru-redis } }
+metadata: {name: stremthru-redis, namespace: apps, labels: {app: stremthru-redis}}
 spec:
   replicas: 1
-  selector: { matchLabels: { app: stremthru-redis } }
+  selector: {matchLabels: {app: stremthru-redis}}
   template:
-    metadata: { labels: { app: stremthru-redis } }
+    metadata: {labels: {app: stremthru-redis}}
     spec:
       enableServiceLinks: false
       containers:
         - name: redis
           image: redis:8.6.3
-          args: ["redis-server","--save","","--maxmemory","256mb","--maxmemory-policy","allkeys-lru"]
-          ports: [{ containerPort: 6379 }]
-          resources: { requests: { memory: 32Mi, cpu: 10m }, limits: { memory: 320Mi, cpu: 300m } }
-          readinessProbe: { exec: { command: ["redis-cli","ping"] }, initialDelaySeconds: 5, periodSeconds: 10 }
+          args: ["redis-server", "--save", "", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+          ports: [{containerPort: 6379}]
+          resources: {requests: {memory: 32Mi, cpu: 10m}, limits: {memory: 320Mi, cpu: 300m}}
+          readinessProbe: {exec: {command: ["redis-cli", "ping"]}, initialDelaySeconds: 5, periodSeconds: 10}
 ---
 apiVersion: v1
 kind: Service
-metadata: { name: stremthru-redis, namespace: apps }
-spec: { selector: { app: stremthru-redis }, ports: [{ name: redis, port: 6379, targetPort: 6379 }] }
+metadata: {name: stremthru-redis, namespace: apps}
+spec: {selector: {app: stremthru-redis}, ports: [{name: redis, port: 6379, targetPort: 6379}]}
 ---
 apiVersion: apps/v1
 kind: Deployment
-metadata: { name: stremthru, namespace: apps, labels: { app: stremthru } }
+metadata: {name: stremthru, namespace: apps, labels: {app: stremthru}}
 spec:
   replicas: 1
-  strategy: { type: Recreate }
-  selector: { matchLabels: { app: stremthru } }
+  strategy: {type: Recreate}
+  selector: {matchLabels: {app: stremthru}}
   template:
-    metadata: { labels: { app: stremthru } }
+    metadata: {labels: {app: stremthru}}
     spec:
       enableServiceLinks: false
       containers:
         - name: stremthru
           image: muniftanjim/stremthru@sha256:d4eb85a8aef5b91ab81081959b9695aace0675e3790427a5a8f892d86c53ff6b
-          envFrom: [{ configMapRef: { name: stremthru-config } }, { secretRef: { name: stremthru-secrets } }]
-          ports: [{ containerPort: 8080, name: http }]
-          resources: { requests: { memory: 128Mi, cpu: 50m }, limits: { memory: 2Gi, cpu: "2" } }
-          volumeMounts: [{ name: data, mountPath: /app/data }]
-          readinessProbe: { httpGet: { path: /v0/health, port: 8080 }, initialDelaySeconds: 20, periodSeconds: 20, timeoutSeconds: 8 }
+          envFrom: [{configMapRef: {name: stremthru-config}}, {secretRef: {name: stremthru-secrets}}]
+          ports: [{containerPort: 8080, name: http}]
+          resources: {requests: {memory: 128Mi, cpu: 50m}, limits: {memory: 2Gi, cpu: "2"}}
+          volumeMounts: [{name: data, mountPath: /app/data}]
+          readinessProbe: {httpGet: {path: /v0/health, port: 8080}, initialDelaySeconds: 20, periodSeconds: 20, timeoutSeconds: 8}
       volumes:
         - name: data
-          hostPath: { path: /opt/docker/data/stremthru, type: Directory }
+          hostPath: {path: /opt/docker/data/stremthru, type: Directory}
 ---
 apiVersion: v1
 kind: Service
-metadata: { name: stremthru, namespace: apps }
-spec: { selector: { app: stremthru }, ports: [{ name: http, port: 8080, targetPort: 8080 }] }
+metadata: {name: stremthru, namespace: apps}
+spec: {selector: {app: stremthru}, ports: [{name: http, port: 8080, targetPort: 8080}]}
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
-metadata: { name: stremthru-tls, namespace: apps }
+metadata: {name: stremthru-tls, namespace: apps}
 spec:
   secretName: stremthru-tls
-  issuerRef: { name: selfsigned, kind: ClusterIssuer }
+  issuerRef: {name: selfsigned, kind: ClusterIssuer}
   dnsNames: [stremthru.my-blue-car.work]
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
-metadata: { name: stremthru, namespace: apps, annotations: { external-dns.alpha.kubernetes.io/target: "161.118.165.53" } }
+metadata: {name: stremthru, namespace: apps, annotations: {external-dns.alpha.kubernetes.io/target: "161.118.165.53"}}
 spec:
   entryPoints: [websecure]
   routes:
     - match: Host(`stremthru.my-blue-car.work`)
       kind: Rule
-      services: [{ name: stremthru, port: 8080 }]
+      services: [{name: stremthru, port: 8080}]
   tls: {}
 ---
 apiVersion: batch/v1
 kind: CronJob
-metadata: { name: stremthru-vacuum, namespace: apps }
+metadata: {name: stremthru-vacuum, namespace: apps}
 spec:
   schedule: "5 4 * * *"
   concurrencyPolicy: Forbid
@@ -130,6 +131,6 @@ spec:
               image: postgres:18.4
               env:
                 - name: PGPASSWORD
-                  valueFrom: { secretKeyRef: { name: stremthru-secrets, key: POSTGRES_PASSWORD } }
-              command: ["psql","-h","stremthru-postgres","-U","stremthru","-d","stremthru","-c","VACUUM (ANALYZE);"]
-              resources: { requests: { memory: 32Mi, cpu: 25m }, limits: { memory: 256Mi, cpu: 250m } }
+                  valueFrom: {secretKeyRef: {name: stremthru-secrets, key: POSTGRES_PASSWORD}}
+              command: ["psql", "-h", "stremthru-postgres", "-U", "stremthru", "-d", "stremthru", "-c", "VACUUM (ANALYZE);"]
+              resources: {requests: {memory: 32Mi, cpu: 25m}, limits: {memory: 256Mi, cpu: 250m}}

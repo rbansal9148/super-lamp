@@ -1,71 +1,72 @@
 # mediafusion data tier: PG18 (alpine) + redis cache. PG tuning mirrors compose.
 apiVersion: v1
 kind: PersistentVolumeClaim
-metadata: { name: mediafusion-db-data, namespace: apps }
+metadata: {name: mediafusion-db-data, namespace: apps}
 spec:
   accessModes: [ReadWriteOnce]
   storageClassName: local-path-retain
-  resources: { requests: { storage: 2Gi } }
+  resources: {requests: {storage: 2Gi}}
 ---
 apiVersion: apps/v1
 kind: Deployment
-metadata: { name: mediafusion-postgres, namespace: apps, labels: { app: mediafusion-postgres } }
+metadata: {name: mediafusion-postgres, namespace: apps, labels: {app: mediafusion-postgres}}
 spec:
   replicas: 1
-  strategy: { type: Recreate }
-  selector: { matchLabels: { app: mediafusion-postgres } }
+  strategy: {type: Recreate}
+  selector: {matchLabels: {app: mediafusion-postgres}}
   template:
-    metadata: { labels: { app: mediafusion-postgres } }
+    metadata: {labels: {app: mediafusion-postgres}}
     spec:
       enableServiceLinks: false
-      securityContext: { fsGroup: 70 }
+      securityContext: {fsGroup: 70}
       containers:
         - name: postgres
           image: postgres:18-alpine
-          args: ["postgres","-c","shared_buffers=256MB","-c","effective_cache_size=768MB","-c","maintenance_work_mem=128MB","-c","checkpoint_completion_target=0.9","-c","wal_buffers=16MB","-c","random_page_cost=1.1","-c","effective_io_concurrency=200","-c","work_mem=16MB","-c","max_wal_size=4GB","-c","min_wal_size=1GB","-c","max_worker_processes=4","-c","max_parallel_workers=4","-c","log_min_duration_statement=1000"]
+          args: ["postgres", "-c", "shared_buffers=256MB", "-c", "effective_cache_size=768MB", "-c", "maintenance_work_mem=128MB", "-c", "checkpoint_completion_target=0.9", "-c", "wal_buffers=16MB", "-c", "random_page_cost=1.1", "-c", "effective_io_concurrency=200", "-c", "work_mem=16MB", "-c", "max_wal_size=4GB", "-c", "min_wal_size=1GB", "-c", "max_worker_processes=4", "-c", "max_parallel_workers=4", "-c", "log_min_duration_statement=1000"]
           env:
-            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
-            - { name: POSTGRES_USER, value: mediafusion }
-            - { name: POSTGRES_DB, value: mediafusion }
-            - { name: POSTGRES_INITDB_ARGS, value: "--data-checksums" }
+            - {name: PGDATA, value: /var/lib/postgresql/data/pgdata}
+            - {name: POSTGRES_USER, value: mediafusion}
+            - {name: POSTGRES_DB, value: mediafusion}
+            - {name: POSTGRES_INITDB_ARGS, value: "--data-checksums"}
             - name: POSTGRES_PASSWORD
-              valueFrom: { secretKeyRef: { name: mediafusion-secrets, key: POSTGRES_PASSWORD } }
-          ports: [{ containerPort: 5432, name: postgres }]
-          resources: { requests: { memory: 256Mi, cpu: 100m }, limits: { memory: 2Gi, cpu: "1" } }
+              valueFrom: {secretKeyRef: {name: mediafusion-secrets, key: POSTGRES_PASSWORD}}
+          ports: [{containerPort: 5432, name: postgres}]
+          resources: {requests: {memory: 256Mi, cpu: 100m}, limits: {memory: 2Gi, cpu: "1"}}
           volumeMounts:
-            - { name: data, mountPath: /var/lib/postgresql/data }
-            - { name: dshm, mountPath: /dev/shm }
-          readinessProbe: { exec: { command: ["pg_isready","-U","mediafusion","-d","mediafusion"] }, initialDelaySeconds: 10, periodSeconds: 10 }
+            - {name: data, mountPath: /var/lib/postgresql/data}
+            - {name: dshm, mountPath: /dev/shm}
+          readinessProbe: {exec: {command: ["pg_isready", "-U", "mediafusion", "-d", "mediafusion"]}, initialDelaySeconds: 10, periodSeconds: 10}
       volumes:
         - name: data
-          persistentVolumeClaim: { claimName: mediafusion-db-data }
+          persistentVolumeClaim: {claimName: mediafusion-db-data}
         - name: dshm
-          emptyDir: { medium: Memory, sizeLimit: 256Mi }
+          emptyDir: {medium: Memory, sizeLimit: 256Mi}
+      priorityClassName: data-tier
 ---
 apiVersion: v1
 kind: Service
-metadata: { name: mediafusion-postgres, namespace: apps }
-spec: { selector: { app: mediafusion-postgres }, ports: [{ name: postgres, port: 5432, targetPort: 5432 }] }
+metadata: {name: mediafusion-postgres, namespace: apps}
+spec: {selector: {app: mediafusion-postgres}, ports: [{name: postgres, port: 5432, targetPort: 5432}]}
 ---
 apiVersion: apps/v1
 kind: Deployment
-metadata: { name: mediafusion-redis, namespace: apps, labels: { app: mediafusion-redis } }
+metadata: {name: mediafusion-redis, namespace: apps, labels: {app: mediafusion-redis}}
 spec:
   replicas: 1
-  selector: { matchLabels: { app: mediafusion-redis } }
+  selector: {matchLabels: {app: mediafusion-redis}}
   template:
-    metadata: { labels: { app: mediafusion-redis } }
+    metadata: {labels: {app: mediafusion-redis}}
     spec:
       enableServiceLinks: false
       containers:
         - name: redis
           image: redis:8.6.3
-          args: ["redis-server","--save","","--maxmemory","256mb","--maxmemory-policy","allkeys-lru"]
-          ports: [{ containerPort: 6379 }]
-          resources: { requests: { memory: 32Mi, cpu: 10m }, limits: { memory: 320Mi, cpu: 300m } }
-          readinessProbe: { exec: { command: ["redis-cli","ping"] }, initialDelaySeconds: 5, periodSeconds: 10 }
+          args: ["redis-server", "--save", "", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+          ports: [{containerPort: 6379}]
+          resources: {requests: {memory: 32Mi, cpu: 10m}, limits: {memory: 320Mi, cpu: 300m}}
+          readinessProbe: {exec: {command: ["redis-cli", "ping"]}, initialDelaySeconds: 5, periodSeconds: 10}
 ---
 apiVersion: v1
 kind: Service
-metadata: { name: mediafusion-redis, namespace: apps }
-spec: { selector: { app: mediafusion-redis }, ports: [{ name: redis, port: 6379, targetPort: 6379 }] }
+metadata: {name: mediafusion-redis, namespace: apps}
+spec: {selector: {app: mediafusion-redis}, ports: [{name: redis, port: 6379, targetPort: 6379}]}

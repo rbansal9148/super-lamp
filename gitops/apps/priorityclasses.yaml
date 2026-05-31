@@ -1,0 +1,13 @@
+# Cluster-scoped PriorityClass(es) — a prerequisite for any workload that sets
+# priorityClassName (the data-tier postgres + authelia pods). Reconciled by the
+# apps-root app-of-apps. The class must exist before a pod references it (a missing
+# class makes the pod fail admission), so on a fresh bootstrap this should sync
+# early; it carries no CRD dependency and is idempotent.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata: { name: priorityclasses, namespace: argocd }
+spec:
+  project: default
+  source: { repoURL: git@github.com:rbansal9148/super-lamp.git, targetRevision: main, path: gitops/manifests/priorityclasses, directory: { recurse: true } }
+  destination: { server: https://kubernetes.default.svc, namespace: kube-system }
+  syncPolicy: { automated: { prune: true, selfHeal: true }, syncOptions: [CreateNamespace=false, ApplyOutOfSyncOnly=true] }

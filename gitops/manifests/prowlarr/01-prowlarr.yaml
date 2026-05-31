@@ -6,111 +6,112 @@
 # hostPath) — one-way (no Docker rollback once cut over).
 apiVersion: apps/v1
 kind: Deployment
-metadata: { name: prowlarr-postgres, namespace: apps, labels: { app: prowlarr-postgres } }
+metadata: {name: prowlarr-postgres, namespace: apps, labels: {app: prowlarr-postgres}}
 spec:
   replicas: 1
-  strategy: { type: Recreate }
-  selector: { matchLabels: { app: prowlarr-postgres } }
+  strategy: {type: Recreate}
+  selector: {matchLabels: {app: prowlarr-postgres}}
   template:
-    metadata: { labels: { app: prowlarr-postgres } }
+    metadata: {labels: {app: prowlarr-postgres}}
     spec:
       enableServiceLinks: false
       containers:
         - name: postgres
           image: postgres:18.4
-          args: ["postgres","-c","shared_buffers=128MB","-c","effective_cache_size=384MB","-c","maintenance_work_mem=64MB","-c","checkpoint_completion_target=0.9","-c","wal_buffers=8MB","-c","random_page_cost=1.1","-c","effective_io_concurrency=200","-c","work_mem=8MB","-c","max_connections=100","-c","log_min_duration_statement=1000"]
+          args: ["postgres", "-c", "shared_buffers=128MB", "-c", "effective_cache_size=384MB", "-c", "maintenance_work_mem=64MB", "-c", "checkpoint_completion_target=0.9", "-c", "wal_buffers=8MB", "-c", "random_page_cost=1.1", "-c", "effective_io_concurrency=200", "-c", "work_mem=8MB", "-c", "max_connections=100", "-c", "log_min_duration_statement=1000"]
           env:
-            - { name: PGDATA, value: /var/lib/postgresql/data/pgdata }
-            - { name: POSTGRES_USER, value: prowlarr }
-            - { name: POSTGRES_DB, value: prowlarr }
+            - {name: PGDATA, value: /var/lib/postgresql/data/pgdata}
+            - {name: POSTGRES_USER, value: prowlarr}
+            - {name: POSTGRES_DB, value: prowlarr}
             - name: POSTGRES_PASSWORD
-              valueFrom: { secretKeyRef: { name: prowlarr-db, key: POSTGRES_PASSWORD } }
-          ports: [{ containerPort: 5432, name: postgres }]
-          resources: { requests: { memory: 128Mi, cpu: 50m }, limits: { memory: 1Gi, cpu: 500m } }
+              valueFrom: {secretKeyRef: {name: prowlarr-db, key: POSTGRES_PASSWORD}}
+          ports: [{containerPort: 5432, name: postgres}]
+          resources: {requests: {memory: 128Mi, cpu: 50m}, limits: {memory: 1Gi, cpu: 500m}}
           volumeMounts:
-            - { name: pgdata, mountPath: /var/lib/postgresql/data }
-            - { name: dshm, mountPath: /dev/shm }
-          readinessProbe: { exec: { command: ["pg_isready","-U","prowlarr","-d","prowlarr"] }, initialDelaySeconds: 10, periodSeconds: 10 }
+            - {name: pgdata, mountPath: /var/lib/postgresql/data}
+            - {name: dshm, mountPath: /dev/shm}
+          readinessProbe: {exec: {command: ["pg_isready", "-U", "prowlarr", "-d", "prowlarr"]}, initialDelaySeconds: 10, periodSeconds: 10}
       volumes:
         - name: pgdata
-          hostPath: { path: /opt/docker/data/prowlarr/db, type: Directory }
+          hostPath: {path: /opt/docker/data/prowlarr/db, type: Directory}
         - name: dshm
-          emptyDir: { medium: Memory, sizeLimit: 256Mi }
+          emptyDir: {medium: Memory, sizeLimit: 256Mi}
+      priorityClassName: data-tier
 ---
 apiVersion: v1
 kind: Service
-metadata: { name: prowlarr-postgres, namespace: apps }
+metadata: {name: prowlarr-postgres, namespace: apps}
 spec:
-  selector: { app: prowlarr-postgres }
-  ports: [{ name: postgres, port: 5432, targetPort: 5432 }]
+  selector: {app: prowlarr-postgres}
+  ports: [{name: postgres, port: 5432, targetPort: 5432}]
 ---
 apiVersion: apps/v1
 kind: Deployment
-metadata: { name: prowlarr, namespace: apps, labels: { app: prowlarr } }
+metadata: {name: prowlarr, namespace: apps, labels: {app: prowlarr}}
 spec:
   replicas: 1
-  strategy: { type: Recreate }
-  selector: { matchLabels: { app: prowlarr } }
+  strategy: {type: Recreate}
+  selector: {matchLabels: {app: prowlarr}}
   template:
-    metadata: { labels: { app: prowlarr } }
+    metadata: {labels: {app: prowlarr}}
     spec:
       enableServiceLinks: false
       containers:
         - name: prowlarr
           image: ghcr.io/hotio/prowlarr@sha256:fa08890d7ff0d2833fb8aa8de4ea572849acfae16f016f17aa0e745daf948831
           env:
-            - { name: PUID, value: "1001" }
-            - { name: PGID, value: "1001" }
-            - { name: UMASK, value: "002" }
-            - { name: TZ, value: "Asia/Kolkata" }
-            - { name: PROWLARR__POSTGRES__HOST, value: "prowlarr-postgres" }
-            - { name: PROWLARR__POSTGRES__USER, value: "prowlarr" }
-            - { name: PROWLARR__POSTGRES__MAINDB, value: "prowlarr" }
-            - { name: PROWLARR__POSTGRES__LOGDB, value: "prowlarr_log" }
+            - {name: PUID, value: "1001"}
+            - {name: PGID, value: "1001"}
+            - {name: UMASK, value: "002"}
+            - {name: TZ, value: "Asia/Kolkata"}
+            - {name: PROWLARR__POSTGRES__HOST, value: "prowlarr-postgres"}
+            - {name: PROWLARR__POSTGRES__USER, value: "prowlarr"}
+            - {name: PROWLARR__POSTGRES__MAINDB, value: "prowlarr"}
+            - {name: PROWLARR__POSTGRES__LOGDB, value: "prowlarr_log"}
             - name: PROWLARR__POSTGRES__PASSWORD
-              valueFrom: { secretKeyRef: { name: prowlarr-db, key: POSTGRES_PASSWORD } }
-            - { name: HTTP_PROXY,  value: "http://gluetun.apps.svc.cluster.local:8888" }
-            - { name: HTTPS_PROXY, value: "http://gluetun.apps.svc.cluster.local:8888" }
-            - { name: NO_PROXY, value: "localhost,127.0.0.1,prowlarr-postgres,flaresolverr,.svc,.cluster.local,10.42.0.0/16,10.43.0.0/16" }
-          ports: [{ containerPort: 9696, name: http }]
-          resources: { requests: { memory: 128Mi, cpu: 50m }, limits: { memory: 6Gi, cpu: "2" } }
-          volumeMounts: [{ name: config, mountPath: /config }]
-          readinessProbe: { httpGet: { path: /ping, port: 9696 }, initialDelaySeconds: 20, periodSeconds: 20, timeoutSeconds: 8 }
+              valueFrom: {secretKeyRef: {name: prowlarr-db, key: POSTGRES_PASSWORD}}
+            - {name: HTTP_PROXY, value: "http://gluetun.apps.svc.cluster.local:8888"}
+            - {name: HTTPS_PROXY, value: "http://gluetun.apps.svc.cluster.local:8888"}
+            - {name: NO_PROXY, value: "localhost,127.0.0.1,prowlarr-postgres,flaresolverr,.svc,.cluster.local,10.42.0.0/16,10.43.0.0/16"}
+          ports: [{containerPort: 9696, name: http}]
+          resources: {requests: {memory: 128Mi, cpu: 50m}, limits: {memory: 6Gi, cpu: "2"}}
+          volumeMounts: [{name: config, mountPath: /config}]
+          readinessProbe: {httpGet: {path: /ping, port: 9696}, initialDelaySeconds: 20, periodSeconds: 20, timeoutSeconds: 8}
       volumes:
         - name: config
-          hostPath: { path: /opt/docker/data/prowlarr, type: Directory }
+          hostPath: {path: /opt/docker/data/prowlarr, type: Directory}
 ---
 apiVersion: v1
 kind: Service
-metadata: { name: prowlarr, namespace: apps }
+metadata: {name: prowlarr, namespace: apps}
 spec:
-  selector: { app: prowlarr }
-  ports: [{ name: http, port: 9696, targetPort: 9696 }]
+  selector: {app: prowlarr}
+  ports: [{name: http, port: 9696, targetPort: 9696}]
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
-metadata: { name: prowlarr-tls, namespace: apps }
+metadata: {name: prowlarr-tls, namespace: apps}
 spec:
   secretName: prowlarr-tls
-  issuerRef: { name: selfsigned, kind: ClusterIssuer }
+  issuerRef: {name: selfsigned, kind: ClusterIssuer}
   dnsNames: [prowlarr.my-blue-car.work]
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
-metadata: { name: prowlarr, namespace: apps, annotations: { external-dns.alpha.kubernetes.io/target: "161.118.165.53" } }
+metadata: {name: prowlarr, namespace: apps, annotations: {external-dns.alpha.kubernetes.io/target: "161.118.165.53"}}
 spec:
   entryPoints: [websecure]
   routes:
     - match: Host(`prowlarr.my-blue-car.work`)
       kind: Rule
-      middlewares: [{ name: authelia }]
-      services: [{ name: prowlarr, port: 9696 }]
+      middlewares: [{name: authelia}]
+      services: [{name: prowlarr, port: 9696}]
   tls: {}
 ---
 # prowlarr_history_prune sidecar -> CronJob (prune History >7d, Logs >3d)
 apiVersion: batch/v1
 kind: CronJob
-metadata: { name: prowlarr-prune, namespace: apps }
+metadata: {name: prowlarr-prune, namespace: apps}
 spec:
   schedule: "15 3 * * *"
   concurrencyPolicy: Forbid
@@ -128,6 +129,6 @@ spec:
               image: postgres:18.4
               env:
                 - name: PGPASSWORD
-                  valueFrom: { secretKeyRef: { name: prowlarr-db, key: POSTGRES_PASSWORD } }
-              command: ["/bin/sh","-c","psql -h prowlarr-postgres -U prowlarr -d prowlarr -c \"DELETE FROM \\\"History\\\" WHERE \\\"Date\\\" < NOW() - INTERVAL '7 days'; VACUUM \\\"History\\\";\" || true; psql -h prowlarr-postgres -U prowlarr -d prowlarr_log -c \"DELETE FROM \\\"Logs\\\" WHERE \\\"Time\\\" < NOW() - INTERVAL '3 days'; VACUUM \\\"Logs\\\";\" || true"]
-              resources: { requests: { memory: 32Mi, cpu: 25m }, limits: { memory: 128Mi, cpu: 250m } }
+                  valueFrom: {secretKeyRef: {name: prowlarr-db, key: POSTGRES_PASSWORD}}
+              command: ["/bin/sh", "-c", "psql -h prowlarr-postgres -U prowlarr -d prowlarr -c \"DELETE FROM \\\"History\\\" WHERE \\\"Date\\\" < NOW() - INTERVAL '7 days'; VACUUM \\\"History\\\";\" || true; psql -h prowlarr-postgres -U prowlarr -d prowlarr_log -c \"DELETE FROM \\\"Logs\\\" WHERE \\\"Time\\\" < NOW() - INTERVAL '3 days'; VACUUM \\\"Logs\\\";\" || true"]
+              resources: {requests: {memory: 32Mi, cpu: 25m}, limits: {memory: 128Mi, cpu: 250m}}

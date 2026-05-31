@@ -79,7 +79,7 @@ metadata:
   namespace: apps
 spec:
   accessModes: [ReadWriteOnce]
-  storageClassName: local-path-retain      # durable: survives PVC deletion (ADR guardrail 4)
+  storageClassName: local-path-retain # durable: survives PVC deletion (ADR guardrail 4)
   resources:
     requests:
       storage: 1Gi
@@ -89,16 +89,16 @@ kind: Deployment
 metadata:
   name: authelia
   namespace: apps
-  labels: { app: authelia }
+  labels: {app: authelia}
 spec:
   replicas: 1
   strategy:
-    type: Recreate            # RWO PVC + SQLite + in-memory sessions => single instance only
+    type: Recreate # RWO PVC + SQLite + in-memory sessions => single instance only
   selector:
-    matchLabels: { app: authelia }
+    matchLabels: {app: authelia}
   template:
     metadata:
-      labels: { app: authelia }
+      labels: {app: authelia}
     spec:
       # k8s injects <SVC>_SERVICE_* / <SVC>_PORT_* env vars; Authelia reads any AUTHELIA_*
       # env as config, so the injected 'port' collides with server.address -> fatal. Off.
@@ -131,14 +131,14 @@ spec:
             - name: data
               mountPath: /data
           resources:
-            requests: { memory: 64Mi, cpu: 50m }
-            limits: { memory: 256Mi, cpu: 500m }
+            requests: {memory: 64Mi, cpu: 50m}
+            limits: {memory: 256Mi, cpu: 500m}
           readinessProbe:
-            httpGet: { path: /api/health, port: 9091 }
+            httpGet: {path: /api/health, port: 9091}
             initialDelaySeconds: 10
             periodSeconds: 10
           livenessProbe:
-            httpGet: { path: /api/health, port: 9091 }
+            httpGet: {path: /api/health, port: 9091}
             initialDelaySeconds: 20
             periodSeconds: 30
       volumes:
@@ -151,15 +151,16 @@ spec:
         - name: data
           persistentVolumeClaim:
             claimName: authelia-data
+      priorityClassName: data-tier
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: authelia
   namespace: apps
-  labels: { app: authelia }        # ServiceMonitor selector matches Service LABELS, not the pod selector
+  labels: {app: authelia} # ServiceMonitor selector matches Service LABELS, not the pod selector
 spec:
-  selector: { app: authelia }
+  selector: {app: authelia}
   ports:
     - name: http
       port: 9091
@@ -196,7 +197,7 @@ spec:
       services:
         - name: authelia
           port: 9091
-  tls: {}              # serve the wildcard *.my-blue-car.work default cert (TLSStore default)
+  tls: {} # serve the wildcard *.my-blue-car.work default cert (TLSStore default)
 ---
 # The forward-auth Middleware — attach to any app's IngressRoute via
 #   middlewares: [{ name: authelia, namespace: apps }]

@@ -1,0 +1,18 @@
+# Cluster-scoped scheduling priority for the single-node k3s box (~24Gi shared).
+# Memory limits across the fleet sum to ~2x the node; under genuine memory pressure
+# the kubelet evicts by QoS then priority. With everything at the default priority
+# (0), the eviction victim is non-deterministic — a Postgres or the Authelia auth
+# gate could be killed before a disposable Stremio addon. data-tier raises the
+# stateful/auth tier above the default so the addons are evicted first.
+#
+# Only one class is needed: pods without priorityClassName default to priority 0,
+# which is already below data-tier, so the "addon tier" is the implicit default.
+# NOT globalDefault — that would silently re-prioritise everything incl. future pods.
+---
+apiVersion: scheduling.k8s.io/v1
+kind: PriorityClass
+metadata:
+  name: data-tier
+value: 1000
+globalDefault: false
+description: "Databases and the Authelia auth gate — evicted after default-priority (0) addons under memory pressure."
