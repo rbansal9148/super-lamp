@@ -20,7 +20,7 @@ include:
   - apps/cloudflare-ddns/compose.yaml
   # - apps/comet/compose.yaml            # MIGRATED to k3s (gitops/manifests/comet)
   # - apps/crowdsec/compose.yaml
-  - apps/dash/compose.yaml
+  # - apps/dash/compose.yaml             # MIGRATED to k3s (gitops/manifests/dash)
   # - apps/fcg/compose.yaml
   # - apps/decypharr/compose.yaml
   # - apps/discord-tickets/compose.yaml
@@ -33,7 +33,7 @@ include:
   # - apps/freshrss/compose.yaml
   - apps/gluetun/compose.yaml
   # - apps/homarr/compose.yaml
-  - apps/honey/compose.yaml
+  # - apps/honey/compose.yaml            # MIGRATED to k3s (gitops/manifests/honey)
   # - apps/huntarr/compose.yaml
   # - apps/immich/compose.yaml
   # - apps/iptvboss/compose.yaml
