@@ -15,7 +15,11 @@ metadata:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   retentionPeriod: "1"                   # 1 month — required field; cap from day one (primer §5)
-  removePvcAfterDelete: false            # ADR guardrail 4
+  # NOTE: VLSingle (v0.70.1) has NO removePvcAfterDelete field (unlike VMSingle) — setting
+  # it is a silently-ignored no-op AND fails `kubeconform -strict`. The data PVC is
+  # owner-referenced to this CR, and local-path's StorageClass reclaimPolicy is Delete, so
+  # data durability (ADR guardrail 4) is NOT enforced here — it must come from a PV-level
+  # reclaimPolicy: Retain. See vm-single.yaml: the same caveat applies to VMSingle's PVC.
   storage:
     accessModes:
       - ReadWriteOnce

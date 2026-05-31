@@ -60,9 +60,27 @@ metadata:
 spec:
   mode: statefulset
   replicas: 1                            # ADR D7: scale via TA sharding when target count demands
+  # Co-located host (24Gi shared with the live Docker stack). A cgroup memory limit
+  # MUST be set: memory_limiter's limit_percentage (below) is computed against the
+  # cgroup limit, and with no limit it falls back to the 24Gi node total — under a
+  # metrics spike the collector could balloon and starve the Docker containers.
+  resources:
+    requests:
+      memory: 128Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 500m
   targetAllocator:
     enabled: true
     allocationStrategy: consistent-hashing
+    resources:
+      requests:
+        memory: 64Mi
+        cpu: 50m
+      limits:
+        memory: 256Mi
+        cpu: 250m
     prometheusCR:
       enabled: true
       serviceMonitorSelector: {}         # all ServiceMonitors
@@ -112,6 +130,15 @@ metadata:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   mode: daemonset
+  # Runs on every node alongside the Docker stack — bound it for the same reason as
+  # the scrape collector: limit_percentage needs this cgroup limit to be host-safe.
+  resources:
+    requests:
+      memory: 128Mi
+      cpu: 100m
+    limits:
+      memory: 512Mi
+      cpu: 500m
   daemonSetUpdateStrategy:
     type: RollingUpdate
     rollingUpdate:
