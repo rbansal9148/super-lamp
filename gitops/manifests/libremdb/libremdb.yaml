@@ -1,0 +1,91 @@
+# libremdb — privacy IMDb frontend. Stateless app + redis cache (ephemeral). No secrets.
+# Env from ConfigMap; REDIS_URL points at the in-namespace libremdb-redis service.
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: libremdb-config, namespace: apps }
+data:
+  NEXT_PUBLIC_URL: "https://libremdb.k8s.my-blue-car.work"
+  AXIOS_USERAGENT: "Mozilla/5.0 (X11; Linux x86_64; rv:104.0) Gecko/20100101 Firefox/104.0"
+  AXIOS_ACCEPT: "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8"
+  NEXT_TELEMETRY_DISABLED: "1"
+  USE_REDIS: "true"
+  REDIS_CACHE_TTL_API: "3600"
+  REDIS_CACHE_TTL_MEDIA: "3600"
+  REDIS_URL: "libremdb-redis:6379"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: libremdb-redis, namespace: apps, labels: { app: libremdb-redis } }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: libremdb-redis } }
+  template:
+    metadata: { labels: { app: libremdb-redis } }
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: redis
+          image: redis:8.6.3
+          args: ["redis-server","--maxmemory","8mb","--maxmemory-policy","allkeys-lru","--save",""]
+          ports: [{ containerPort: 6379 }]
+          resources: { requests: { memory: 8Mi, cpu: 10m }, limits: { memory: 32Mi, cpu: 100m } }
+          readinessProbe: { exec: { command: ["redis-cli","ping"] }, initialDelaySeconds: 5, periodSeconds: 10 }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: libremdb-redis, namespace: apps }
+spec:
+  selector: { app: libremdb-redis }
+  ports: [{ name: redis, port: 6379, targetPort: 6379 }]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: libremdb, namespace: apps, labels: { app: libremdb } }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: libremdb } }
+  template:
+    metadata: { labels: { app: libremdb } }
+    spec:
+      enableServiceLinks: false
+      securityContext: { runAsUser: 65534, runAsGroup: 65534 }
+      containers:
+        - name: libremdb
+          image: ghcr.io/zyachel/libremdb:latest@sha256:9f65a47fe64133045b4cfaa48e5ef73371c55c62b3d5bf42f7584a90dfd1c1ee
+          envFrom: [{ configMapRef: { name: libremdb-config } }]
+          ports: [{ containerPort: 3000, name: http }]
+          resources: { requests: { memory: 64Mi, cpu: 25m }, limits: { memory: 256Mi, cpu: 500m } }
+          securityContext:
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"] }
+          volumeMounts: [{ name: nextcache, mountPath: /opt/app/.next/cache }]
+          readinessProbe: { httpGet: { path: /, port: 3000 }, initialDelaySeconds: 10, periodSeconds: 20 }
+      volumes: [{ name: nextcache, emptyDir: { sizeLimit: 32Mi } }]
+---
+apiVersion: v1
+kind: Service
+metadata: { name: libremdb, namespace: apps }
+spec:
+  selector: { app: libremdb }
+  ports: [{ name: http, port: 3000, targetPort: 3000 }]
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata: { name: libremdb-tls, namespace: apps }
+spec:
+  secretName: libremdb-tls
+  issuerRef: { name: selfsigned, kind: ClusterIssuer }
+  dnsNames: [libremdb.k8s.my-blue-car.work]
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata: { name: libremdb, namespace: apps }
+spec:
+  entryPoints: [websecure]
+  routes:
+    - match: Host(`libremdb.k8s.my-blue-car.work`)
+      kind: Rule
+      middlewares: [{ name: authelia }]
+      services: [{ name: libremdb, port: 3000 }]
+  tls: { secretName: libremdb-tls }
