@@ -18,7 +18,7 @@ include:
   # - apps/borgmatic/compose.yaml
   # - apps/byparr/compose.yaml
   - apps/cloudflare-ddns/compose.yaml
-  - apps/comet/compose.yaml
+  # - apps/comet/compose.yaml            # MIGRATED to k3s (gitops/manifests/comet)
   # - apps/crowdsec/compose.yaml
   - apps/dash/compose.yaml
   # - apps/fcg/compose.yaml
