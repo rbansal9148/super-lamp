@@ -15,6 +15,12 @@ spec:
     metadata: { labels: { app: bitmagnet } }
     spec:
       enableServiceLinks: false
+      # bitmagnet runs in gluetun's netns where gluetun owns DNS (can't resolve k8s svc
+      # names). Map bitmagnet-postgres via /etc/hosts to its pinned ClusterIP (checked
+      # before DNS); the killswitch (FIREWALL_OUTBOUND_SUBNETS 10.43/16) permits reaching it.
+      hostAliases:
+        - ip: "10.43.36.31"
+          hostnames: ["bitmagnet-postgres"]
       containers:
         - name: gluetun
           image: qmcgaw/gluetun@sha256:10b4895fde4499c2d1d9fbd8e681d040ede0efe8c6cfe5d0c51daf0461836ee8
@@ -25,8 +31,6 @@ spec:
             - { name: VPN_TYPE, value: "wireguard" }
             - { name: WIREGUARD_ADDRESSES, value: "10.67.194.217/32" }
             - { name: SERVER_COUNTRIES, value: "Singapore" }
-            - { name: DOT, value: "off" }
-            - { name: DNS_KEEP_NAMESERVER, value: "on" }       # keep k8s DNS for svc resolution
             - { name: FIREWALL_OUTBOUND_SUBNETS, value: "10.42.0.0/16,10.43.0.0/16" }
             - { name: FIREWALL_INPUT_PORTS, value: "3333" }    # allow cluster -> bitmagnet UI
             - name: WIREGUARD_PRIVATE_KEY
