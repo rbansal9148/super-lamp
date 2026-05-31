@@ -47,7 +47,7 @@ include:
   # - apps/librespeed/compose.yaml
   # - apps/mealie/compose.yaml
   # - apps/mediaflow-proxy/compose.yaml
-  - apps/mediafusion/compose.yaml
+  # - apps/mediafusion/compose.yaml      # MIGRATED to k3s (gitops/manifests/mediafusion)
   # - apps/minecraft/compose.yaml
   # - apps/moodle/compose.yaml
   # - apps/nitter/compose.yaml
