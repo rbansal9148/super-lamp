@@ -17,6 +17,10 @@ spec:
     helm:
       releaseName: grafana
       values: |
+        # RWO PVC + RollingUpdate deadlocks (new pod can't attach the volume the old
+        # one holds -> Pending -> app Degraded). Recreate: stop old, then start new.
+        deploymentStrategy:
+          type: Recreate
         admin:
           existingSecret: grafana-admin   # from a SealedSecret — see secrets/README.md
           userKey: admin-user
