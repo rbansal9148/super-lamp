@@ -13,7 +13,7 @@ spec:
   source:
     repoURL: https://grafana.github.io/helm-charts
     chart: grafana
-    targetRevision: 10.5.15              # Grafana app 12.3.1 (latest stable as of 2026-05-30)
+    targetRevision: 10.5.15              # Grafana app 12.3.1 (latest stable as of 2026-05-31)
     helm:
       releaseName: grafana
       values: |
