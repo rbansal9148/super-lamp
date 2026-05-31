@@ -22,6 +22,10 @@ data:
     log:
       level: 'info'
       format: 'text'
+    telemetry:
+      metrics:
+        enabled: true
+        address: 'tcp://:9959/metrics'   # scraped by the OTel TA via the ServiceMonitor below
     totp:
       issuer: 'k8s.my-blue-car.work'
     authentication_backend:
@@ -94,6 +98,9 @@ spec:
           # No args: the image's default entrypoint reads /config/configuration.yml.
           ports:
             - containerPort: 9091
+              name: http
+            - containerPort: 9959
+              name: metrics
           env:
             - name: AUTHELIA_SESSION_SECRET_FILE
               value: /secrets/SESSION_SECRET
@@ -137,12 +144,16 @@ kind: Service
 metadata:
   name: authelia
   namespace: apps
+  labels: { app: authelia }        # ServiceMonitor selector matches Service LABELS, not the pod selector
 spec:
   selector: { app: authelia }
   ports:
     - name: http
       port: 9091
       targetPort: 9091
+    - name: metrics
+      port: 9959
+      targetPort: 9959
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
@@ -190,3 +201,21 @@ spec:
       - Remote-Groups
       - Remote-Email
       - Remote-Name
+---
+# Auth metrics (login success/fail, request duration) scraped by the OTel Target
+# Allocator (serviceMonitorSelector: {} → all namespaces) → pushed to VictoriaMetrics.
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: authelia
+  namespace: apps
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  selector:
+    matchLabels:
+      app: authelia
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
