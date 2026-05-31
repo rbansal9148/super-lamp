@@ -1,0 +1,45 @@
+# mediafusion app — stremio addon / scraper. All config+secrets from sealed
+# mediafusion-secrets (envFrom). Egress via gluetun proxy; mesh peers (prowlarr,
+# zilean, flaresolverr) resolved by same-namespace DNS. mediafusion.k8s.* behind Authelia.
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: mediafusion, namespace: apps, labels: { app: mediafusion } }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: mediafusion } }
+  template:
+    metadata: { labels: { app: mediafusion } }
+    spec:
+      enableServiceLinks: false
+      containers:
+        - name: mediafusion
+          image: mhdzumair/mediafusion:6.0.0-beta.12
+          envFrom: [{ secretRef: { name: mediafusion-secrets } }]
+          ports: [{ containerPort: 8000, name: http }]
+          resources: { requests: { memory: 256Mi, cpu: 100m }, limits: { memory: 3Gi, cpu: "2" } }
+          readinessProbe: { httpGet: { path: /health, port: 8000 }, initialDelaySeconds: 20, periodSeconds: 20, timeoutSeconds: 8 }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: mediafusion, namespace: apps }
+spec: { selector: { app: mediafusion }, ports: [{ name: http, port: 8000, targetPort: 8000 }] }
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata: { name: mediafusion-tls, namespace: apps }
+spec:
+  secretName: mediafusion-tls
+  issuerRef: { name: selfsigned, kind: ClusterIssuer }
+  dnsNames: [mediafusion.k8s.my-blue-car.work]
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata: { name: mediafusion, namespace: apps }
+spec:
+  entryPoints: [websecure]
+  routes:
+    - match: Host(`mediafusion.k8s.my-blue-car.work`)
+      kind: Rule
+      middlewares: [{ name: authelia }]
+      services: [{ name: mediafusion, port: 8000 }]
+  tls: { secretName: mediafusion-tls }
