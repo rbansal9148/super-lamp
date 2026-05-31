@@ -107,7 +107,7 @@ include:
   # - apps/webstreamr/compose.yaml
   # - apps/yamtrack/compose.yaml
   # - apps/zilean/compose.yaml          # MIGRATED to k3s (gitops/manifests/zilean); data dir retained for rollback
-  - apps/flaresolverr/compose.yaml
+  # - apps/flaresolverr/compose.yaml     # MIGRATED to k3s (gitops/manifests/flaresolverr)
   # - apps/ollama/compose.yaml
   # - apps/zipline/compose.yaml
   # - apps/neko/compose.yaml
