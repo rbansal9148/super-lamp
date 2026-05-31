@@ -21,6 +21,11 @@ spec:
         # one holds -> Pending -> app Degraded). Recreate: stop old, then start new.
         deploymentStrategy:
           type: Recreate
+        # fsGroup:472 already makes the PVC writable by the grafana uid; the chart's
+        # init-chown-data (chown -R as a restricted user) just crash-loops on existing
+        # 472-owned files (Permission denied) and blocks startup. Disable it.
+        initChownData:
+          enabled: false
         admin:
           existingSecret: grafana-admin   # from a SealedSecret — see secrets/README.md
           userKey: admin-user
