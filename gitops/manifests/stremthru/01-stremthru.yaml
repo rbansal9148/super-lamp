@@ -77,7 +77,7 @@ spec:
       containers:
         - name: stremthru
           image: muniftanjim/stremthru@sha256:d4eb85a8aef5b91ab81081959b9695aace0675e3790427a5a8f892d86c53ff6b
-          envFrom: [{ secretRef: { name: stremthru-secrets } }]
+          envFrom: [{ configMapRef: { name: stremthru-config } }, { secretRef: { name: stremthru-secrets } }]
           ports: [{ containerPort: 8080, name: http }]
           resources: { requests: { memory: 128Mi, cpu: 50m }, limits: { memory: 2Gi, cpu: "2" } }
           volumeMounts: [{ name: data, mountPath: /app/data }]

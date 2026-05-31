@@ -1,0 +1,29 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: aiometadata-config
+  namespace: apps
+  labels:
+    app: aiometadata
+data:
+  ANILIST_CLIENT_ID: '33586'
+  ANILIST_REDIRECT_URI: https://aiometadata.${DOMAIN}/anilist/callback
+  CACHE_WARMUP_MODE: comprehensive
+  CACHE_WARMUP_UUID: b5f78ce0-61b5-403b-97fc-b334069e6bea
+  CACHE_WARM_INTERVAL_HOURS: '12'
+  CATALOG_LIST_ITEMS_SIZE: '100'
+  CATALOG_WARMUP_MAX_PAGES_PER_CATALOG: '100'
+  DISABLE_METRICS: 'true'
+  ENABLE_CACHE_WARMING: 'true'
+  HOST_NAME: https://aiometadata.my-blue-car.work
+  LOG_LEVEL: info
+  MAL_WARMUP_ENABLED: 'true'
+  MAL_WARMUP_INTERVAL_HOURS: '6'
+  MAL_WARMUP_METADATA: 'true'
+  NODE_OPTIONS: --dns-result-order=ipv4first
+  PORT: '1337'
+  REDIS_URL: redis://aiometadata-redis:6379
+  TMDB_POPULAR_WARMING_ENABLED: 'true'
+  TRAKT_CONCURRENCY: '10'
+  TRAKT_REDIRECT_URI: https://aiometadata.${DOMAIN}/api/auth/trakt/callback
