@@ -3,11 +3,10 @@
 # "selfsigned" ClusterIssuer (cluster-issuer.yaml) — browsers show an untrusted
 # warning (fine internal); swap to an ACME DNS-01 ClusterIssuer for a trusted cert.
 #
-# ONLY Grafana is exposed publicly — it owns its own authentication. The VM (vmui)
-# and VictoriaLogs UIs have NO built-in auth; exposing them would publish all metrics
-# and logs unauthenticated. They are intentionally left internal (reach them with
-# `kubectl port-forward`). To expose them, first stand up an Authelia forward-auth
-# Middleware in-cluster and attach it (commented block at the bottom).
+# Grafana owns its own auth. The VM (vmui) and VictoriaLogs UIs have NO built-in
+# auth, so they are placed behind the in-cluster Authelia forward-auth (the local
+# 'authelia' Middleware below → authelia.apps.svc:9091). Hosts are under the
+# k8s.my-blue-car.work cookie domain so the Authelia session cookie applies.
 ---
 apiVersion: cert-manager.io/v1
 kind: Certificate
@@ -46,25 +45,93 @@ spec:
           port: 80
   tls:
     secretName: grafana-tls
-# ──────────────────────────────────────────────────────────────────────────────
-# DO NOT uncomment until an Authelia Middleware exists in this namespace — these
-# backends are unauthenticated.
-#
-# ---
-# apiVersion: traefik.io/v1alpha1
-# kind: IngressRoute
-# metadata:
-#   name: vmui
-#   namespace: observability
-# spec:
-#   entryPoints: [websecure]
-#   routes:
-#     - match: Host(`vm.my-blue-car.work`)
-#       kind: Rule
-#       services:
-#         - name: vmsingle-obs
-#           port: 8428
-#       middlewares:
-#         - name: authelia        # Traefik Middleware CR backed by Authelia forward-auth
-#   tls:
-#     secretName: vm-tls
+---
+# Local forward-auth Middleware (Traefik v3 blocks cross-namespace middleware refs by
+# default, so we define one here rather than referencing apps/authelia). The forwardAuth
+# address is a plain URL → reaches the Authelia Service across namespaces at the HTTP layer.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: authelia
+  namespace: observability
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  forwardAuth:
+    address: 'http://authelia.apps.svc.cluster.local:9091/api/authz/forward-auth'
+    trustForwardHeader: true
+    authResponseHeaders:
+      - Remote-User
+      - Remote-Groups
+      - Remote-Email
+      - Remote-Name
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: vmui-tls
+  namespace: observability
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  secretName: vmui-tls
+  issuerRef:
+    name: selfsigned
+    kind: ClusterIssuer
+  dnsNames:
+    - vm.k8s.my-blue-car.work
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: vmui
+  namespace: observability
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  entryPoints: [websecure]
+  routes:
+    - match: Host(`vm.k8s.my-blue-car.work`)
+      kind: Rule
+      services:
+        - name: vmsingle-obs
+          port: 8428
+      middlewares:
+        - name: authelia
+  tls:
+    secretName: vmui-tls
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: vlogs-ui-tls
+  namespace: observability
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  secretName: vlogs-ui-tls
+  issuerRef:
+    name: selfsigned
+    kind: ClusterIssuer
+  dnsNames:
+    - logs.k8s.my-blue-car.work
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata:
+  name: vlogs-ui
+  namespace: observability
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  entryPoints: [websecure]
+  routes:
+    - match: Host(`logs.k8s.my-blue-car.work`)
+      kind: Rule
+      services:
+        - name: vlsingle-obs
+          port: 9428
+      middlewares:
+        - name: authelia
+  tls:
+    secretName: vlogs-ui-tls
