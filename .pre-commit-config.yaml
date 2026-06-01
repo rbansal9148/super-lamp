@@ -1,0 +1,29 @@
+# Pre-commit gate for the GitOps manifests. ArgoCD auto-syncs main with
+# prune+selfHeal, so a pushed-to-main manifest IS the deploy with no pre-merge
+# check — this hook is the only thing between a broken manifest and the live
+# single-node cluster. Arm it once per clone:
+#
+#   pre-commit install
+#
+# It runs scripts/validate-gitops.sh (yq grammar on every doc incl. embedded
+# helm values + kubeconform schema against the k8s OpenAPI and the datreeio CRD
+# catalog). The script also attempts a server-side dry-run when the cluster is
+# reachable, but that layer only warns — so commit success is deterministic and
+# does not depend on cluster state.
+#
+# SCOPE CAVEAT: kubeconform runs with -ignore-missing-schemas, so CRD kinds
+# whose schema isn't in the catalog (some Traefik/VM specs) are SKIPPED, not
+# spec-checked. This is a grammar + core-schema gate, NOT a full IngressRoute/
+# Middleware spec validator — it will not catch e.g. a dropped authelia
+# middleware ref. It catches the common failure: malformed YAML / wrong-shape
+# core kinds auto-deploying to prod.
+repos:
+  - repo: local
+    hooks:
+      - id: validate-gitops
+        name: validate gitops manifests (yq + kubeconform)
+        entry: scripts/validate-gitops.sh gitops
+        language: script
+        files: ^gitops/.*\.ya?ml$
+        pass_filenames: false      # validate the whole tree, not just staged files
+        require_serial: true
