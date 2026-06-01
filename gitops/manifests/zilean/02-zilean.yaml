@@ -74,19 +74,6 @@ spec:
   ports:
     - { name: http, port: 8181, targetPort: 8181 }
 ---
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: zilean-tls
-  namespace: apps
-spec:
-  secretName: zilean-tls
-  issuerRef:
-    name: selfsigned
-    kind: ClusterIssuer
-  dnsNames:
-    - zilean.my-blue-car.work
----
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:

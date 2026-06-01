@@ -169,19 +169,6 @@ spec:
       port: 9959
       targetPort: 9959
 ---
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: authelia-tls
-  namespace: apps
-spec:
-  secretName: authelia-tls
-  issuerRef:
-    name: selfsigned
-    kind: ClusterIssuer
-  dnsNames:
-    - auth.my-blue-car.work
----
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:

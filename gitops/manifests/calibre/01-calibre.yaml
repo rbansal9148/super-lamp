@@ -42,14 +42,6 @@ kind: Service
 metadata: { name: calibre-web-automated, namespace: apps }
 spec: { selector: { app: calibre-web-automated }, ports: [{ name: http, port: 8083, targetPort: 8083 }] }
 ---
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata: { name: calibre-tls, namespace: apps }
-spec:
-  secretName: calibre-tls
-  issuerRef: { name: selfsigned, kind: ClusterIssuer }
-  dnsNames: [calibre.my-blue-car.work]
----
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata: { name: calibre, namespace: apps, annotations: { external-dns.alpha.kubernetes.io/target: "161.118.165.53" } }
@@ -91,14 +83,6 @@ apiVersion: v1
 kind: Service
 metadata: { name: shelfmark, namespace: apps }
 spec: { selector: { app: shelfmark }, ports: [{ name: http, port: 8084, targetPort: 8084 }] }
----
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata: { name: shelfmark-tls, namespace: apps }
-spec:
-  secretName: shelfmark-tls
-  issuerRef: { name: selfsigned, kind: ClusterIssuer }
-  dnsNames: [shelfmark.my-blue-car.work]
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute

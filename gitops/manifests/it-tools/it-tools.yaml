@@ -53,20 +53,6 @@ spec:
     - port: 80
       targetPort: 80
 ---
-apiVersion: cert-manager.io/v1
-kind: Certificate
-metadata:
-  name: it-tools-tls
-  namespace: apps
-spec:
-  secretName: it-tools-tls
-  # Self-signed (internal). Swap to an ACME DNS-01 ClusterIssuer for a trusted cert.
-  issuerRef:
-    name: selfsigned
-    kind: ClusterIssuer
-  dnsNames:
-    - it-tools.my-blue-car.work
----
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
