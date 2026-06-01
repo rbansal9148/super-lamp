@@ -16,16 +16,17 @@ controller_name := env_var_or_default("SEALED_CONTROLLER_NAME", "sealed-secrets-
 default:
     @just --list
 
-# Validate the GitOps manifests (yq grammar + kubeconform schema) — the same gate
-# the pre-commit hook runs. Pass a sub-path to scope it; default is the whole tree.
+# Pass a sub-path to scope it; default is the whole tree.
+
+# Validate GitOps manifests (yq + kubeconform) — same gate as the pre-commit hook.
 validate path="gitops":
     bash scripts/validate-gitops.sh {{path}}
 
-# Seal ONE value for an existing strict-scoped SealedSecret and print the
-# `    key: <ciphertext>` line to paste under spec.encryptedData. The value is read
-# from a hidden prompt (or stdin if piped) — never from an argument.
-#
+# Reads the value from a hidden prompt (or stdin) — never an arg — and prints the
+# `    key: <ciphertext>` line to paste under spec.encryptedData.
 #   just seal-key apps comet-secrets POSTGRES_PASSWORD
+
+# Seal one value into an existing strict-scoped SealedSecret.
 seal-key ns secret key:
     @printf 'value for %s/%s key %s (hidden): ' '{{ns}}' '{{secret}}' '{{key}}' >&2; \
       read -rs val; echo >&2; \
@@ -34,8 +35,9 @@ seal-key ns secret key:
                  --controller-namespace '{{controller_ns}}' --controller-name '{{controller_name}}' \
       | { printf '    {{key}}: '; cat; echo; }
 
-# Fetch the controller's PUBLIC cert (safe to keep/commit) so `kubeseal --raw --cert
-# <file>` can seal offline, without cluster access.
+# Public cert is safe to keep/commit; `kubeseal --raw --cert <file>` then seals offline.
+
+# Fetch the controller's public cert for offline sealing.
 fetch-cert out="sealed-secrets-pub.pem":
     kubeseal --controller-namespace '{{controller_ns}}' --controller-name '{{controller_name}}' \
              --fetch-cert > '{{out}}'
