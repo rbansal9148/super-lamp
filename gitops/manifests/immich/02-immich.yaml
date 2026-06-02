@@ -16,7 +16,7 @@ spec:
       enableServiceLinks: false
       containers:
         - name: immich
-          image: ghcr.io/immich-app/immich-server:v2.7.5@sha256:cd4aaf5d917fe19b942bba0df4e50eed8e6766190b381e85687cc7880255674e
+          image: ghcr.io/immich-app/immich-server:v2.7.5@sha256:b92af50506b1263a9a03c1aa5771476fce5c7eba4004b0262bba275e7f48719d  # arm64
           envFrom:
             - configMapRef: { name: immich-config }
             - secretRef: { name: immich-secrets }
@@ -50,7 +50,7 @@ spec:
       enableServiceLinks: false
       containers:
         - name: immich-ml
-          image: ghcr.io/immich-app/immich-machine-learning:v2.7.5@sha256:d7057237a74a9219d890b0e00cb59434327720e65f991118c5e5c4f05092b694
+          image: ghcr.io/immich-app/immich-machine-learning:v2.7.5@sha256:d7057237a74a9219d890b0e00cb59434327720e65f991118c5e5c4f05092b694  # arm64
           envFrom:
             - configMapRef: { name: immich-config }
           ports: [{ containerPort: 3003, name: http }]

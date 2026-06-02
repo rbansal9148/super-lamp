@@ -19,7 +19,7 @@ spec:
       securityContext: { fsGroup: 999 }   # postgres uid in the immich pg image owns the dir (999:0)
       containers:
         - name: postgres
-          image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:b1d33572a9a0634aa6d344077467ad32847812a37fa3859f702952cba22a2f55
+          image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:6244e923bfde05b58bc4fc26b21025415c166c6239b6b9886fb0e806dcc99001  # arm64
           env:
             - { name: POSTGRES_USER, value: postgres }
             - { name: POSTGRES_DB, value: immich }
