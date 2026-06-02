@@ -1,0 +1,13 @@
+# immich non-secret config (split from secrets per repo convention). DB_PASSWORD is
+# the only secret -> sealedsecret. Server reads DB_*/REDIS_* ; postgres reads POSTGRES_*.
+apiVersion: v1
+kind: ConfigMap
+metadata: { name: immich-config, namespace: apps }
+data:
+  TZ: "Asia/Kolkata"
+  DB_HOSTNAME: immich-postgres
+  DB_USERNAME: postgres
+  DB_DATABASE_NAME: immich
+  REDIS_HOSTNAME: immich-redis
+  # service is named immich-ml (not immich's default immich-machine-learning) -> override
+  IMMICH_MACHINE_LEARNING_URL: http://immich-ml:3003
