@@ -21,3 +21,7 @@ data
 
 __pycache__/
 *.pyc
+
+# Decommissioned Docker stack — removed from git (was the plaintext-secret leak source).
+# Data lives in /opt/docker/data (gitignored); k8s manifests live in gitops/.
+/apps/
