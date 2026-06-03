@@ -78,11 +78,13 @@ spec:
                   - uid: ntfy-webhook
                     type: webhook
                     settings:
-                      url: https://ntfy.my-blue-car.work/alerts   # set your ntfy topic
+                      # HOSTED ntfy.sh — the self-hosted ntfy.my-blue-car.work died with the
+                      # Docker decommission, and an in-cluster sink can't deliver a "node is
+                      # down" alert on a single node anyway. ntfy.sh is off-box and survives
+                      # node death. Topic is 128-bit random: ntfy.sh topics are public by
+                      # name, so the name IS the access control — treat it as a secret.
+                      url: https://ntfy.sh/mbc-homelab-alerts-66b36c08e2196778657fa50d6de95e68
                       httpMethod: POST
-                    # ntfy auth token injected from a Secret env var — see secrets/README.md
-                    secureSettings:
-                      authorization_credentials: ${NTFY_TOKEN}
           policies.yaml:
             apiVersion: 1
             policies:
