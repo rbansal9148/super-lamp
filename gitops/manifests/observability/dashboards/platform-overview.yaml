@@ -1,0 +1,99 @@
+# Starter platform-overview dashboard. Provisioned by the Grafana sidecar, which
+# watches ConfigMaps labelled grafana_dashboard in this namespace (see grafana.yaml).
+# GitOps-managed like the alerts — do NOT click-build in the UI (UI dashboards live
+# only in Grafana's DB and vanish on redeploy).
+#
+# All panel queries were verified non-empty against VM before commit. Metrics are
+# OTLP dotted names (kubeletstats: k8s.node.*/k8s.pod.*) + KSM (underscore, with
+# exported_* subject labels) — community/node-exporter dashboards do NOT work here.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-platform-overview
+  namespace: observability
+  labels:
+    grafana_dashboard: "1"
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+data:
+  platform-overview.json: |
+    {
+      "uid": "platform-overview",
+      "title": "Platform Overview",
+      "tags": ["platform", "gitops"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "30s",
+      "time": { "from": "now-6h", "to": "now" },
+      "templating": { "list": [] },
+      "annotations": { "list": [] },
+      "panels": [
+        {
+          "id": 1, "type": "gauge", "title": "Node CPU used",
+          "gridPos": { "h": 6, "w": 8, "x": 0, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "k8s.node.cpu.usage / 4 * 100", "legendFormat": "CPU %" } ],
+          "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 70 }, { "color": "red", "value": 85 } ] } }, "overrides": [] },
+          "options": { "showThresholdLabels": false, "showThresholdMarkers": true }
+        },
+        {
+          "id": 2, "type": "gauge", "title": "Node memory used",
+          "gridPos": { "h": 6, "w": 8, "x": 8, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "k8s.node.memory.working_set / (k8s.node.memory.working_set + k8s.node.memory.available) * 100", "legendFormat": "Mem %" } ],
+          "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 75 }, { "color": "red", "value": 90 } ] } }, "overrides": [] },
+          "options": { "showThresholdLabels": false, "showThresholdMarkers": true }
+        },
+        {
+          "id": 3, "type": "gauge", "title": "Node disk used (root fs)",
+          "gridPos": { "h": 6, "w": 8, "x": 16, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "k8s.node.filesystem.usage / k8s.node.filesystem.capacity * 100", "legendFormat": "Disk %" } ],
+          "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 75 }, { "color": "red", "value": 85 } ] } }, "overrides": [] },
+          "options": { "showThresholdLabels": false, "showThresholdMarkers": true }
+        },
+        {
+          "id": 4, "type": "timeseries", "title": "Top 15 pods — memory (working set)",
+          "gridPos": { "h": 9, "w": 12, "x": 0, "y": 6 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "topk(15, k8s.pod.memory.working_set)", "legendFormat": "{{k8s.pod.name}}" } ],
+          "fieldConfig": { "defaults": { "unit": "decbytes", "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+          "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+        },
+        {
+          "id": 5, "type": "timeseries", "title": "Top 15 pods — CPU (cores)",
+          "gridPos": { "h": 9, "w": 12, "x": 12, "y": 6 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "topk(15, k8s.pod.cpu.usage)", "legendFormat": "{{k8s.pod.name}}" } ],
+          "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+          "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+        },
+        {
+          "id": 6, "type": "table", "title": "Container restarts (last 1h)",
+          "gridPos": { "h": 8, "w": 8, "x": 0, "y": 15 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "topk(20, increase(kube_pod_container_status_restarts_total[1h]))", "instant": true, "format": "table" } ],
+          "transformations": [ { "id": "organize", "options": { "excludeByName": { "Time": true, "__name__": true, "pod": true, "namespace": true, "container": true, "endpoint": true, "job": true, "service": true, "instance": true, "uid": true, "url.scheme": true, "scope.name": true, "scope.version": true, "server.address": true, "server.port": true, "service.name": true, "service.instance.id": true, "k8s.container.name": true, "k8s.namespace.name": true, "k8s.node.name": true, "k8s.pod.name": true, "k8s.pod.uid": true, "k8s.replicaset.name": true }, "renameByName": { "exported_namespace": "namespace", "exported_pod": "pod", "exported_container": "container", "Value": "restarts/1h" } } } ],
+          "fieldConfig": { "defaults": { "custom": { "align": "auto" } }, "overrides": [] },
+          "options": { "sortBy": [ { "displayName": "restarts/1h", "desc": true } ] }
+        },
+        {
+          "id": 7, "type": "timeseries", "title": "Pods by phase",
+          "gridPos": { "h": 8, "w": 8, "x": 8, "y": 15 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum by (phase) (kube_pod_status_phase)", "legendFormat": "{{phase}}" } ],
+          "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 20, "stacking": { "mode": "normal" }, "showPoints": "never" } }, "overrides": [] },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+        },
+        {
+          "id": 8, "type": "table", "title": "Scrape targets (up)",
+          "gridPos": { "h": 8, "w": 8, "x": 16, "y": 15 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "up", "instant": true, "format": "table" } ],
+          "transformations": [ { "id": "organize", "options": { "excludeByName": { "Time": true, "__name__": true, "instance": true, "endpoint": true, "service": true, "namespace": true, "pod": true }, "renameByName": { "Value": "up" } } } ],
+          "fieldConfig": { "defaults": {}, "overrides": [ { "matcher": { "id": "byName", "options": "up" }, "properties": [ { "id": "custom.cellOptions", "value": { "type": "color-background" } }, { "id": "thresholds", "value": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] } } ] } ] },
+          "options": { "sortBy": [ { "displayName": "job", "desc": false } ] }
+        }
+      ]
+    }
