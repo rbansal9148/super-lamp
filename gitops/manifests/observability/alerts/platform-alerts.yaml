@@ -125,3 +125,82 @@ data:
             labels: { severity: critical }
             annotations:
               summary: "Scrape target {{ $labels.job }} is down (up=0)"
+
+      - orgId: 1
+        name: platform-workload
+        folder: platform
+        interval: 1m
+        rules:
+          # ── Container crash-looping: >3 in-place restarts in 15m ──
+          # Source: kube-state-metrics (manifests/observability/kube-state-metrics.yaml).
+          # LABEL TRAP: the OTel scrape attaches the KSM pod's OWN identity as
+          # pod/namespace/container, so KSM's real SUBJECT is in exported_{namespace,
+          # pod,container} (verified via /api/v1/query — `pod` == the KSM pod). Group by
+          # the exported_* labels or every alert mislabels as "kube-state-metrics".
+          # restarts_total only increments on IN-PLACE restarts (a normal rollout makes a
+          # fresh pod starting at 0), so >3 in 15m is a clean crash-loop signal — no
+          # rollout false positives. noDataState=OK: a healthy cluster emits no series >3.
+          - uid: pod-crashlooping
+            title: Container crash-looping
+            condition: C
+            for: 5m
+            noDataState: OK
+            execErrState: OK
+            data:
+              - refId: A
+                relativeTimeRange: { from: 900, to: 0 }
+                datasourceUid: victoriametrics
+                model:
+                  refId: A
+                  instant: true
+                  expr: |-
+                    max by (exported_namespace, exported_pod, exported_container) (
+                      increase(kube_pod_container_status_restarts_total[15m])
+                    )
+              - refId: C
+                datasourceUid: __expr__
+                model:
+                  refId: C
+                  type: threshold
+                  expression: A
+                  conditions:
+                    - evaluator: { type: gt, params: [3] }
+            labels: { severity: warning }
+            annotations:
+              summary: '{{ index $labels "exported_namespace" }}/{{ index $labels "exported_pod" }} container {{ index $labels "exported_container" }} restarted >3× in 15m — crash-looping'
+
+          # ── Container OOMKilled (recent) ──
+          # Fires only when the last termination reason was OOMKilled AND the container
+          # restarted within 15m → a FRESH OOM, not a stale historical one. Auto-clears
+          # 15m after the last OOM restart, so it isn't sticky. Actionable: raise that
+          # container's memory limit. Same exported_* label trap as above.
+          - uid: pod-oomkilled
+            title: Container OOMKilled
+            condition: C
+            for: 1m
+            noDataState: OK
+            execErrState: OK
+            data:
+              - refId: A
+                relativeTimeRange: { from: 900, to: 0 }
+                datasourceUid: victoriametrics
+                model:
+                  refId: A
+                  instant: true
+                  expr: |-
+                    max by (exported_namespace, exported_pod, exported_container) (
+                      kube_pod_container_status_last_terminated_reason{reason="OOMKilled"}
+                      and on (exported_namespace, exported_pod, exported_container)
+                      increase(kube_pod_container_status_restarts_total[15m]) > 0
+                    )
+              - refId: C
+                datasourceUid: __expr__
+                model:
+                  refId: C
+                  type: threshold
+                  expression: A
+                  conditions:
+                    - evaluator: { type: gt, params: [0] }
+            labels: { severity: warning }
+            annotations:
+              summary: '{{ index $labels "exported_namespace" }}/{{ index $labels "exported_pod" }} container {{ index $labels "exported_container" }} was OOMKilled — raise its memory limit'
