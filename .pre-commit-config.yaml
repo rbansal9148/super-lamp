@@ -27,3 +27,13 @@ repos:
         files: ^gitops/.*\.ya?ml$
         pass_filenames: false      # validate the whole tree, not just staged files
         require_serial: true
+      # Secret scan on STAGED changes — stops a plaintext credential reaching git.
+      # Local hook (gitleaks is installed at ~/.local/bin) so it's deterministic and
+      # needs no network/version-fetch, matching validate-gitops. Honors .gitleaks.toml
+      # (SealedSecret ciphertext + test fixtures allowlisted), so it fires only on REAL
+      # secrets. Runs on every commit (no files: filter) — secrets can land anywhere.
+      - id: gitleaks
+        name: gitleaks (scan staged changes for secrets)
+        entry: gitleaks git --staged --no-banner --redact
+        language: system
+        pass_filenames: false
