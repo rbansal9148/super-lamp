@@ -34,6 +34,16 @@ metadata:
 data:
   platform-alerts.yaml: |
     apiVersion: 1
+    # One-time tombstone for the orphaned 'pvc-low-space' rule. It was
+    # provisioned into Grafana's DB before being removed from the groups below;
+    # once in the DB at provenance=file it is IMMUTABLE via the provisioning API
+    # (DELETE /api/v1/provisioning/alert-rules/:uid → 409 provenanceMismatch,
+    # 'needs file'). The deleteRules directive below IS file provisioning, so it
+    # deletes the orphan at its own provenance. Idempotent: a no-op once gone.
+    # Safe to leave as a permanent tombstone (re-asserts the rule stays deleted).
+    deleteRules:
+      - orgId: 1
+        uid: pvc-low-space
     groups:
       - orgId: 1
         name: platform-capacity
