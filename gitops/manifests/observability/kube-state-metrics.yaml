@@ -1,0 +1,178 @@
+# kube-state-metrics — exposes Kubernetes OBJECT state (pod restart counts, pod
+# phase, last-terminated reason, etc.) as Prometheus metrics. kubeletstats (already
+# running) emits resource USAGE but no restart/OOM counters, so an app crashlooping
+# — e.g. after an unpinned :latest image pulls a breaking change on restart — is
+# currently invisible. KSM closes that blind spot; the crashloop/OOMKill alert rules
+# in alerts/platform-alerts.yaml query the metrics it produces.
+#
+# Scrape path: the ServiceMonitor below is discovered by the OTel Target Allocator
+# (serviceMonitorSelector: {} → all SMs), scraped via the prometheus receiver, and
+# forwarded to VictoriaMetrics — same path as the traefik ServiceMonitor. KSM's
+# metrics keep their Prometheus underscore names in VM (like `up`), NOT OTLP dotted
+# names (those come only from the kubeletstats receiver).
+#
+# RBAC is the upstream v2.19 "standard" read-only ClusterRole. Secrets access is
+# metadata-only (KSM never reads secret values).
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: kube-state-metrics
+  namespace: observability
+  labels: { app.kubernetes.io/name: kube-state-metrics }
+automountServiceAccountToken: true
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kube-state-metrics
+  labels: { app.kubernetes.io/name: kube-state-metrics }
+rules:
+  - apiGroups: [""]
+    resources:
+      - configmaps
+      - secrets
+      - nodes
+      - pods
+      - services
+      - serviceaccounts
+      - resourcequotas
+      - replicationcontrollers
+      - limitranges
+      - persistentvolumeclaims
+      - persistentvolumes
+      - namespaces
+      - endpoints
+    verbs: ["list", "watch"]
+  - apiGroups: ["apps"]
+    resources: ["statefulsets", "daemonsets", "deployments", "replicasets"]
+    verbs: ["list", "watch"]
+  - apiGroups: ["batch"]
+    resources: ["cronjobs", "jobs"]
+    verbs: ["list", "watch"]
+  - apiGroups: ["autoscaling"]
+    resources: ["horizontalpodautoscalers"]
+    verbs: ["list", "watch"]
+  - apiGroups: ["authentication.k8s.io"]
+    resources: ["tokenreviews"]
+    verbs: ["create"]
+  - apiGroups: ["authorization.k8s.io"]
+    resources: ["subjectaccessreviews"]
+    verbs: ["create"]
+  - apiGroups: ["policy"]
+    resources: ["poddisruptionbudgets"]
+    verbs: ["list", "watch"]
+  - apiGroups: ["certificates.k8s.io"]
+    resources: ["certificatesigningrequests"]
+    verbs: ["list", "watch"]
+  - apiGroups: ["discovery.k8s.io"]
+    resources: ["endpointslices"]
+    verbs: ["list", "watch"]
+  - apiGroups: ["storage.k8s.io"]
+    resources: ["storageclasses", "volumeattachments"]
+    verbs: ["list", "watch"]
+  - apiGroups: ["admissionregistration.k8s.io"]
+    resources: ["mutatingwebhookconfigurations", "validatingwebhookconfigurations"]
+    verbs: ["list", "watch"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies", "ingressclasses", "ingresses"]
+    verbs: ["list", "watch"]
+  - apiGroups: ["coordination.k8s.io"]
+    resources: ["leases"]
+    verbs: ["list", "watch"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["clusterrolebindings", "clusterroles", "rolebindings", "roles"]
+    verbs: ["list", "watch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: kube-state-metrics
+  labels: { app.kubernetes.io/name: kube-state-metrics }
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: kube-state-metrics
+subjects:
+  - kind: ServiceAccount
+    name: kube-state-metrics
+    namespace: observability
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kube-state-metrics
+  namespace: observability
+  labels: { app.kubernetes.io/name: kube-state-metrics }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app.kubernetes.io/name: kube-state-metrics }
+  template:
+    metadata:
+      labels: { app.kubernetes.io/name: kube-state-metrics }
+    spec:
+      serviceAccountName: kube-state-metrics
+      enableServiceLinks: false
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        fsGroup: 65534
+        seccompProfile: { type: RuntimeDefault }
+      containers:
+        - name: kube-state-metrics
+          image: registry.k8s.io/kube-state-metrics/kube-state-metrics:v2.19.0@sha256:fbe081f021bc4a548cc6cf584b6cdae1af1143d24f14cbddab203c13107fe3c7
+          args:
+            - --port=8080
+            - --telemetry-port=8081
+          ports:
+            - { name: http-metrics, containerPort: 8080 }
+            - { name: telemetry, containerPort: 8081 }
+          livenessProbe:
+            httpGet: { path: /livez, port: 8080 }
+            initialDelaySeconds: 5
+            timeoutSeconds: 5
+          readinessProbe:
+            httpGet: { path: /readyz, port: 8081 }
+            initialDelaySeconds: 5
+            timeoutSeconds: 5
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: ["ALL"] }
+          resources:
+            requests: { memory: 32Mi, cpu: 10m }
+            limits: { memory: 192Mi, cpu: 200m }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kube-state-metrics
+  namespace: observability
+  labels: { app.kubernetes.io/name: kube-state-metrics }
+spec:
+  clusterIP: None              # headless; the TA scrapes pod endpoints directly
+  selector: { app.kubernetes.io/name: kube-state-metrics }
+  ports:
+    - { name: http-metrics, port: 8080, targetPort: http-metrics }
+    - { name: telemetry, port: 8081, targetPort: telemetry }
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: kube-state-metrics
+  namespace: observability
+  annotations:
+    # ServiceMonitor CRD ships with prometheus-operator-crds (earlier wave) — skip
+    # the pre-sync dry-run that would fail if the CRD weren't present yet.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  labels: { app.kubernetes.io/name: kube-state-metrics }
+spec:
+  namespaceSelector:
+    matchNames: [observability]
+  selector:
+    matchLabels: { app.kubernetes.io/name: kube-state-metrics }
+  endpoints:
+    - port: http-metrics
+      path: /metrics
+      interval: 30s
