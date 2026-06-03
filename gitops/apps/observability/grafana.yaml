@@ -91,8 +91,9 @@ spec:
               - orgId: 1
                 receiver: ntfy
                 group_by: [grafana_folder, alertname]
-        # surface the ntfy token from the SealedSecret-backed Secret as an env var
-        envFromSecret: grafana-ntfy
+        # (No envFromSecret: the ntfy.sh contact point is a public random-topic webhook
+        # with no auth token. The former grafana-ntfy SealedSecret — the self-hosted
+        # ntfy bearer token — was removed when ntfy moved to hosted ntfy.sh.)
         grafana.ini:
           server:
             root_url: https://grafana.my-blue-car.work

@@ -20,21 +20,14 @@ kubectl create secret generic grafana-admin \
 > grafana-admin.sealedsecret.yaml
 ```
 
-## 2. ntfy token (consumed by grafana.yaml → `envFromSecret: grafana-ntfy`, key `NTFY_TOKEN`)
+> Alerting (ntfy) needs NO secret here: Grafana's contact point posts to a hosted
+> ntfy.sh webhook on a random, unauthenticated topic (the topic name is the access
+> control). The former `grafana-ntfy` SealedSecret held the self-hosted ntfy bearer
+> token and was removed when ntfy moved to ntfy.sh.
 
-```bash
-kubectl create secret generic grafana-ntfy \
-  --namespace observability \
-  --from-literal=NTFY_TOKEN="Bearer tk_your_ntfy_token" \
-  --dry-run=client -o yaml \
-| kubeseal --controller-namespace kube-system --controller-name sealed-secrets-controller \
-           --format yaml \
-> grafana-ntfy.sealedsecret.yaml
-```
-
-Commit the two `*.sealedsecret.yaml` files in this directory. They sync at wave 0
+Commit the `grafana-admin.sealedsecret.yaml` file in this directory. It syncs at wave 0
 (the SealedSecret CRD ships with the controller); ArgoCD retry covers the brief window
-before the controller decrypts them into Secrets that Grafana (wave 1) consumes.
+before the controller decrypts it into the Secret that Grafana (wave 1) consumes.
 
 > The raw `kubectl create secret ... --dry-run` output is NOT committed — it is piped
 > straight into `kubeseal`. Only the sealed form lands in git.

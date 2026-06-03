@@ -25,7 +25,7 @@ gitops/
     ingressroutes.yaml         # wave 2  Traefik IngressRoute (Grafana only) + cert-manager Certificate
     servicemonitors/traefik.yaml   # wave 2  enable Traefik metrics (HelmChartConfig) + ServiceMonitor
     alerts/alerts.yaml         # wave 2  sample symptom alert + alerting docs
-    secrets/README.md          # kubeseal recipes for grafana-admin + grafana-ntfy
+    secrets/README.md          # kubeseal recipe for grafana-admin (ntfy.sh needs no secret)
 ```
 
 ## Pinned chart versions (latest stable, 2026-05-30)

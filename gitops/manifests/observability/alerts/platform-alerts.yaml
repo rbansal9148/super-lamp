@@ -6,16 +6,22 @@
 # Scope: the failure classes the single operator cannot self-detect by using the
 # apps — silent disk-fill (the ADR's #1 documented failure mode, on Delete-reclaim
 # local-path PVCs where a full disk corrupts the TSDB) and scrape-target-down.
-# All PromQL uses metrics VERIFIED flowing in VMSingle (OTLP dotted names render
-# with underscores via the Prometheus query API):
-#   k8s_volume_available_bytes / k8s_volume_capacity_bytes  (kubeletstats, per-PVC)
-#   system_filesystem_usage_bytes{state=...}                (hostmetrics, per-mount)
-#   up                                                       (scrape health)
 #
-# NOTE: pod-crashloop alerting is intentionally omitted — it needs
-# kube-state-metrics (kube_pod_container_status_restarts_total), which is not
-# deployed. kubeletstats emits resource usage only, no restart counters. Adding
-# KSM + a crashloop rule is a separate follow-up.
+# IMPORTANT — metric naming: VictoriaMetrics stores OTLP metrics under their LITERAL
+# DOTTED names (and dotted label names), queried via the {__name__="k8s.node..."}
+# selector — NOT as underscore_names. An earlier version of these rules assumed the
+# Prometheus API rewrote dots to underscores; it does not, so those queries matched
+# zero series and the rules fired DatasourceNoData every cycle. Metrics VERIFIED
+# flowing in VMSingle and used below:
+#   {__name__="k8s.node.filesystem.usage"} / {__name__="k8s.node.filesystem.capacity"}
+#       (kubeletstats, node root fs — group by k8s.node.name)
+#   up   (scrape health — this one is a classic underscore name; not OTLP)
+#
+# NOTE: pod-crashloop AND per-PVC disk alerting are both intentionally omitted — they
+# need kube-state-metrics (kube_pod_container_status_restarts_total;
+# kubelet_volume_stats_available_bytes with persistentvolumeclaim labels), which is
+# not deployed. kubeletstats emits node/pod resource usage with no restart counters
+# and no per-PVC claim labels. Adding KSM + those rules is a separate follow-up.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -34,32 +40,21 @@ data:
         folder: platform
         interval: 1m
         rules:
-          # ── PVC nearly full: <15% free on any kubeletstats-reported volume ──
-          - uid: pvc-low-space
-            title: PVC low free space (<15%)
-            condition: C
-            for: 10m
-            data:
-              - refId: A
-                relativeTimeRange: { from: 600, to: 0 }
-                datasourceUid: victoriametrics
-                model:
-                  refId: A
-                  instant: true
-                  expr: min by (k8s_persistentvolumeclaim_name) (k8s_volume_available_bytes / k8s_volume_capacity_bytes)
-              - refId: C
-                datasourceUid: __expr__
-                model:
-                  refId: C
-                  type: threshold
-                  expression: A
-                  conditions:
-                    - evaluator: { type: lt, params: [0.15] }
-            labels: { severity: warning }
-            annotations:
-              summary: "PVC {{ $labels.k8s_persistentvolumeclaim_name }} below 15% free space"
+          # NOTE: the former 'pvc-low-space' rule was REMOVED. It queried
+          # k8s_volume_available_bytes/_capacity_bytes which do not exist, and the
+          # kubeletstats volume metrics that DO exist (k8s.volume.available/capacity)
+          # carry no PVC claim label — every pod volume (incl. ephemeral) just mirrors
+          # the node-root filesystem's free space on this single node. So a per-PVC
+          # alert is not expressible here; it was pure duplication of node-disk-full
+          # below (both read the same host disk). A real per-PVC alert needs
+          # kube-state-metrics (kubelet_volume_stats_*_bytes with persistentvolumeclaim
+          # labels), which is not deployed — see the KSM follow-up note up top.
 
-          # ── Node filesystem nearly full: >85% used on any mount ──
+          # ── Node filesystem nearly full: >85% used ──
+          # VictoriaMetrics stores OTLP metrics under their LITERAL DOTTED names and
+          # dotted label names; they are queried via the {__name__="..."} selector, NOT
+          # as underscore_names (the earlier system_filesystem_usage_bytes form matched
+          # nothing → the alert fired DatasourceNoData every cycle instead of evaluating).
           - uid: node-disk-full
             title: Node filesystem >85% used
             condition: C
@@ -72,10 +67,10 @@ data:
                   refId: A
                   instant: true
                   expr: |-
-                    max by (device) (
-                      system_filesystem_usage_bytes{state="used"}
+                    max by (k8s.node.name) (
+                      {__name__="k8s.node.filesystem.usage"}
                       /
-                      (system_filesystem_usage_bytes{state="used"} + system_filesystem_usage_bytes{state="free"})
+                      {__name__="k8s.node.filesystem.capacity"}
                     )
               - refId: C
                 datasourceUid: __expr__
@@ -87,7 +82,7 @@ data:
                     - evaluator: { type: gt, params: [0.85] }
             labels: { severity: warning }
             annotations:
-              summary: "Node filesystem {{ $labels.device }} over 85% used"
+              summary: 'Node filesystem on {{ index $labels "k8s.node.name" }} over 85% used'
 
       - orgId: 1
         name: platform-scrape
