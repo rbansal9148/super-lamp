@@ -52,7 +52,8 @@ spec:
             - { name: TMDB_ENABLED, value: "true" }
             - name: TMDB_API_KEY
               valueFrom: { secretKeyRef: { name: bitmagnet-secrets, key: TMDB_API_KEY } }
-            - { name: "DHT_CRAWLER.SCALING_FACTOR", value: "2" }
+            - { name: "DHT_CRAWLER.SCALING_FACTOR", value: "1" }   # was 2 — halve DHT crawl/growth rate (single-node disk at 86%)
+            - { name: CLASSIFIER_DELETE_XXX, value: "true" }       # auto-delete adult content on classify; default workflow honors this flag (≈29% of the index was xxx)
             - { name: PROCESSOR_CONCURRENCY, value: "10" }
             - { name: BM_FILTER_CATEGORIES, value: "2000,5000" }
             - { name: LOG_FILE_ROTATOR_ENABLED, value: "false" }
