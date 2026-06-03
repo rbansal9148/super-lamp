@@ -37,11 +37,13 @@ data:
         interval: 1m
         rules:
           # ── stremthru debrid-store upstream failing (>=5 errors / 10m) ──
-          # Three-stage Grafana alert: A = VLogs RANGE query (returns a time-series
-          # matrix of per-bucket counts — queryType MUST be 'range', not 'instant':
-          # the instant stats_query returns a scalar 'long', which Grafana rejects with
-          # "input data must be a wide series but got type long"). B = reduce that
-          # series to its max bucket. C = threshold on B.
+          # A = VLogs instant stats_query counting ERROR-with-store lines in the
+          # stremthru container over the 10m relativeTimeRange. The `stats by
+          # (k8s.container.name) count()` MUST keep the `by (...)` grouping: a bare
+          # `stats count()` returns an UNLABELED single value that the Grafana VLogs
+          # plugin maps to a scalar 'long', which the threshold rejects with "input
+          # data must be a wide series but got type long". The by-label makes it a
+          # proper labeled vector (wide series). C = threshold >5.
           - uid: stremthru-store-upstream-down
             title: stremthru debrid-store upstream errors
             condition: C
@@ -53,23 +55,14 @@ data:
                 model:
                   refId: A
                   datasource: { type: victoriametrics-logs-datasource, uid: victorialogs }
-                  # count ERROR lines mentioning a store, scoped to the stremthru
-                  # container; Grafana supplies the 10m window via relativeTimeRange.
-                  expr: 'k8s.container.name:stremthru AND ERROR AND store | stats count() as hits'
-                  queryType: range
-              - refId: B
-                datasourceUid: __expr__
-                model:
-                  refId: B
-                  type: reduce
-                  expression: A
-                  reducer: max
+                  expr: 'k8s.container.name:stremthru AND ERROR AND store | stats by (k8s.container.name) count() as hits'
+                  queryType: instant
               - refId: C
                 datasourceUid: __expr__
                 model:
                   refId: C
                   type: threshold
-                  expression: B
+                  expression: A
                   conditions:
                     - evaluator: { type: gt, params: [5] }
             labels: { severity: warning, scope: upstream }
