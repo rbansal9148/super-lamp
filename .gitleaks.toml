@@ -1,0 +1,29 @@
+# gitleaks config — extends the built-in ruleset, allowlists only the two
+# false-positive classes this repo legitimately commits:
+#   1. SealedSecret ciphertext  — AES-encrypted to the controller's key; only the
+#      in-cluster private key can decrypt. Committing the ciphertext IS the design
+#      (Bitnami SealedSecrets). gitleaks' generic-api-key rule fires on the base64
+#      blobs (high entropy) — unavoidable FP for any SealedSecrets repo.
+#   2. stack-audit test fixtures — deliberately-fake secrets the skill's tests
+#      assert against. Not real.
+#
+# Scope is intentionally NARROW (these two path patterns only) so a real plaintext
+# secret committed ANYWHERE else still trips the scan. Verify after edits with:
+#   gitleaks detect --no-banner --redact   (expect: no findings)
+
+title = "homelab gitleaks config"
+
+[extend]
+useDefault = true   # keep the full built-in rule set; we only add allowlists
+
+[[allowlists]]
+description = "SealedSecret ciphertext — encrypted by design, safe to commit"
+paths = [
+  '''.*sealedsecret.*\.ya?ml$''',
+]
+
+[[allowlists]]
+description = "stack-audit skill test fixtures — intentional fake secrets"
+paths = [
+  '''\.claude/skills/stack-audit/tools/test/fixtures/.*''',
+]
