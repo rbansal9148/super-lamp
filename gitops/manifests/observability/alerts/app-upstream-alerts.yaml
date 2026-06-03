@@ -1,0 +1,66 @@
+# Wave 2 — app-level UPSTREAM-failure alerts (Grafana-provisioned, log-based).
+# Loaded by the same Grafana alerting sidecar (label grafana_alert) and routed to
+# the same ntfy contact point as platform-alerts.yaml. Where platform-alerts.yaml
+# watches INFRA (disk/scrape via VictoriaMetrics), this watches APP logs via the
+# VictoriaLogs datasource (uid: victorialogs) for sustained upstream errors.
+#
+# WHY: when a debrid store (TorBox/RealDebrid/etc.) has an outage, stremthru logs a
+# burst of ERROR lines about the store's upstream API (Cloudflare 522, timeouts).
+# The symptom — "I can't play anything" — looks identical to a local-stack failure.
+# This alert disambiguates it immediately: a store burst => the problem is UPSTREAM,
+# not the cluster. (Grounded: during the TorBox incident on 2026-06-03 this query
+# counted 108 such errors; it reads 0 when stores are healthy.)
+#
+# Signal (verified queryable in VLogs): stremthru's whole JSON log line is stored as
+# a string in _msg, so we word-token match rather than field match. The store-error
+# lines reliably contain ERROR + the token "store" (and the store name, e.g. torbox).
+# Stream label k8s.container.name:stremthru scopes to the right container (indexed).
+#
+# Threshold: >=5 store-error lines in a 10m window, sustained for: 5m. Deliberately a
+# RATE alert, not per-error — single transient 522s self-resolve and must NOT page.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-app-upstream-alerts
+  namespace: observability
+  labels:
+    grafana_alert: "1"
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+data:
+  app-upstream-alerts.yaml: |
+    apiVersion: 1
+    groups:
+      - orgId: 1
+        name: app-upstream
+        folder: platform
+        interval: 1m
+        rules:
+          # ── stremthru debrid-store upstream failing (>=5 errors / 10m) ──
+          - uid: stremthru-store-upstream-down
+            title: stremthru debrid-store upstream errors
+            condition: C
+            for: 5m
+            data:
+              - refId: A
+                relativeTimeRange: { from: 600, to: 0 }
+                datasourceUid: victorialogs
+                model:
+                  refId: A
+                  datasource: { type: victoriametrics-logs-datasource, uid: victorialogs }
+                  # VLogs stats_query: count ERROR lines mentioning a store, scoped to
+                  # the stremthru container. Grafana supplies the 10m window via
+                  # relativeTimeRange (so no _time filter here).
+                  expr: 'k8s.container.name:stremthru AND ERROR AND store | stats count() as hits'
+                  queryType: instant
+              - refId: C
+                datasourceUid: __expr__
+                model:
+                  refId: C
+                  type: threshold
+                  expression: A
+                  conditions:
+                    - evaluator: { type: gt, params: [5] }
+            labels: { severity: warning, scope: upstream }
+            annotations:
+              summary: "stremthru is logging debrid-store upstream errors (>=5 in 10m) — likely an UPSTREAM store outage (TorBox/RD/etc.), not the cluster. Check the store's status page; the local stack is probably fine."
