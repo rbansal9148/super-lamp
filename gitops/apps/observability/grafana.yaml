@@ -78,13 +78,29 @@ spec:
                   - uid: ntfy-webhook
                     type: webhook
                     settings:
-                      # HOSTED ntfy.sh — the self-hosted ntfy.my-blue-car.work died with the
-                      # Docker decommission, and an in-cluster sink can't deliver a "node is
-                      # down" alert on a single node anyway. ntfy.sh is off-box and survives
-                      # node death. Topic is 128-bit random: ntfy.sh topics are public by
-                      # name, so the name IS the access control — treat it as a secret.
-                      url: https://ntfy.sh/mbc-homelab-alerts-66b36c08e2196778657fa50d6de95e68
+                      # HOSTED ntfy.sh, JSON-publish mode: POST ntfy's own schema
+                      # ({topic,title,message,priority,tags}) to the ROOT url so ntfy renders a
+                      # human-readable notification (title + body + severity-coloured priority +
+                      # emoji) instead of dumping Grafana's raw alert JSON as the message body.
+                      # The topic moves into the payload; it stays 128-bit random = the access
+                      # control. ntfy.sh is off-box and survives node death (an in-cluster sink
+                      # can't deliver a "node down" alert on a single node).
+                      url: https://ntfy.sh
                       httpMethod: POST
+                      # Custom payload (gomplate). coll.Dict | data.ToJSON builds the JSON and
+                      # AUTO-ESCAPES every value, so alert text with quotes/newlines can't break
+                      # it. severity -> ntfy priority (critical=5/red, warning=4, resolved=3);
+                      # status -> emoji tag. message uses Grafana's default human-readable render.
+                      payload:
+                        template: |-
+                          {{ coll.Dict
+                            "topic" "mbc-homelab-alerts-66b36c08e2196778657fa50d6de95e68"
+                            "title" (tmpl.Inline "{{ if eq .Status \"resolved\" }}RESOLVED{{ else }}FIRING{{ end }}: {{ .CommonLabels.alertname }}" .)
+                            "message" (tmpl.Exec "default.message" .)
+                            "priority" (tmpl.Inline "{{ if eq .Status \"resolved\" }}3{{ else if eq .CommonLabels.severity \"critical\" }}5{{ else }}4{{ end }}" . | conv.ToInt)
+                            "tags" (coll.Slice (tmpl.Inline "{{ if eq .Status \"resolved\" }}white_check_mark{{ else if eq .CommonLabels.severity \"critical\" }}rotating_light{{ else }}warning{{ end }}" .))
+                            "markdown" true
+                          | data.ToJSON }}
           policies.yaml:
             apiVersion: 1
             policies:
