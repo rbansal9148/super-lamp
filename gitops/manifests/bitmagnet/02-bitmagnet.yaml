@@ -8,7 +8,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata: { name: bitmagnet, namespace: apps, labels: { app: bitmagnet } }
 spec:
-  replicas: 0    # TEMP: paused for one-time xxx purge + VACUUM FULL (disk reclaim); restored to 1 right after
+  replicas: 1
   strategy: { type: Recreate }
   selector: { matchLabels: { app: bitmagnet } }
   template:
