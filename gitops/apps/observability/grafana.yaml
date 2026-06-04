@@ -91,16 +91,20 @@ spec:
                       # AUTO-ESCAPES every value, so alert text with quotes/newlines can't break
                       # it. severity -> ntfy priority (critical=5/red, warning=4, resolved=3);
                       # status -> emoji tag. message uses Grafana's default human-readable render.
+                      # NOTE: the grafana chart runs these values through Helm `tpl`, which would
+                      # try to parse Grafana's own {{ }} template as Helm and fail ("coll not
+                      # defined"). Wrap the whole thing in a Helm raw-string passthrough
+                      # {{` … `}} so Helm emits the {{ }} literally for Grafana to template.
                       payload:
                         template: |-
-                          {{ coll.Dict
+                          {{`{{ coll.Dict
                             "topic" "mbc-homelab-alerts-66b36c08e2196778657fa50d6de95e68"
                             "title" (tmpl.Inline "{{ if eq .Status \"resolved\" }}RESOLVED{{ else }}FIRING{{ end }}: {{ .CommonLabels.alertname }}" .)
                             "message" (tmpl.Exec "default.message" .)
                             "priority" (tmpl.Inline "{{ if eq .Status \"resolved\" }}3{{ else if eq .CommonLabels.severity \"critical\" }}5{{ else }}4{{ end }}" . | conv.ToInt)
                             "tags" (coll.Slice (tmpl.Inline "{{ if eq .Status \"resolved\" }}white_check_mark{{ else if eq .CommonLabels.severity \"critical\" }}rotating_light{{ else }}warning{{ end }}" .))
                             "markdown" true
-                          | data.ToJSON }}
+                          | data.ToJSON }}`}}
           policies.yaml:
             apiVersion: 1
             policies:
