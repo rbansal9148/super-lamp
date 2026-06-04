@@ -101,7 +101,7 @@ spec:
                             "topic" "mbc-homelab-alerts-66b36c08e2196778657fa50d6de95e68"
                             "title" (tmpl.Inline "{{ if eq .Status \"resolved\" }}RESOLVED{{ else }}FIRING{{ end }}: {{ .CommonLabels.alertname }}" .)
                             "message" (tmpl.Exec "default.message" .)
-                            "priority" (tmpl.Inline "{{ if eq .Status \"resolved\" }}3{{ else if eq .CommonLabels.severity \"critical\" }}5{{ else }}4{{ end }}" . | conv.ToInt)
+                            "priority" (tmpl.Inline "{{ if eq .Status \"resolved\" }}3{{ else if eq .CommonLabels.severity \"critical\" }}5{{ else }}4{{ end }}" . | data.JSON)
                             "tags" (coll.Slice (tmpl.Inline "{{ if eq .Status \"resolved\" }}white_check_mark{{ else if eq .CommonLabels.severity \"critical\" }}rotating_light{{ else }}warning{{ end }}" .))
                             "markdown" true
                           | data.ToJSON }}`}}
