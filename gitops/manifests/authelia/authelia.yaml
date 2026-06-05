@@ -131,7 +131,7 @@ spec:
             - name: data
               mountPath: /data
           resources:
-            requests: {memory: 64Mi, cpu: 50m}
+            requests: {memory: 64Mi, cpu: 25m}
             limits: {memory: 256Mi, cpu: 500m}
           readinessProbe:
             httpGet: {path: /api/health, port: 9091}

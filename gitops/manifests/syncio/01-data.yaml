@@ -42,7 +42,7 @@ spec:
               valueFrom: {secretKeyRef: {name: syncio-secrets, key: POSTGRES_PASSWORD}}
           ports: [{containerPort: 5432, name: postgres}]
           resources:
-            requests: {memory: 128Mi, cpu: 50m}
+            requests: {memory: 128Mi, cpu: 25m}
             limits: {memory: 1Gi, cpu: 500m}
           volumeMounts:
             - {name: data, mountPath: /var/lib/postgresql/data}

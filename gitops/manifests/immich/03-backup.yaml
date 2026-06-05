@@ -1,0 +1,83 @@
+# Off-disk backup of the irreplaceable immich data (originals + thumbs + the
+# daily built-in DB dumps under library/backups/) to OCI Object Storage.
+#
+# WHY: everything lives on a single 199G volume (sda1 /). Immich's built-in dump
+# covers only the Postgres metadata and writes it to that SAME disk — so a disk
+# failure, accidental delete, or FS corruption loses the photos AND the dumps.
+# restic gives encrypted, deduplicated, point-in-time snapshots in a separate
+# failure domain (OCI Object Storage, ap-mumbai-1), with retention/prune.
+#
+# Destination is OCI's S3-compatible endpoint; restic talks S3 to it. The bucket
+# fits inside OCI's 20G Always-Free object-storage tier, so this costs $0/month.
+# Credentials (S3 customer secret key + restic repo password) are in the
+# immich-backup-secrets SealedSecret (00b-backup-sealedsecret.yaml); only the
+# non-secret repo location/region live here in the ConfigMap.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: immich-backup-config
+  namespace: apps
+  labels: { app: immich-backup }
+data:
+  # s3:https://<os-namespace>.compat.objectstorage.<region>.oraclecloud.com/<bucket>/<path>
+  RESTIC_REPOSITORY: "s3:https://__OS_NAMESPACE__.compat.objectstorage.ap-mumbai-1.oraclecloud.com/__BUCKET__/immich"
+  AWS_DEFAULT_REGION: "ap-mumbai-1"
+  # restic compresses metadata + the gzipped DB dumps well; already-compressed
+  # photos/video pass through near 1:1. 'auto' is the v2-repo default, set explicit.
+  RESTIC_COMPRESSION: "auto"
+---
+# Nightly at 03:30 — after immich's 02:00 built-in DB dump has landed in
+# library/backups/, so each snapshot is photos + a same-night DB dump together.
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: immich-backup
+  namespace: apps
+  labels: { app: immich-backup }
+spec:
+  schedule: "30 3 * * *"
+  timeZone: "Asia/Kolkata"
+  concurrencyPolicy: Forbid          # never overlap a slow first-run with the next night
+  startingDeadlineSeconds: 600
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3          # keep a few failures around to inspect logs
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 7200     # 2h ceiling; only the first full upload is large
+      template:
+        metadata:
+          labels: { app: immich-backup }
+        spec:
+          enableServiceLinks: false
+          restartPolicy: Never
+          # immich's on-disk data is root-owned (drwxr-xr-x root); read it as root.
+          # The mount is readOnly, so the job cannot mutate the live library.
+          securityContext: { runAsUser: 0, runAsGroup: 0 }
+          containers:
+            - name: restic
+              image: restic/restic:0.18.1@sha256:02c495b242672ce3229e2c63714036ce1df008a4bba39b6411455bda49b2259b
+              envFrom:
+                - configMapRef: { name: immich-backup-config }
+                - secretRef: { name: immich-backup-secrets }
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  set -eu
+                  # init the repo once (idempotent: skip if it already answers)
+                  restic cat config >/dev/null 2>&1 || restic init
+                  restic backup /data --host immich --tag immich-library --verbose=1
+                  restic forget --tag immich-library \
+                    --keep-daily 7 --keep-weekly 4 --keep-monthly 6 --prune
+                  # metadata-integrity check (no --read-data: avoids needless egress)
+                  restic check
+                  restic snapshots --tag immich-library --compact
+              volumeMounts:
+                - { name: library, mountPath: /data, readOnly: true }
+              resources:
+                requests: { memory: 256Mi, cpu: 100m }
+                limits: { memory: 1536Mi, cpu: "1" }
+          volumes:
+            - name: library
+              hostPath: { path: /opt/docker/data/immich/library, type: Directory }

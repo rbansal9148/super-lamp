@@ -51,7 +51,7 @@ spec:
           ports:
             - { containerPort: 8888, name: httpproxy }
           resources:
-            requests: { memory: 64Mi, cpu: 50m }
+            requests: { memory: 64Mi, cpu: 25m }
             limits: { memory: 256Mi, cpu: 500m }
           readinessProbe:
             tcpSocket: { port: 8888 }     # proxy listens once the tunnel is up

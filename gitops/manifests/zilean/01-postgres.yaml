@@ -78,7 +78,7 @@ spec:
           ports:
             - {containerPort: 5432, name: postgres}
           resources:
-            requests: {memory: 512Mi, cpu: 100m}
+            requests: {memory: 512Mi, cpu: 50m}
             limits: {memory: 2Gi, cpu: "1"}
           volumeMounts:
             - {name: data, mountPath: /var/lib/postgresql/data}

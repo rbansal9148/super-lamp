@@ -15,7 +15,7 @@ spec:
           image: ghcr.io/cedya77/aiometadata:latest@sha256:a8ba799d225137add74204f016c11089bc9a5a7de081172aad41deaf1b5dcd29
           envFrom: [{ configMapRef: { name: aiometadata-config } }, { secretRef: { name: aiometadata-secrets } }]
           ports: [{ containerPort: 1337, name: http }]
-          resources: { requests: { memory: 128Mi, cpu: 50m }, limits: { memory: 1Gi, cpu: "1" } }
+          resources: { requests: { memory: 128Mi, cpu: 25m }, limits: { memory: 1Gi, cpu: "1" } }
           volumeMounts: [{ name: data, mountPath: /app/addon/data }]
           readinessProbe: { httpGet: { path: /, port: 1337 }, initialDelaySeconds: 15, periodSeconds: 20, timeoutSeconds: 8 }
       volumes: [{ name: data, emptyDir: {} }]

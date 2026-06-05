@@ -15,7 +15,7 @@ spec:
           image: g0ldyy/comet:dev@sha256:2725968b372b8efcfdcd13c6a9277b334a84152a312429975d7057768024de62
           envFrom: [{ configMapRef: { name: comet-config } }, { secretRef: { name: comet-secrets } }]
           ports: [{ containerPort: 2020, name: http }]
-          resources: { requests: { memory: 128Mi, cpu: 50m }, limits: { memory: 2Gi, cpu: "2" } }
+          resources: { requests: { memory: 128Mi, cpu: 25m }, limits: { memory: 2Gi, cpu: "2" } }
           volumeMounts: [{ name: data, mountPath: /app/data }]
           readinessProbe: { httpGet: { path: /health, port: 2020 }, initialDelaySeconds: 20, periodSeconds: 20, timeoutSeconds: 8 }
       volumes: [{ name: data, emptyDir: {} }]

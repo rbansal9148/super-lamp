@@ -25,7 +25,7 @@ spec:
             - { name: TZ, value: "Asia/Kolkata" }
           ports: [{ containerPort: 3000, name: http }]
           resources:
-            requests: { memory: 128Mi, cpu: 50m }
+            requests: { memory: 128Mi, cpu: 25m }
             limits: { memory: 1Gi, cpu: "1" }
           readinessProbe:
             httpGet: { path: /, port: 3000 }

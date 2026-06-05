@@ -24,7 +24,7 @@ spec:
             - { name: LOG_LEVEL, value: "INFO" }
             - { name: SESSION_COOKIE_SECURE, value: "true" }
           ports: [{ containerPort: 8083, name: http }]
-          resources: { requests: { memory: 256Mi, cpu: 100m }, limits: { memory: 2Gi, cpu: "2" } }
+          resources: { requests: { memory: 256Mi, cpu: 50m }, limits: { memory: 2Gi, cpu: "2" } }
           volumeMounts:
             - { name: config, mountPath: /config }
             - { name: book-ingest, mountPath: /cwa-book-ingest }
@@ -70,7 +70,7 @@ spec:
           image: ghcr.io/calibrain/shelfmark:latest@sha256:e891eda444b261da48a839db652034bce4e20ac09c167f14adf939dedf96b572
           envFrom: [{ configMapRef: { name: shelfmark-config } }, { secretRef: { name: shelfmark-secrets } }]
           ports: [{ containerPort: 8084, name: http }]
-          resources: { requests: { memory: 128Mi, cpu: 50m }, limits: { memory: 1Gi, cpu: "1" } }
+          resources: { requests: { memory: 128Mi, cpu: 25m }, limits: { memory: 1Gi, cpu: "1" } }
           volumeMounts:
             - { name: book-ingest, mountPath: /books }
             - { name: config, mountPath: /config }

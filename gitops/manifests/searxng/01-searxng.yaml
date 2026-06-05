@@ -42,7 +42,7 @@ spec:
             - { name: UWSGI_THREADS, value: "2" }
             - { name: SEARXNG_LIMITER, value: "false" }
           ports: [{ containerPort: 8080, name: http }]
-          resources: { requests: { memory: 96Mi, cpu: 50m }, limits: { memory: 512Mi, cpu: "1" } }
+          resources: { requests: { memory: 96Mi, cpu: 25m }, limits: { memory: 512Mi, cpu: "1" } }
           volumeMounts:
             - { name: settings, mountPath: /etc/searxng/settings.yml, subPath: settings.yml, readOnly: true }
           readinessProbe: { httpGet: { path: /healthz, port: 8080 }, initialDelaySeconds: 15, periodSeconds: 20, timeoutSeconds: 8 }
