@@ -14,7 +14,7 @@ spec:
       enableServiceLinks: false
       containers:
         - name: aiostreams
-          image: ghcr.io/viren070/aiostreams:v2.30.0
+          image: ghcr.io/viren070/aiostreams:v2.30.2
           envFrom: [{ configMapRef: { name: aiostreams-config } }, { secretRef: { name: aiostreams-secrets } }]
           ports: [{ containerPort: 3000, name: http }]
           resources: { requests: { memory: 128Mi, cpu: 50m }, limits: { memory: 1Gi, cpu: "1" } }
