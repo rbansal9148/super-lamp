@@ -58,7 +58,7 @@ spec:
       enableServiceLinks: false
       containers:
         - name: prowlarr
-          image: ghcr.io/hotio/prowlarr@sha256:fa08890d7ff0d2833fb8aa8de4ea572849acfae16f016f17aa0e745daf948831
+          image: ghcr.io/hotio/prowlarr:nightly@sha256:98a73a32a3cb67277dd91a1ecd65426c01195a11b82bc923ae30fc2b82b4fb53
           env:
             - {name: PUID, value: "1001"}
             - {name: PGID, value: "1001"}

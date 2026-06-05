@@ -12,7 +12,7 @@ spec:
       enableServiceLinks: false
       containers:
         - name: comet
-          image: g0ldyy/comet@sha256:7ab050b1ab0f9a6e01981f14ba13f8bf1fd508914d2aa0bb83909b0ba2e55138
+          image: g0ldyy/comet:dev@sha256:2725968b372b8efcfdcd13c6a9277b334a84152a312429975d7057768024de62
           envFrom: [{ configMapRef: { name: comet-config } }, { secretRef: { name: comet-secrets } }]
           ports: [{ containerPort: 2020, name: http }]
           resources: { requests: { memory: 128Mi, cpu: 50m }, limits: { memory: 2Gi, cpu: "2" } }
