@@ -58,7 +58,7 @@ spec:
       securityContext: { runAsUser: 1001, runAsGroup: 1001 }
       containers:
         - name: honey
-          image: ghcr.io/dani3l0/honey:latest@sha256:0af531af34ec047d72ecbbbb4627b8b45039835755c10338f6e2428ee23e7dd5
+          image: ghcr.io/dani3l0/honey:latest@sha256:fe6ce43acf93a211ab63cf247e4ce573cb63a41608092f0bffb1b3bf72527ac5
           ports: [{ containerPort: 4173, name: http }]
           resources: { requests: { memory: 32Mi, cpu: 10m }, limits: { memory: 128Mi, cpu: 250m } }
           volumeMounts:
