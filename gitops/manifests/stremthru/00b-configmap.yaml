@@ -16,4 +16,6 @@ data:
   STREMTHRU_STORE_CONTENT_PROXY: '*:true,easydebrid:false,premiumize:false'
   STREMTHRU_STORE_TUNNEL: torbox:false,*:true
   STREMTHRU_STREMIO_TORZ_LAZY_PULL: 'true'
-  STREMTHRU_TUNNEL: bitmagnet:false,bitmagnet-postgres:false,stremthru-postgres:false,stremthru-redis:false,*:true
+  # v3-cinemeta.strem.io direct (no VPN proxy): public Stremio metadata, no privacy need;
+  # tunneling it caused intermittent store 500s ("http response to https client") + 15s timeouts.
+  STREMTHRU_TUNNEL: bitmagnet:false,bitmagnet-postgres:false,stremthru-postgres:false,stremthru-redis:false,v3-cinemeta.strem.io:false,*:true
