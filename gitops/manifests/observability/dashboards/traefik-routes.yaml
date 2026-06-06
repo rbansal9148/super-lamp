@@ -1,0 +1,103 @@
+# Traefik route/ingress dashboard. Provisioned by the Grafana sidecar (watches
+# ConfigMaps labelled grafana_dashboard in this namespace, see grafana.yaml).
+# GitOps-managed like platform-overview — do NOT click-build in the UI (UI dashboards
+# live only in Grafana's DB and vanish on redeploy).
+#
+# Metrics: Traefik prometheus golden signals (metrics.prometheus + addRoutersLabels,
+# scraped from kube-system traefik :9100 by the OTel collector -> VictoriaMetrics).
+# Router labels are <ns>-<name>-<hash>@kubernetescrd; label_replace strips them to a
+# clean route name. All panel queries verified non-empty against VM before commit.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-traefik-routes
+  namespace: observability
+  labels:
+    grafana_dashboard: "1"
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+data:
+  traefik-routes.json: |
+    {
+      "uid": "traefik-routes",
+      "title": "Traefik Routes",
+      "tags": ["platform", "gitops", "traefik", "ingress"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "30s",
+      "time": { "from": "now-6h", "to": "now" },
+      "templating": { "list": [] },
+      "annotations": { "list": [] },
+      "panels": [
+        {
+          "id": 1, "type": "timeseries", "title": "Request rate by route",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum by (route)(label_replace(rate(traefik_router_requests_total[5m]), \"route\", \"$1\", \"router\", \"[^-]+-(.*?)-[a-f0-9]+@kubernetescrd\"))", "legendFormat": "{{route}}" } ],
+          "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+          "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+        },
+        {
+          "id": 2, "type": "timeseries", "title": "5xx error rate by route",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum by (route)(label_replace(rate(traefik_router_requests_total{code=~\"5..\"}[5m]), \"route\", \"$1\", \"router\", \"[^-]+-(.*?)-[a-f0-9]+@kubernetescrd\"))", "legendFormat": "{{route}}" } ],
+          "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "drawStyle": "line", "fillOpacity": 20, "showPoints": "auto" }, "color": { "mode": "palette-classic" } }, "overrides": [] },
+          "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+        },
+        {
+          "id": 3, "type": "timeseries", "title": "p95 latency by route",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "histogram_quantile(0.95, sum by (le, route)(label_replace(rate(traefik_router_request_duration_seconds_bucket[5m]), \"route\", \"$1\", \"router\", \"[^-]+-(.*?)-[a-f0-9]+@kubernetescrd\")))", "legendFormat": "{{route}}" } ],
+          "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 0, "showPoints": "never" } }, "overrides": [] },
+          "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+        },
+        {
+          "id": 4, "type": "timeseries", "title": "Overall latency percentiles",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [
+            { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "histogram_quantile(0.50, sum by (le)(rate(traefik_router_request_duration_seconds_bucket[5m])))", "legendFormat": "p50" },
+            { "refId": "B", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "histogram_quantile(0.95, sum by (le)(rate(traefik_router_request_duration_seconds_bucket[5m])))", "legendFormat": "p95" },
+            { "refId": "C", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "histogram_quantile(0.99, sum by (le)(rate(traefik_router_request_duration_seconds_bucket[5m])))", "legendFormat": "p99" }
+          ],
+          "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } }
+        },
+        {
+          "id": 5, "type": "timeseries", "title": "Non-2xx/3xx responses by code",
+          "gridPos": { "h": 8, "w": 8, "x": 0, "y": 16 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum by (code)(rate(traefik_router_requests_total{code!~\"2..|3..\"}[5m]))", "legendFormat": "{{code}}" } ],
+          "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "drawStyle": "bars", "fillOpacity": 60, "stacking": { "mode": "normal" }, "showPoints": "never" } }, "overrides": [] },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi", "sort": "desc" } }
+        },
+        {
+          "id": 6, "type": "timeseries", "title": "Requests by entrypoint (web=80 / websecure=443)",
+          "gridPos": { "h": 8, "w": 8, "x": 8, "y": 16 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum by (entrypoint)(rate(traefik_entrypoint_requests_total[5m]))", "legendFormat": "{{entrypoint}}" } ],
+          "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+        },
+        {
+          "id": 7, "type": "stat", "title": "Open connections",
+          "gridPos": { "h": 8, "w": 8, "x": 16, "y": 16 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum(traefik_open_connections)", "legendFormat": "open" } ],
+          "fieldConfig": { "defaults": { "unit": "short", "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 200 }, { "color": "red", "value": 500 } ] } }, "overrides": [] },
+          "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } }
+        },
+        {
+          "id": 8, "type": "table", "title": "Requests by route (last 24h)",
+          "gridPos": { "h": 9, "w": 24, "x": 0, "y": 24 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum by (route)(label_replace(increase(traefik_router_requests_total[24h]), \"route\", \"$1\", \"router\", \"[^-]+-(.*?)-[a-f0-9]+@kubernetescrd\"))", "instant": true, "format": "table" } ],
+          "transformations": [ { "id": "organize", "options": { "excludeByName": { "Time": true }, "renameByName": { "route": "route", "Value": "requests/24h" } } } ],
+          "fieldConfig": { "defaults": { "custom": { "align": "auto" } }, "overrides": [] },
+          "options": { "sortBy": [ { "displayName": "requests/24h", "desc": true } ] }
+        }
+      ]
+    }
