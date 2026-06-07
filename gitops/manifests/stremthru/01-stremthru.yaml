@@ -78,6 +78,7 @@ spec:
       containers:
         - name: stremthru
           image: muniftanjim/stremthru@sha256:83d9bdc8e43acd8f29da117b760239797214622e0dc8f37cf2c23c7f2df38b02
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}, seccompProfile: {type: RuntimeDefault}}
           envFrom: [{configMapRef: {name: stremthru-config}}, {secretRef: {name: stremthru-secrets}}]
           ports: [{containerPort: 8080, name: http}]
           resources: {requests: {memory: 128Mi, cpu: 50m}, limits: {memory: 2Gi, cpu: "2"}}

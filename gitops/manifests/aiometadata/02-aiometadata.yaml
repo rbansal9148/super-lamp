@@ -13,6 +13,7 @@ spec:
       containers:
         - name: aiometadata
           image: ghcr.io/cedya77/aiometadata:latest@sha256:a8ba799d225137add74204f016c11089bc9a5a7de081172aad41deaf1b5dcd29
+          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           envFrom: [{ configMapRef: { name: aiometadata-config } }, { secretRef: { name: aiometadata-secrets } }]
           ports: [{ containerPort: 1337, name: http }]
           resources: { requests: { memory: 128Mi, cpu: 25m }, limits: { memory: 1Gi, cpu: "1" } }

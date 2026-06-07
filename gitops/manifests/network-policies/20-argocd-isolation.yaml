@@ -1,0 +1,60 @@
+# Phase 2b — argocd namespace network isolation (default-deny ingress + explicit allows).
+# argocd was flat (0 NetworkPolicies) and is the highest-value infra namespace to segment:
+# the application-controller effectively has cluster-admin-grade reach, so a compromised
+# pod able to talk to it (or to dex/redis) is a serious lateral-movement target.
+#
+# Ingress model (additive / OR):
+#   • default: deny.
+#   • intra-namespace: any argocd pod → any argocd pod (server↔repo-server↔app-controller↔
+#     redis↔dex↔applicationset↔notifications — all the internal gRPC/redis traffic).
+#   • tailscale → argocd-server: the ts-argocd tailnet Ingress (operator proxy lives in the
+#     tailscale namespace) reaches the UI/API.
+#   • observability → argocd-application-controller: the metrics scrape on :8082
+#     (servicemonitors/argocd.yaml).
+#   • kubelet probes (node-sourced) permitted implicitly by kube-router (verified earlier).
+#   • egress untouched → app-controller still reaches the k8s API + git.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: argocd-default-deny-ingress, namespace: argocd }
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: argocd-allow-intra-namespace, namespace: argocd }
+spec:
+  podSelector: {}
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - podSelector: {}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: argocd-allow-server-from-tailscale, namespace: argocd }
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-server
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: tailscale
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata: { name: argocd-allow-controller-metrics-from-observability, namespace: argocd }
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-application-controller
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability

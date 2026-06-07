@@ -15,6 +15,7 @@ spec:
       containers:
         - name: aiostreams
           image: ghcr.io/viren070/aiostreams:v2.30.2
+          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           envFrom: [{ configMapRef: { name: aiostreams-config } }, { secretRef: { name: aiostreams-secrets } }]
           ports: [{ containerPort: 3000, name: http }]
           resources: { requests: { memory: 128Mi, cpu: 25m }, limits: { memory: 1Gi, cpu: "1" } }

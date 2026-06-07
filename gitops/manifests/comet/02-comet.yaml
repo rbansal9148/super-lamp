@@ -13,6 +13,7 @@ spec:
       containers:
         - name: comet
           image: g0ldyy/comet:dev@sha256:2725968b372b8efcfdcd13c6a9277b334a84152a312429975d7057768024de62
+          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           envFrom: [{ configMapRef: { name: comet-config } }, { secretRef: { name: comet-secrets } }]
           ports: [{ containerPort: 2020, name: http }]
           resources: { requests: { memory: 128Mi, cpu: 25m }, limits: { memory: 2Gi, cpu: "2" } }
