@@ -48,12 +48,13 @@ data:
             - 'stremthru.my-blue-car.work'
             - 'aiometadata.my-blue-car.work'
           policy: 'bypass'
-        # Everything else (management UIs) -> password auth. Flip to two_factor after
-        # users enroll TOTP (Docker TOTP secrets don't migrate — different encryption key).
+        # Management UIs require 2FA. rbansal is enrolled (TOTP via the authelia CLI);
+        # the avali user was removed from users.yml. A user without a TOTP device is
+        # walked through enrollment on next login (identity code → /data/notification.txt).
         - domain: '*.my-blue-car.work'
-          policy: 'one_factor'
+          policy: 'two_factor'
         - domain: 'my-blue-car.work'
-          policy: 'one_factor'
+          policy: 'two_factor'
     session:
       # Strict session lifetimes: cookie dies after 1h absolute or 5m idle, and
       # remember_me is disabled so there is no long-lived bypass of re-auth.
