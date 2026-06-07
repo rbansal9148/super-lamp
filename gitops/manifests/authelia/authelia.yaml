@@ -67,7 +67,7 @@ data:
         - name: 'authelia_session'
           domain: 'my-blue-car.work'
           authelia_url: 'https://auth.my-blue-car.work'
-          default_redirection_url: 'https://it-tools.my-blue-car.work'
+          default_redirection_url: 'https://my-blue-car.work/'
           same_site: 'lax'
     storage:
       local:
