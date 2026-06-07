@@ -1,0 +1,34 @@
+# Wave 2 — scrape cert-manager's controller metrics so renewal failures become an
+# ALARM (certmanager_certificate_expiration_timestamp_seconds), not just something
+# the manual audit catches point-in-time. cert-manager auto-renews at ~2/3 of cert
+# lifetime; if the expiry timestamp drifts inside the alert window the renewal is
+# FAILING and the operator needs a push — see CertExpiringSoon in platform-alerts.yaml.
+#
+# The controller Service (cert-manager/cert-manager) already exposes :9402 named
+# `tcp-prometheus-servicemonitor` (verified: kubectl get svc -n cert-manager). No
+# Service to create — only this ServiceMonitor, discovered by the OTel Target
+# Allocator (serviceMonitorSelector: {}) and forwarded to VictoriaMetrics. Metric
+# keeps its Prometheus underscore name in VM (like KSM / `up`), NOT an OTLP dotted name.
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: cert-manager
+  namespace: observability
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    # ServiceMonitor CRD ships with prometheus-operator-crds (earlier wave) — skip
+    # the pre-sync dry-run that would fail if the CRD weren't present yet.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  labels: { app.kubernetes.io/name: cert-manager }
+spec:
+  namespaceSelector:
+    matchNames: [cert-manager]
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: cert-manager
+      app.kubernetes.io/component: controller
+  endpoints:
+    - port: tcp-prometheus-servicemonitor
+      path: /metrics
+      interval: 60s

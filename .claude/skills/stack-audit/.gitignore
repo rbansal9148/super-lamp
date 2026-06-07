@@ -1,7 +1,3 @@
-# Runtime state from tools/refresh_and_redeploy.sh --managed (cron)
-.refresh_and_redeploy.attempts
-refresh_and_redeploy.log
-
-# Runtime state from tools/orphan_scan.sh (cron)
-.orphan_scan.json
-orphan_scan.log
+# Audit output snapshots, if redirected here.
+*.out
+audit.log

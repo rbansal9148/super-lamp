@@ -1,5 +1,0 @@
-# Regex per line — findings matching any of these are suppressed from audit output.
-# Lines starting with # and blank lines are ignored.
-
-# Immich data retained intentionally even though the service is disabled.
-orphan data dir /opt/docker/data/immich

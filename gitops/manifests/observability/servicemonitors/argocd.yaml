@@ -1,0 +1,51 @@
+# Wave 2 — scrape ArgoCD's application-controller metrics so GitOps drift becomes an
+# ALARM (argocd_app_info{sync_status,health_status}), not just something the manual
+# audit catches. For an auto-sync app, sustained OutOfSync/Degraded means sync is
+# FAILING (not a transient mid-sync blip) — exactly the silent-failure class the
+# single operator can't self-detect. See ArgoCDAppOutOfSync / ArgoCDAppDegraded in
+# platform-alerts.yaml.
+#
+# ArgoCD here is Helm-installed OUT OF BAND (not in this gitops tree — bootstrap only),
+# and that install has the metrics Services DISABLED (verified: no *-metrics svc in the
+# argocd ns). The app-controller pod DOES serve argocd_app_info on container port 8082
+# (verified via port-forward). So we create our OWN metrics Service selecting that pod,
+# then a ServiceMonitor on it. The Service is namespaced to argocd; the observability
+# ArgoCD Application manages it cross-namespace (its manifests set explicit namespaces).
+# Metric keeps its underscore name in VM. NOTE the OTel scrape injects the scraped pod's
+# identity, so argocd_app_info's intrinsic `namespace` label is relocated to
+# exported_namespace — alerts group by the `name`/`sync_status` labels, which are intact.
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: argocd-application-controller-metrics
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  labels: { app.kubernetes.io/name: argocd-application-controller-metrics }
+spec:
+  clusterIP: None              # headless; the TA scrapes the pod endpoint directly
+  selector:
+    app.kubernetes.io/name: argocd-application-controller
+  ports:
+    - { name: metrics, port: 8082, targetPort: 8082, protocol: TCP }
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: argocd-application-controller
+  namespace: observability
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  labels: { app.kubernetes.io/name: argocd-application-controller-metrics }
+spec:
+  namespaceSelector:
+    matchNames: [argocd]
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-application-controller-metrics
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 60s

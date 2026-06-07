@@ -1,252 +1,149 @@
 ---
 name: stack-audit
-description: Run a deterministic health and performance audit of this Docker streaming stack (AIOStreams + Comet + MediaFusion + StremThru + Bitmagnet + Zilean + Prowlarr + Aiometadata + gluetun + traefik + authelia). Produces a prioritized punch list of findings (Critical / High / Medium / Low) with exact fix commands.
+description: Run a deterministic config/sizing audit of this k3s + ArgoCD self-hosted stack (apps + observability namespaces). Surfaces the failure classes that have NO continuous metric — memory over/under-allocation, unpinned images, missing probes, Delete-reclaim PVCs — as a prioritized punch list (Critical / High / Medium / Low) with exact kubectl/manifest fixes. Runtime failures (crashloop, OOM, disk-full, pod-not-ready, cert-expiry, ArgoCD drift) are continuous Grafana alarms, not part of this audit.
 when_to_use:
-  - User asks to "audit", "check the stack", "find problems", "what's wrong", "improvements?", "research more"
-  - User reports timeouts, slowness, or errors
-  - After non-trivial config changes (verify nothing regressed)
-  - Routine weekly health check
+  - User asks to "audit", "check the stack", "find problems", "what's wrong", "resource allocation", "right-size"
+  - After a wave of manifest changes (verify sizing/pinning/probes didn't regress)
+  - Routine periodic config-hygiene check
 ---
 
-# Stack Audit Skill
+# Stack Audit Skill (k8s edition)
 
-A deterministic, code-driven audit of the streaming stack at `/opt/docker`. Designed to replace ad-hoc back-and-forth investigation with a single repeatable command that emits a prioritized punch list.
+A deterministic, code-driven audit of the k3s cluster managed from `/opt/docker/gitops`.
+Single repeatable command → prioritized punch list. No LLM judgement in the default path;
+the bash checks encode the rules, so results are reproducible run-to-run.
+
+## Scope — read this first
+
+This stack migrated from Docker Compose to **k3s + ArgoCD** (Jun 2026). The audit was
+rewritten accordingly. Its job is now narrow and deliberate:
+
+**The audit covers CONFIG/SIZING quality that has no continuous metric** — things that are
+only wrong "at rest" and are surfaced by inspecting desired/observed state at a point in
+time. **Runtime failure classes are continuous Grafana → ntfy alarms, NOT audit checks.**
+They were intentionally *removed* from the audit because an alarm that fires the moment a
+thing breaks strictly dominates a check you have to remember to run.
+
+| Failure class | Where it lives now |
+|---|---|
+| Container crash-looping | alarm `pod-crashlooping` |
+| Container OOMKilled | alarm `pod-oomkilled` |
+| Node filesystem >85% | alarm `node-disk-full` |
+| Scrape target down | alarm `scrape-target-down` |
+| Pod not Ready / Pending / ImagePullBackOff | alarm `pod-not-ready` |
+| TLS cert expiring <14d | alarm `cert-expiring-soon` |
+| ArgoCD app OutOfSync / Degraded | alarms `argocd-out-of-sync`, `argocd-degraded` |
+
+All alarm rules: `gitops/manifests/observability/alerts/platform-alerts.yaml`.
+Scrape config feeding them: `gitops/manifests/observability/servicemonitors/`
+(kube-state-metrics, cert-manager, argocd, traefik). If you're tempted to add a runtime
+check here, add an alarm instead — and if the metric isn't scraped, add a ServiceMonitor.
 
 ## How to invoke
 
 ```bash
-bash /opt/docker/.claude/skills/stack-audit/audit.sh           # quick mode (default, ~30s)
-bash /opt/docker/.claude/skills/stack-audit/audit.sh --deep    # include pg_stat_statements, slow query analysis (~2 min)
-bash /opt/docker/.claude/skills/stack-audit/audit.sh --json    # machine-readable output
+bash /opt/docker/.claude/skills/stack-audit/audit.sh            # quick (default)
+bash /opt/docker/.claude/skills/stack-audit/audit.sh --deep     # larger per-check timeout
+bash /opt/docker/.claude/skills/stack-audit/audit.sh --json     # machine-readable
+bash /opt/docker/.claude/skills/stack-audit/audit.sh --summary  # one-line severity counts
+bash /opt/docker/.claude/skills/stack-audit/audit.sh --only=01-resource-allocation
 ```
 
-### When you (the model) are running `/stack-audit`
+**Default path is purely deterministic.** Run `bash audit.sh`, present the output as-is.
+If a finding looks wrong, **fix the check script** so the next run is right — don't
+override it case-by-case in your response.
 
-**Default path is purely deterministic.** Run `bash audit.sh` and present the output as-is. No LLM judgement, no parallel agents, no editorial layer — the bash checks already encode the rules. This makes audit results reproducible run-to-run and free of model variance.
+Reproducibility mechanics (`audit.sh` / `thresholds.sh`):
+- **Stable ordering** — findings `LC_ALL=C sort`ed before render; `kubectl` output order
+  (pods reshuffle on recreate) never reorders the punch list. Two audits of an unchanged
+  cluster diff to nothing but the timestamp header.
+- **Bounded completion** — every check wrapped in `timeout CHECK_TIMEOUT_SECS` (default 20,
+  60 in `--deep`). A check that exceeds it is killed and replaced by a visible
+  `LOW|audit/<check>|...` marker, so a hung api-server can't wedge the run.
 
-Three mechanics enforce that reproducibility (see `audit.sh` / `thresholds.sh`):
-- **Stable ordering.** Findings are sorted (`LC_ALL=C`) before rendering, so checks that iterate `docker ps` (whose order reshuffles on container recreate) no longer reorder the output. Two audits of an unchanged system diff to nothing but the timestamp header.
-- **Bounded completion.** Every check is wrapped in `timeout CHECK_TIMEOUT_SECS` (default 25). A check that exceeds it is killed and replaced by a single `LOW|audit/<check>|...` marker, so the run always terminates in bounded time and a dropped check is *visible*, never silent or hung.
-- **Bounded DB queries.** `count(*)`/anti-join scans on large tables run with `PGOPTIONS` `statement_timeout` (`PG_STATEMENT_TIMEOUT_MS`, default 27000 — deliberately above the check budget so a real finding is never silently aborted; the orchestrator marker handles the over-budget case and this reaps the orphaned server-side query).
-
-If a finding looks wrong, **fix the check script** (so the next run produces the right answer) rather than overriding it case-by-case in your response.
-
-### Discovery mode (opt-in only — `--discover` or "expand the audit")
-
-Use the 10-POV agent dispatch **only** when the user explicitly asks to *expand check coverage* — phrases like "what is the audit missing?", "find new bug classes", "do analysis 10 times". Do not run it as part of a routine audit; it's a development workflow for the skill itself, not part of the audit output.
-
-When in discovery mode, the agents' job is to **propose new check scripts**, not produce findings. The deliverable from each agent is a concrete bash/python detection snippet that can drop into `checks/`. Findings the agents surface incidentally should be promoted into the next bash check, not reported directly — that's the principle that keeps the skill deterministic over time.
-
-Lenses (use one per agent, dispatch all 10 in a single message via `Agent` tool with `subagent_type: Explore`):
-
-| # | Lens | What it should propose a check for |
-|---|------|-----------|
-| 1 | Security | weak creds, exposed ports, missing authelia, RW docker.sock |
-| 2 | Performance | missing mem_limit/cpus, healthcheck thrash, log unbounded |
-| 3 | Reliability/DR | missing healthchecks, no backups, no restart policy |
-| 4 | Config hygiene | inconsistent TZ/PUID, duplicate keys, `:latest` tags |
-| 5 | Networking | services that should be behind gluetun, DNS leaks |
-| 6 | Observability | log rotation, missing metrics, blind spots |
-| 7 | Supply chain | image age, EOL versions, watchtower scope |
-| 8 | Data integrity | postgres tuning, redis persistence, missing checksums |
-| 9 | Architecture/sprawl | overlapping services (subjective — usually NOT codifiable) |
-| 10 | Storage/cost | bloat, orphan dirs, log runaways |
-
-#### Bug-class reference for agent briefings
-
-Use this exact paragraph (verbatim or summarized) in each agent prompt so they share context:
-
-> **The bitmagnet_vpn bug class**: A service can run for weeks with a latent config bug. The container holds the env from its last successful start; the compose file has since drifted. The bug only surfaces on the next recreate. Example: `apps/bitmagnet/compose.yaml` loaded `gluetun/.env` but not `gluetun/config.env` after the env-split refactor — `VPN_TYPE=wireguard` (in config.env) was missing from the rendered config, but the running container still had it from before the split. The recreate dropped the var, defaulted to OpenVPN, and crashed.
-
-**Filter false positives before adopting:** subagents often have buggy path resolution, hardcoded assumptions (`/data/docker` vs `/opt/docker/data`), or treat intentional patterns (`environment:` block overriding env_file) as bugs. Verify each proposed check produces ≥1 true positive and 0 false positives on the current state before adding it to `checks/`.
-
-Each check script in `checks/` runs independently and emits findings in this format:
+Each check in `checks/` is independent and emits:
 
 ```
-SEVERITY|DOMAIN|FINDING|FIX_COMMAND
+SEVERITY|DOMAIN|FINDING|FIX_COMMAND      # SEVERITY ∈ {CRIT,HIGH,MED,LOW,OK}
 ```
 
-Where `SEVERITY ∈ {CRIT, HIGH, MED, LOW, OK}`. The main `audit.sh` aggregates, sorts, and prints.
+## What's checked
 
-## What's checked (5-pass methodology, all codified)
+### 01-resource-allocation.sh — the centerpiece
+Single **swapless** k3s node, so memory is the scarce, non-compressible resource: if pods
+burst toward their limits at once the node OOMs. Reports the sizing problems that are NOT
+alarm-shaped (over-provisioning never "fires"; the OOM consequence is already alarmed):
+- **memory-limit overcommit** — `sum(limits) / node allocatable`. HIGH ≥150%, CRIT ≥250%.
+  (Node-wide: every namespace contributes to OOM risk.)
+- **oversized limits** — limit ≥ `MEM_LIMIT_OVERSIZE_RATIO`× live usage and ≥ floor →
+  reclaimable headroom that's inflating the overcommit number.
+- **under-requested** — live usage ≥ `MEM_REQUEST_UNDER_RATIO`× request → the scheduler
+  undercounts real demand (e.g. a pod requesting 1Gi but using 2.3Gi).
+- **missing requests / limits** — best-effort/unbounded containers on a shared node.
 
-### Pass 1: System
-- Disk usage (`df -h /`)
-- Memory + swap (`free -h`)
-- Load average (`/proc/loadavg`)
-- CPU steal time (VPS noisy-neighbor signal)
-- Container restart count + OOM flag
-- Healthcheck presence
+Sizing findings are scoped to `RESOURCE_OWNED_NAMESPACES` (default `apps observability`) —
+flagging third-party Helm installs (argocd, cert-manager, kube-system) is un-actionable
+noise. Overcommit is the one node-wide signal. Uses `kubectl top` for live usage; if
+metrics-server is down it skips the usage-relative findings (still reports overcommit).
 
-### Pass 2: Containers
-- Running vs stopped / restart loops (e.g., redlib OAuth 403)
-- mem_limit set on big services (bitmagnet_postgres, mediafusion, comet, aiostreams)
-- Log file size per container (cap should bound them)
-- Image pinning: streaming addons should be `@sha256` not `:latest`
-- **Restart loops are uptime-aware**: HIGH while uptime < `RESTART_LOOP_UPTIME_MIN` (default 30m), auto-downgraded to LOW once the container has survived past that boundary (loop appears resolved).
-- **Healthcheck interval too long on critical services** (check 28): catches services that have a healthcheck but with `interval ≥ 120s`, which delays hung-state detection.
-- **depends_on readiness** (check 43): a service that `depends_on` a DB/cache which HAS a healthcheck, but with `condition: service_started` (or list-form, which normalises to the same) — so on reboot/recreate it starts before the dependency is ready and races into connection failures + cascade restarts. Only flagged when the dependency actually defines a healthcheck (else `service_healthy` is impossible); maintenance sidecars (`_vacuum`/`_prune`/`_init`/`_migrate`/`_backup`) are exempt. Fix is `condition: service_healthy`.
+### 02-image-pins.sh
+This stack pins images by `@sha256` digest so a restart can't silently pull a breaking
+change (the crashloop alarm catches that *after* the fact; this is the *before*). Flags
+running containers (owned namespaces) whose image has **no digest**: MED for `:latest` /
+no-tag (genuinely mutable), LOW for a version tag without a digest.
 
-### Pass 3: Postgres (per DB)
-Connects to each `*_postgres` container and reports:
-- `heap_hit_pct` and `idx_hit_pct` (target ≥95%)
-- Dead-tuple ratio per table (warn if >10%)
-- Idle connections older than 30 min
-- Top 3 slow queries from `pg_stat_statements` (deep mode)
-- Unused indexes (0 scans + >50MB)
-- Last autovacuum recency
-- DB size growth vs prior snapshot
-- **Autovacuum rate** (check 31): per-table dead-tuple accumulation rate; warns when `dead_tup / hours_since_last_autovacuum ≥ DEAD_TUP_RATE_PER_HOUR_WARN` (default 10000), even before `dead_pct` crosses the absolute threshold.
-- **Data integrity** (check 44, SELECT-only): `data_checksums OFF` (silent on-disk bit-rot served as valid data; MED because remediation needs dump + `initdb --data-checksums` + restore) and transaction-ID wraparound proximity via `age(datfrozenxid)` (MED/HIGH/CRIT as it climbs toward the ~2.1B read-only stop). The XID guard is dormant on a healthy stack (ages sit in the low millions) — 0 false positives until freeze autovacuum genuinely falls behind.
+### 03-probes.sh
+Without a `readinessProbe`, a Service routes to a pod the instant its process starts —
+before it can serve — and keeps routing to a wedged-but-running pod (the paperless
+`ALLOWED_HOSTS` class: up, but every request 4xx/5xxs). The `pod-not-ready` alarm only
+fires if a probe *exists* to report not-ready, so probe presence itself stays an audit
+check. LOW (some trivial sidecars legitimately don't need one).
 
-### Pass 4: Redis (per instance)
-- Hit rate, evicted_keys, used/max memory
-- maxmemory policy must be `allkeys-lru` (not `noeviction`)
-- Count of keys with no TTL (leak indicator)
-- **Eviction rate** (check 30): per-instance evicted_keys/min over uptime; warns at `REDIS_EVICTION_PER_MIN_WARN` (default 30). Hit-rate alone misses this signal.
+### 04-pvc-reclaim.sh
+The ADR's #1 failure mode is silent disk-fill on Delete-reclaim local-path PVCs; on a
+single node a Delete-reclaim volume is also a data-loss trap (delete/prune the PVC → data
+gone). The operator mitigated this with a custom `local-path-retain` StorageClass for DB
+volumes, but the **default** `local-path` SC is still Delete. Reads each bound PV's actual
+reclaim policy (what governs data fate) and flags `Delete`; also flags any PVC stuck
+unbound (HIGH). Healthy state = silent.
 
-### Pass 5: Streaming layer
-- AIOStreams: histogram of `Returning N streams and M errors` over last N min
-- Comet: response time p50/p95 from access logs, background-scraper status
-- MediaFusion: scheduler disabled flag, slow-scraper duration warnings
-- StremThru: mylist-parse errors, broken-pipe count, TorBox API latency
-- AIOmetadata: app-level cache hit rate (from log), TMDB fetch failure rate
-- Bitmagnet: DHT ingest rate (last 4 hours), must be ≤ prune rate
-- Zilean: search_torrents_meta p95 latency
-- **Stuck-job / poison-input detection** (check 32): generalizes the parse-torrent fix — flags `comet.background_scraper_items` with `consecutive_failures ≥ 5` aged >24h, `mediafusion.jobs` exhausted past `max_attempts`, and `stremthru.job_log` with repeated failures.
-- **Stremthru stream orphans** (check 29): `torrent_stream` rows with no matching `torrent_info` (the schema lacks the FK, so cleanup is manual).
-- **AIOStreams TorBox account cluster signal** (check 33): when ≥3 distinct `_TB`-suffixed addons time out in the same hour, or TorBox Search Zod-parse-errors accumulate, surfaces the "TorBox API account broken" hypothesis (rate-limit cap=0, sub lapsed, key revoked) rather than per-addon noise. Source-side fixes don't help — universal failure point is the TorBox checkcached step.
-- **Prowlarr indexer health** (check 34): per-indexer fail-rate and avg response time via Prowlarr's `/api/v1/indexerstats`; flags 100%-failure indexers (waste slots) and slow ones (>5s avg WARN, >30s HIGH — a single 30s+ indexer blocks the whole concurrent search batch past timeout). Filters out already-disabled indexers (their cumulative stats are historical, not actionable).
-- **Postgres slow-query parameter dump** (check 35): any postgres with `log_min_duration_statement` set but missing `log_parameter_max_length=0` will dump bytea values as multi-MB hex strings per slow statement. Bounded by log rotation, but eats the rotation budget fast.
-- **AIOStreams v2.30 deprecated env** (check 37): catches `DEFAULT_/FORCED_<SVC>_*` (replaced by `SERVICE_CREDENTIALS`), `FORCE_PUBLIC_PROXY_*`, `PTT_*`, `LOG_CACHE_STATS_INTERVAL`. Also flags `ANIME_DB_*_REFRESH_INTERVAL` values that look like ms (>1e7) — v2.30 reinterpreted these as seconds; old values get clamped to ~24.8 days and fire immediately on startup.
-- **SearxNG engine health** (check 41): per-engine `ERROR:searx.engines.<name>` count over `SEARXNG_ENGINE_ERR_WINDOW_HRS` (default 4h). MED at ≥5 errors, HIGH at ≥20. Skips engines already marked `disabled: true` in `apps/searxng/settings.yml` so the check doesn't keep nagging after a fix. Designed for the goodreads `Document is empty` / `engine timeout` class — fails on every search attempt, blows past threshold. Self-healing engines (403/429/CAPTCHA) are rate-limited by SearxNG's `suspended_time` and stay under the floor.
+## Thresholds (`thresholds.sh`)
 
-### Cross-cutting
-- VPN: gluetun egress IP must match `EXPECTED_VPN_REGION` (default SG)
-- Public-port exposure (5432, 8191, etc — security failure)
-- Traefik log level (DEBUG = noise; should be WARN/INFO)
-- Authelia coverage on all Traefik routes
-- StremThru tunnel route map (TorBox should bypass, others via gost)
-- Orphan data dirs under `/opt/docker/data/` for stopped services
-- **Dormant data dirs** (check 36): directories under `/opt/docker/data/<svc>/` whose service is NOT in any running container — likely a service that got commented out of the main `compose.yaml` but whose data dir was never reclaimed (this stack had 10.9GB of orphan immich data after the service was disabled). HIGH at ≥5GB, MED ≥100MB. Allowlist via `DORMANT_DATA_IGNORE`.
-- **OOM history** (check 38): kernel journalctl scan for OOM-killer events per process over last 7d. The existing live `OOMKilled` flag check only catches the CURRENT incarnation — a container OOM-killed and auto-restarted clears that flag and leaves no `docker inspect` trace, so an actual 279×/day loop can be invisible. HIGH if any recent (last 24h), MED for sustained-but-resolved (≥20 in 7d, none recent).
-- **TLS cert expiry** (check 39): scans traefik's `acme.json`; CRIT ≤7d, MED ≤30d. Catches silent ACME renewal failures.
-- **Image-pin drift** (check 42, deep-only): resolves the registry digest for each `@sha256`-pinned image and flags pins that have drifted (MED) or that couldn't be verified, e.g. Docker Hub rate-limit (LOW), rather than silently skipping. Scoped to the pinned set to stay deterministic under the anonymous manifest rate limit; floating tags are covered by check 21. Fixer: `refresh_image_pins`.
-- **Dangling volumes** (check 45): anonymous Docker volumes referenced by no container (failed/rolled-back compose ops). Distinct from check 15 (dangling images) and 36 (orphan data dirs). The `dangling=true` filter excludes every named/in-use volume. No auto-fixer (volume removal is data deletion) — the fix command is given explicitly.
+| Threshold | Default | Used by |
+|---|---|---|
+| `RESOURCE_OWNED_NAMESPACES` | `apps observability` | sizing/probe/image scope |
+| `MEM_LIMIT_OVERCOMMIT_PCT_WARN` | 150 | overcommit HIGH |
+| `MEM_LIMIT_OVERCOMMIT_PCT_CRIT` | 250 | overcommit CRIT |
+| `MEM_LIMIT_OVERSIZE_RATIO` | 8 | oversized limit |
+| `MEM_LIMIT_OVERSIZE_FLOOR_MI` | 1024 | oversized limit floor |
+| `MEM_REQUEST_UNDER_RATIO` | 1.5 | under-request |
+| `MEM_REQUEST_UNDER_FLOOR_MI` | 256 | under-request floor |
+| `CHECK_TIMEOUT_SECS` / `_DEEP` | 20 / 60 | per-check budget |
 
-### Pass 6: Config-drift (the "bitmagnet_vpn class")
-A service can run for weeks with a latent config bug — its env was set correctly at last start, but the compose file has since drifted (env_file split, var renamed, etc.). The container keeps the old env in memory and only crashes on recreate. These checks catch the bug *before* the recreate:
-
-- **17-env-file-completeness.sh** — services with `env_file: - .env` whose sibling `config.env` exists but isn't loaded (or vice versa). Covers the exact bitmagnet→gluetun pattern (cross-service env_file imports loading one half of a split).
-- **18-undefined-var-refs.sh** — `${VAR}` referenced in compose.yaml with no default and no definition reachable through env_file chain or top-level .env.
-- **19-env-duplicate-keys.sh** — same KEY defined twice in one .env file (later wins silently); same KEY in both .env and config.env with different values.
-- **20-config-drift.sh** — diff each running container's env against what `docker compose config` would render *right now*. If compose declares a var the container doesn't have, the next recreate would set it — and that may expose a latent failure.
-- **21-floating-tags.sh** — running containers whose image is a floating tag (`:latest`, `:edge`, etc.). Recreate would pull a new digest silently; pin to the current image id.
-- **22-vpn-coverage.sh** — services that should route via gluetun but don't.
-- **23-docker-socket-mode.sh** — read/write mounts of `/var/run/docker.sock` that should be read-only.
-- **24-postgres-tuning.sh** — wrong shared_buffers / work_mem heuristics relative to mem_limit.
-- **25-config-env-secrets.sh** — secret-shaped values that slipped into the committed `config.env` half of the env split (inverse of `tools/split_env.py`).
-- **26-tz-consistency.sh** — TZ values that disagree with the top-level `/opt/docker/.env` pin (or no pin at all when 1+ service hardcodes a TZ).
-- **27-env-shadowing.sh** — same KEY defined in both `env_file:` and `environment:` (compose silently overrides); skips the safe `KEY=${KEY}` pass-through pattern.
-- **40-env-references-missing-container.sh** — env vars on running containers that reference an internal docker hostname (in URIs or bare `*HOST*` vars) which doesn't exist as a running container. Catches the *stremthru_redis class*: env set (`STREMTHRU_REDIS_URI=redis://stremthru_redis:6379`) but the referenced service was never defined in compose → stremthru silently fell back to in-memory cache that wasn't working → 14-16s/stream call instead of 0.07s. Skips FQDNs, IPs, localhost, and boolean/scalar false positives.
-
-## Thresholds (deterministic — see `thresholds.sh`)
-
-All limits live in `thresholds.sh` so they're tunable. Examples:
-
-| Threshold | Default |
-|---|---|
-| `HEAP_HIT_GOOD` | 95 |
-| `HEAP_HIT_WARN` | 80 |
-| `IDLE_CONN_MAX_MIN` | 30 |
-| `DEAD_TUP_PCT_WARN` | 10 |
-| `LOG_MB_WARN` | 50 |
-| `DISK_USED_PCT_WARN` | 80 |
-| `EXPECTED_VPN_REGION` | "Singapore" |
-| `DHT_INGEST_VS_PRUNE_MAX_RATIO` | 0.8 |
-| `AIOSTREAMS_ERROR_RATE_PCT_WARN` | 30 |
-| `CONTAINER_LOG_MB_WARN` | 50 |
-| `RESTART_LOOP_UPTIME_MIN` | 30 |
-| `REDIS_EVICTION_PER_MIN_WARN` | 30 |
-| `DEAD_TUP_RATE_PER_HOUR_WARN` | 10000 |
-| `DEAD_TUP_RATE_PCT_FLOOR` | 3 |
-| `STUCK_JOB_WARN_COUNT` | 10 |
-| `PROWLARR_INDEXER_FAIL_RATE_WARN` | 50 |
-| `PROWLARR_INDEXER_AVG_MS_WARN` | 5000 |
-| `PROWLARR_INDEXER_AVG_MS_HIGH` | 30000 |
-| `DORMANT_DATA_MB_WARN` | 100 |
-| `DORMANT_DATA_MB_HIGH` | 5000 |
-| `STREMTHRU_STREAM_ORPHANS_WARN` | 1000 |
-| `HEALTHCHECK_INTERVAL_WARN_SEC` | 120 |
-| `SEARXNG_ENGINE_ERR_WINDOW_HRS` | 4 |
-| `SEARXNG_ENGINE_ERR_WARN` | 5 |
-| `SEARXNG_ENGINE_ERR_HIGH` | 20 |
+Override any of them inline: `MEM_LIMIT_OVERCOMMIT_PCT_WARN=120 bash audit.sh`.
 
 ## Severity rules
+- **CRIT** — data-loss risk, or memory overcommit that can OOM the whole node.
+- **HIGH** — workload can't run (unbound PVC), or near-OOM node overcommit.
+- **MED** — mis-sized requests/limits, missing limits, `:latest` images, Delete-reclaim PVC.
+- **LOW** — version-tag-no-digest, missing readinessProbe, informational.
 
-- **CRIT**: security exposure, data-loss risk, container OOM-killed, swap full
-- **HIGH**: user-visible slowness (heap_hit<50, error_rate>30%), VPN wrong region, broken proxy chain
-- **MED**: bloat, suboptimal config, log noise
-- **LOW**: informational
+## Suppression
+Add a regex per line to `.audit-ignore` (matched against the raw `SEVERITY|DOMAIN|FINDING`
+line) to mute known-acceptable findings — e.g. the observability operators' un-pinnable
+sidecar images.
 
-## Fixers (tools/)
+## Extending the audit
+Drop a new `NN-name.sh` into `checks/`. It must source `../thresholds.sh`, degrade
+gracefully when `kubectl` is absent/unreachable (emit a single `LOW|audit/...` and exit 0),
+and emit `SEVERITY|DOMAIN|FINDING|FIX_COMMAND` lines. Keep it deterministic: no wall-clock
+in the finding text, sort any list you iterate. **Before adding a runtime/metric check, ask
+whether it should be a Grafana alarm instead** (see Scope) — the audit is for state that
+has no time series.
 
-Deterministic, idempotent tools that *apply* the fixes the audit recommends. Each accepts `--dry-run` and never restarts a container that wasn't already running. Full registry + rules in `tools/README.md`.
-
-| Tool                        | What it does                                                       |
-| --------------------------- | ------------------------------------------------------------------ |
-| `tools/split_env.py`        | Split one `.env` → secrets + config (compose-substitution-aware)   |
-| `tools/sweep_split.sh`      | Apply the split across every `apps/<svc>/.env`                     |
-| `tools/secure_envs.sh`      | `chmod 600` + `git rm --cached` every `.env`                       |
-| `tools/vacuum_stale.sh`     | Vacuum tables exceeding dead-tuple % or autovacuum age thresholds  |
-| `tools/checkpoint_wal.sh`   | Force `CHECKPOINT` to recycle pg_wal across all postgres instances |
-| `tools/rotate_pg_password.sh` | Atomic postgres password rotation (ALTER USER + URI sync + recreate) |
-| `tools/lock_public_ports.sh` | Comment out `ports:` on Traefik-fronted services                  |
-| `tools/add_logging.sh`      | Add `json-file 10m × 3` log rotation to services missing it        |
-| `tools/prune_docker.sh`     | Safe Docker housekeeping (dangling images + build cache)           |
-
-Typical post-audit flow — one command:
-```bash
-bash tools/all.sh --dry-run     # preview every fixer in the recommended order
-bash tools/all.sh               # apply
-```
-
-Or run a single fixer manually (e.g. `bash tools/secure_envs.sh`). All are idempotent.
-
-## Audit → fix loop
-
-`audit.sh` findings now carry an optional `FIX_TOOL` hint (5th pipe-separated field). Run:
-
-```bash
-bash audit.sh --fix             # group findings by their FIX_TOOL, dry-run each
-bash audit.sh --fix --apply     # then actually run them; reprints --summary after
-```
-
-Each tool's results are appended to `audit.log` (JSONL) for an audit trail of who-changed-what-when.
-
-## Tests
-
-`tools/test/run.sh` runs golden-file tests against `split_env.py`. 4 fixtures pin the rules the splitter must preserve (compose-substitution awareness, credentialed-URI detection, `*_VALIDITY_CACHE_TTL`-style false-positive, idempotent re-split).
-
-## Output
-
-A sorted, deduped Markdown punch list with exact fix commands. Example:
-
-```markdown
-## 🔴 Critical (2)
-- [security] mediafusion_postgres exposes 5432 publicly
-  fix: remove `ports: ["5432:5432"]` from apps/mediafusion/compose.yaml
-- [storage] disk usage 92% — running out of space
-  fix: investigate /opt/docker/data large dirs
-
-## 🟠 High (3)
-...
-```
-
-## 5-pass design rationale (how this skill was built)
-
-1. **Structure**: split by domain (system / containers / postgres / redis / streaming / security / network / storage / bitmagnet / stremthru). Each domain = one check script.
-2. **Per-service**: codify the *specific* metrics that surfaced real issues in the original investigation (e.g., `heap_hit=9%` on stremthru, `mylist` unmarshal in stremthru logs).
-3. **Strict thresholds**: replace fuzzy "looks high" with numbers in `thresholds.sh`. Severity is a function of measurement vs threshold, not LLM judgement.
-4. **Action commands**: every finding ships with a `FIX_COMMAND` that's safe to copy-paste or run via Bash tool.
-5. **Quick vs deep modes**: default mode is read-only and ~30s. Deep mode unlocks pg_stat_statements analysis (acceptable cost when explicitly requested).
+## Design rationale
+1. **One namespace-aware check per concern**, severity = measurement vs threshold, not LLM
+   judgement.
+2. **Alarms own runtime; the audit owns config/sizing.** No overlap, by construction.
+3. **Actionable-only.** Findings scoped to manifests the operator can actually edit;
+   un-fixable third-party noise is excluded or suppressible.

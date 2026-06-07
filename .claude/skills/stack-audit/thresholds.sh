@@ -1,208 +1,28 @@
-# Single source of truth for all audit thresholds.
+# Single source of truth for all audit thresholds (k8s edition).
 # Sourced by every check script. Override via env vars before invoking audit.sh.
+#
+# History: this stack ran on Docker Compose until Jun 2026; it now runs entirely on
+# k3s/ArgoCD. The Docker-era thresholds (container restart loops, .env shadowing, redis
+# hit-rate-per-container, pg deep-stat knobs) were removed with the checks that used them.
+# Most former runtime checks are now continuous Grafana alarms (see
+# gitops/manifests/observability/alerts/), not point-in-time audit thresholds.
 
-# --- System ---
-: "${DISK_USED_PCT_WARN:=80}"
-: "${DISK_USED_PCT_CRIT:=90}"
-: "${LOAD_PER_CORE_WARN:=2.0}"
-: "${CPU_STEAL_PCT_WARN:=10}"
-: "${SWAP_USED_PCT_WARN:=50}"
+# --- Namespaces the operator OWNS (editable manifests) -----------------------
+# Sizing/probe/image checks only fire here; third-party Helm installs (argocd,
+# cert-manager, kube-system) are excluded as un-actionable noise.
+: "${RESOURCE_OWNED_NAMESPACES:=apps observability}"
 
-# --- Containers ---
-: "${RESTART_COUNT_WARN:=5}"
-: "${RESTART_LOOP_UPTIME_MIN:=30}"   # uptime above this minutes => assume restart loop is broken
-: "${CONTAINER_LOG_MB_WARN:=50}"
-: "${CONTAINER_LOG_MB_CRIT:=500}"
-: "${MEM_PCT_OF_CAP_WARN:=80}"
-: "${MEM_PCT_OF_CAP_CRIT:=95}"
-: "${FD_COUNT_WARN:=2000}"
-: "${FD_COUNT_CRIT:=3500}"
+# --- Resource allocation (01-resource-allocation.sh) -------------------------
+# Single swapless node → memory is the scarce, non-compressible resource.
+: "${MEM_LIMIT_OVERCOMMIT_PCT_WARN:=150}"   # sum(mem limits) / node allocatable %
+: "${MEM_LIMIT_OVERCOMMIT_PCT_CRIT:=250}"
+: "${MEM_LIMIT_OVERSIZE_RATIO:=8}"          # limit ≥ N× live usage → oversized
+: "${MEM_LIMIT_OVERSIZE_FLOOR_MI:=1024}"    # …and limit ≥ this many Mi (ignore tiny pods)
+: "${MEM_REQUEST_UNDER_RATIO:=1.5}"         # usage ≥ N× request → under-requested
+: "${MEM_REQUEST_UNDER_FLOOR_MI:=256}"      # …and usage ≥ this many Mi
 
-# --- Postgres ---
-: "${HEAP_HIT_GOOD:=95}"
-: "${HEAP_HIT_WARN:=80}"
-: "${HEAP_HIT_CRIT:=50}"
-: "${IDX_HIT_GOOD:=95}"
-: "${IDX_HIT_WARN:=85}"
-# DBs smaller than this in MB get a heap_hit pass (tuning makes no perceptible diff)
-: "${HEAP_HIT_DB_MIN_MB:=50}"
-# Postgres restarted within this many minutes — cache still warming, demote heap_hit severity
-: "${HEAP_HIT_WARMUP_MIN:=60}"
-: "${IDLE_CONN_MAX_MIN:=30}"
-: "${DEAD_TUP_PCT_WARN:=10}"
-: "${DEAD_TUP_PCT_CRIT:=25}"
-# Rate-based dead-tup check (31-autovacuum-rate.sh) — only fires when both
-# the per-hour rate AND the dead_pct floor are exceeded. Large tables can
-# sustain high absolute churn at low ratio (68M rows × 0.6% dead = 427k dead,
-# autovac fine); we don't want to warn there.
-: "${DEAD_TUP_RATE_PER_HOUR_WARN:=10000}"
-: "${DEAD_TUP_RATE_PER_HOUR_CRIT:=50000}"
-: "${DEAD_TUP_RATE_PCT_FLOOR:=3}"
-: "${AUTOVACUUM_STALE_DAYS_WARN:=7}"
-: "${UNUSED_INDEX_MIN_MB:=50}"
-: "${SLOW_QUERY_MEAN_MS_WARN:=1000}"
-: "${SLOW_QUERY_MEAN_MS_CRIT:=5000}"
-
-# --- Redis ---
-: "${REDIS_HIT_RATE_WARN:=70}"
-# Per-instance overrides — set when the workload has an intrinsically lower
-# baseline (content-metadata caches keyed by hash/IMDB id, etc). Threshold is
-# set ~10pp below observed steady-state so genuine regressions still fire.
-# Lookup pattern in checks: REDIS_HIT_RATE_WARN_<container_name>
-: "${REDIS_HIT_RATE_WARN_aiometadata_redis:=25}"   # observed 37%
-: "${REDIS_HIT_RATE_WARN_aiostreams_redis:=50}"    # observed 64%
-: "${REDIS_HIT_RATE_WARN_comet_redis:=50}"         # placeholder (container not running)
-: "${REDIS_HIT_RATE_WARN_libremdb_redis:=30}"      # placeholder (no traffic yet)
-: "${REDIS_HIT_RATE_WARN_stremthru_redis:=10}"     # observed 13-24% (variance)
-: "${REDIS_MUST_HAVE_MAXMEMORY:=true}"
-: "${REDIS_MUST_HAVE_LRU_POLICY:=true}"
-: "${REDIS_NO_TTL_KEYS_WARN:=1000}"
-
-# --- Streaming ---
-# 30% used to fire; most errors trace to TorBox bulk-cache-check timeouts —
-# not actionable from this stack. Raised to 40% so the alert means "really
-# elevated", not "TorBox normal".
-: "${AIOSTREAMS_ERROR_RATE_PCT_WARN:=40}"
-: "${AIOSTREAMS_ZERO_STREAMS_PCT_WARN:=20}"
-: "${COMET_P95_RESP_S_WARN:=15}"
-: "${MEDIAFUSION_P95_RESP_S_WARN:=15}"
-: "${STREMTHRU_BROKEN_PIPE_RATE_WARN:=5}"
-
-# --- Bitmagnet ---
-: "${BITMAGNET_DHT_INGEST_PER_HOUR_WARN:=5000}"
-# Window in hours for the DHT ingest rate sample. Shorter = more responsive to config changes, less smoothing.
-: "${BITMAGNET_INGEST_WINDOW_HOURS:=1}"
-: "${BITMAGNET_TORRENTS_GROWTH_NET_PER_DAY:=0}"
-
-# --- Security ---
-# Ports that MUST NOT be exposed on 0.0.0.0
-: "${FORBIDDEN_PUBLIC_PORTS:=5432 3306 6379 27017 8191 9091}"
-# All Traefik-enabled containers must have authelia middleware
-: "${REQUIRE_AUTHELIA_MIDDLEWARE:=true}"
-
-# --- Network / VPN ---
-: "${EXPECTED_VPN_REGION:=Singapore}"
-: "${VPN_HEALTHCHECK_ALLOWED_STALE_S:=120}"
-
-# --- Storage ---
-# Data dirs in /opt/docker/data/ for services NOT in this allowlist will be flagged as orphan
-: "${EXPECTED_DATA_DIRS:=aiostreams aiometadata authelia bitmagnet calibre-web-automated comet gluetun mediafusion prowlarr stremthru syncio searxng traefik zilean}"
-
-# --- Postgres deep ---
-: "${BLOCKING_LOCK_SECONDS_WARN:=30}"
-: "${INDEX_BLOAT_MB_WARN:=500}"        # only flag bloat candidates this large
-: "${INDEX_BLOAT_SCAN_RATIO_MAX:=10}"  # MB/scan threshold for "bloated"
-: "${LOG_MIN_DURATION_MS_RECOMMEND:=1000}"
-
-# --- Filesystem ---
-: "${INODE_USED_PCT_WARN:=80}"
-: "${INODE_USED_PCT_CRIT:=90}"
-
-# --- Backups ---
-# Path to look for pg_dump output files. Empty = skip backup check.
-: "${BACKUP_DIR:=/opt/docker/backups}"
-: "${BACKUP_STALE_DAYS_WARN:=2}"
-: "${BACKUP_STALE_DAYS_CRIT:=7}"
-
-# --- Security hardening ---
-# Containers permitted to run as root. Two reasons a name appears here:
-#   1. Truly needs root (VPN/cap_add, raw network access, etc).
-#   2. Image cannot be coerced into non-root without an upstream rebuild
-#      (we tried and reverted, or have a definite reason it would break).
-# Re-test any name here on a major image bump — upstream may have fixed it.
-: "${ALLOW_ROOT_USER:=gluetun bitmagnet_vpn traefik authelia browserless \
-  bitmagnet stremthru comet shelfmark dozzle dash searxng zilean \
-  prowlarr calibre-web-automated bitmagnet_prune prowlarr_history_prune}"
-# Notes on the image-constrained additions (verified 2026-05-19):
-#   bitmagnet                  config mount is /root/.config/bitmagnet
-#   stremthru, comet           single data-dir bind-mount includes postgres pgdata
-#   shelfmark                  shares calibre-web-automated lscr-style data
-#   dozzle                     scratch image, no shell to drop privs
-#   dash                       needs root for /proc, /sys, /:/mnt/host:ro reads
-#   searxng                    image has custom user expectations
-#   zilean                     image bakes /app/data as root-owned
-#   prowlarr, calibre-web-*    lscr.io PUID/PGID-style: entrypoint runs as root
-#                              then drops privs internally; user: bypasses that
-#   *_prune sidecars           postgres images need root for entrypoint
-# Containers expected to NOT be privileged
-: "${PRIVILEGED_FORBIDDEN:=true}"
-# Patterns for weak credentials in .env files
-: "${WEAK_PW_PATTERNS:=password=password admin=admin POSTGRES_PASSWORD=postgres bitmagnet:bitmagnet prowlarr:prowlarr aiostreams:aiostreams}"
-# Traefik routes that must have rate-limit middleware (admin/public endpoints)
-: "${RATE_LIMIT_REQUIRED_ROUTES:=}"
-
-# --- Streaming telemetry ---
-# How many recent requests to look at for per-addon contribution analysis
-: "${PER_ADDON_SAMPLE_REQUESTS:=20}"
-
-# --- Prowlarr indexer health (check 34) ---
-: "${PROWLARR_INDEXER_FAIL_RATE_WARN:=50}"
-: "${PROWLARR_INDEXER_AVG_MS_WARN:=5000}"
-: "${PROWLARR_INDEXER_AVG_MS_HIGH:=30000}"
-: "${PROWLARR_MIN_QUERIES_FOR_STATS:=5}"
-
-# --- OOM history (check 38) ---
-: "${OOM_HISTORY_WARN:=3}"
-: "${OOM_HISTORY_HIGH:=20}"
-: "${OOM_HISTORY_DAYS:=7}"
-: "${OOM_RECENT_HOURS:=24}"
-
-# --- TLS cert expiry (check 39) ---
-: "${CERT_EXPIRY_WARN_DAYS:=30}"
-: "${CERT_EXPIRY_CRIT_DAYS:=7}"
-
-# --- Dormant data dirs (check 36) ---
-: "${DORMANT_DATA_MB_WARN:=100}"
-: "${DORMANT_DATA_MB_HIGH:=5000}"
-# Space-separated names to skip (intentionally-kept data for currently-disabled services).
-: "${DORMANT_DATA_IGNORE:=immich}"
-
-# --- SearxNG ---
-# Engine error count over the lookback window. SearxNG's `suspended_time`
-# rate-limits engines hit with 403/429/CAPTCHA (so they cap at 1-2 errs/hr
-# even when broken). Engines with no suspend path ("Document is empty",
-# "engine timeout") fail on every search attempt and cluster during use.
-# Threshold sized for a single-user instance: 5+ errors clustered in 4h
-# clears the self-healing baseline; 20+ is unambiguous.
-: "${SEARXNG_ENGINE_ERR_WINDOW_HRS:=4}"
-: "${SEARXNG_ENGINE_ERR_WARN:=5}"
-: "${SEARXNG_ENGINE_ERR_HIGH:=20}"
-
-# --- Modes ---
-: "${MODE:=quick}"  # quick | deep
-: "${OUTPUT:=md}"   # md | json
-
-# --- Determinism / bounded execution ---
-# Hard wall-clock cap per check, enforced by the orchestrator. A check that
-# exceeds this is killed (SIGTERM) and replaced by a single visible marker
-# finding, so the audit always terminates in bounded time and its output is
-# reproducible run-to-run instead of racing an external timeout.
-# Deep mode gets a larger budget — it is explicitly the thorough (~2 min) mode
-# and runs intrinsically expensive checks (e.g. the stremthru orphan anti-join
-# over ~800k rows) that legitimately need more than the quick-mode budget.
-: "${CHECK_TIMEOUT_SECS:=25}"
+# --- Audit orchestration -----------------------------------------------------
+# Per-check wall-clock budget. kubectl round-trips are the slow part; a hung
+# api-server shouldn't wedge the whole audit.
+: "${CHECK_TIMEOUT_SECS:=20}"
 : "${CHECK_TIMEOUT_SECS_DEEP:=60}"
-# statement_timeout injected into every `docker exec ... psql` invocation via
-# PGOPTIONS. Set deliberately ABOVE the largest per-check budget (deep): a query
-# that finishes under the budget yields its real finding; one that exceeds it
-# lets the orchestrator kill the check and emit a *visible* timeout marker
-# (rather than the query self-aborting to an empty result and silently dropping
-# a real finding), while this bound still reaps the orphaned server-side query
-# moments later instead of leaving it running on the DB.
-: "${PG_STATEMENT_TIMEOUT_MS:=62000}"
-
-# --- Image updates (check 42) ---
-# Registry digest lookups are network round-trips; this check is --deep only.
-: "${IMAGE_CHECK_PARALLEL:=8}"     # concurrent `buildx imagetools inspect` calls
-: "${IMAGE_CHECK_TIMEOUT_SEC:=25}" # per-lookup timeout
-
-# --- Postgres data integrity (check 44) ---
-# age(datfrozenxid) wraparound guard. Healthy DBs sit in the low millions;
-# these fire only when freeze autovacuum is genuinely behind (read-only stop ~2.1B).
-: "${XID_AGE_MED:=1000000000}"
-: "${XID_AGE_HIGH:=1500000000}"
-: "${XID_AGE_CRIT:=1900000000}"
-
-# --- Dangling volumes (check 45) ---
-: "${DANGLING_VOLUME_WARN:=5}"
-: "${DANGLING_VOLUME_HIGH:=20}"
