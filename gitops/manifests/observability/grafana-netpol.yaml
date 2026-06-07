@@ -1,0 +1,26 @@
+# Lock grafana:80 to Traefik (kube-system) only — REQUIRED for the auth.proxy SSO to be
+# safe. Grafana now trusts the Remote-User header (set by the Authelia forward-auth on the
+# public IngressRoute), so any other in-cluster pod that could reach grafana:80 directly
+# could inject that header and become Grafana admin. This policy makes Traefik the sole
+# ingress path; the kubelet readiness probe (node-sourced) is permitted implicitly by
+# kube-router (verified earlier). Grafana is scraped by no ServiceMonitor, so no
+# observability allow is needed. Egress (grafana → VM datasource, → ntfy) is untouched.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: grafana-ingress-traefik-only
+  namespace: observability
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: grafana
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system    # Traefik (Authelia-enforcing path)

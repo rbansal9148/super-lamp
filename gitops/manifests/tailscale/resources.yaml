@@ -7,23 +7,10 @@ apiVersion: v1
 kind: Namespace
 metadata:
   name: tailscale
----
-# Grafana (has its own login) -> https://grafana.<tailnet>.ts.net
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: ts-grafana
-  namespace: observability
-spec:
-  ingressClassName: tailscale
-  defaultBackend:
-    service:
-      name: grafana
-      port:
-        number: 80
-  tls:
-    - hosts:
-        - grafana
+## ts-grafana REMOVED: Grafana is now SSO'd behind Authelia (auth.proxy trusts the
+## Remote-User header). A direct tailnet path would bypass Authelia and could inject that
+## header, so it was removed — tailnet users reach grafana.my-blue-car.work via Authelia.
+## (vmui/vlogs keep their tailnet ingresses: they have no header-trust to abuse.)
 ---
 # vmui (VictoriaMetrics UI) -> https://vmui.<tailnet>.ts.net/vmui/
 apiVersion: networking.k8s.io/v1

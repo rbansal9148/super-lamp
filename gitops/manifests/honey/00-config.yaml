@@ -1,49 +1,49 @@
 apiVersion: v1
-data:
-  config.json: "{\n\t\"ui\": {\n\t\t\"name\": \"Dashboard\",\n\t\t\"desc\": \"Nice
-    and sweet place for all your self-hosted services.\",\n\t\t\"icon\": \"img/icon.png\",\n\t\t\"wallpaper\":
-    \"img/background.jpg\",\n\t\t\"wallpaper_dark\": \"img/background-dark.jpg\",\n\t\t\"dark_mode\":
-    true,\n\t\t\"open_new_tab\": true,\n\t\t\"ping_dots\": true,\n\t\t\"blur\": true,\n\t\t\"animations\":
-    true,\n\t\t\"trusted_domains\": [\n\t\t\t\"my-blue-car.work\"\n\t\t]\n\t},\n\t\"services\":
-    [\n\t\t{\n\t\t\t\"name\": \"Authelia\",\n\t\t\t\"desc\": \"Authentication and
-    Authorization service.\",\n\t\t\t\"href\": \"https://auth.my-blue-car.work\",\n\t\t\t\"icon\":
-    \"https://raw.githubusercontent.com/authelia/authelia/refs/heads/master/docs/static/svgs/branding/logo-cropped.svg\"\n\t\t},\n\t\t{\n\t\t\t\"name\":
-    \"Traefik\",\n\t\t\t\"desc\": \"HTTP reverse proxy and load balancer.\",\n\t\t\t\"href\":
-    \"https://traefik.my-blue-car.work\",\n\t\t\t\"icon\": \"https://icon.icepanel.io/Technology/svg/Traefik-Proxy.svg\"\n\t\t},\n\t\t{\n\t\t\t\"name\":
-    \"dash.\",\n\t\t\t\"desc\": \"A modern Server dashboard.\",\n\t\t\t\"href\": \"https://dash.my-blue-car.work\",\n\t\t\t\"icon\":
-    \"https://getdashdot.com/img/logo512.png\"\n\t\t},\n\t\t{\n\t\t\t\"name\": \"Dozzle\",\n\t\t\t\"desc\":
-    \"Docker logs in the browser.\",\n\t\t\t\"href\": \"https://dozzle.my-blue-car.work\",\n\t\t\t\"icon\":
-    \"https://raw.githubusercontent.com/amir20/dozzle/19bb8659135e4232523d45ff8e948a0907b2701c/docs/public/logo.svg\"\n\t\t},\n\t\t{\n\t\t\t\"name\":
-    \"AIOStreams\",\n\t\t\t\"desc\": \"All-In-One streaming add-on for Stremio.\",\n\t\t\t\"href\":
-    \"https://aiostreams.my-blue-car.work\",\n\t\t\t\"icon\": \"https://raw.githubusercontent.com/Viren070/AIOStreams/refs/heads/main/packages/frontend/public/assets/logo.png\"\n\t\t},\n\t\t{\n\t\t\t\"name\":
-    \"Comet\",\n\t\t\t\"desc\": \"Torrent/Debrid indexer for Stremio.\",\n\t\t\t\"href\":
-    \"https://comet.my-blue-car.work\",\n\t\t\t\"icon\": \"https://i.imgur.com/jmVoVMu.jpeg\"\n\t\t},\n\t\t{\n\t\t\t\"name\":
-    \"MediaFusion\",\n\t\t\t\"desc\": \"Torrent/Debrid indexer for Stremio/Kodi.\",\n\t\t\t\"href\":
-    \"https://mediafusion.my-blue-car.work\",\n\t\t\t\"icon\": \"https://raw.githubusercontent.com/mhdzumair/MediaFusion/main/resources/images/mediafusion_logo.png\"\n\t\t},\n\t\t{\n\t\t\t\"name\":
-    \"StremThru\",\n\t\t\t\"desc\": \"Companion suite for Stremio.\",\n\t\t\t\"href\":
-    \"https://stremthru.my-blue-car.work\",\n\t\t\t\"icon\": \"https://emojiapi.dev/api/v1/sparkles/256.png\"\n\t\t},\n\t\t{\n\t\t\t\"name\":
-    \"Aiometadata\",\n\t\t\t\"desc\": \"Metadata catalog add-on for Stremio.\",\n\t\t\t\"href\":
-    \"https://aiometadata.my-blue-car.work\",\n\t\t\t\"icon\": \"https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/stremio.svg\"\n\t\t},\n\t\t{\n\t\t\t\"name\":
-    \"Zilean\",\n\t\t\t\"desc\": \"DebridMediaManager-powered search for Stremio.\",\n\t\t\t\"href\":
-    \"https://zilean.my-blue-car.work\",\n\t\t\t\"icon\": \"https://raw.githubusercontent.com/iPromKnight/zilean/main/src/Zilean.ApiService/wwwroot/images/zilean-logo.png\"\n\t\t},\n\t\t{\n\t\t\t\"name\":
-    \"Prowlarr\",\n\t\t\t\"desc\": \"Indexer manager.\",\n\t\t\t\"href\": \"https://prowlarr.my-blue-car.work\",\n\t\t\t\"icon\":
-    \"https://raw.githubusercontent.com/Prowlarr/Prowlarr/refs/heads/develop/Logo/512.png\"\n\t\t},\n\t\t{\n\t\t\t\"name\":
-    \"Bitmagnet\",\n\t\t\t\"desc\": \"Self-hosted DHT crawler and torrent indexer.\",\n\t\t\t\"href\":
-    \"https://bitmagnet.my-blue-car.work\",\n\t\t\t\"icon\": \"https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/bitmagnet.png\"\n\t\t},\n\t\t{\n\t\t\t\"name\":
-    \"SearXNG\",\n\t\t\t\"desc\": \"Privacy-respecting search engine.\",\n\t\t\t\"href\":
-    \"https://searxng.my-blue-car.work\",\n\t\t\t\"icon\": \"https://raw.githubusercontent.com/searxng/searxng/refs/heads/master/searx/static/themes/simple/img/favicon.png\"\n\t\t},\n\t\t{\n\t\t\t\"name\":
-    \"Calibre-Web Automated\",\n\t\t\t\"desc\": \"Self-hosted ebook library and reader.\",\n\t\t\t\"href\":
-    \"https://calibre.my-blue-car.work\",\n\t\t\t\"icon\": \"https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/calibre-web.png\"\n\t\t},\n\t\t{\n\t\t\t\"name\":
-    \"Shelfmark\",\n\t\t\t\"desc\": \"Modern reading UI for Calibre-Web.\",\n\t\t\t\"href\":
-    \"https://shelfmark.my-blue-car.work\",\n\t\t\t\"icon\": \"https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/shelfmark.png\"\n\t\t},\n\t\t{\n\t\t\t\"name\":
-    \"libremdb\",\n\t\t\t\"desc\": \"Privacy-friendly IMDb front-end.\",\n\t\t\t\"href\":
-    \"https://libremdb.my-blue-car.work\",\n\t\t\t\"icon\": \"https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/libremdb.png\"\n\t\t},\n\t\t{\n\t\t\t\"name\":
-    \"Syncio\",\n\t\t\t\"desc\": \"Stremio library and progress sync.\",\n\t\t\t\"href\":
-    \"https://syncio.my-blue-car.work\",\n\t\t\t\"icon\": \"https://raw.githubusercontent.com/iamneur0/syncio/main/client/public/logo-white.png\"\n\t\t}\n\t]\n}"
 kind: ConfigMap
 metadata:
   name: honey-config
   namespace: apps
+data:
+  # JSON as a YAML block scalar (literal) — readable + easy to extend vs the prior
+  # single-line escaped string. honey reads /app/dist/config/config.json verbatim.
+  config.json: |
+    {
+      "ui": {
+        "name": "Dashboard",
+        "desc": "Nice and sweet place for all your self-hosted services.",
+        "icon": "img/icon.png",
+        "wallpaper": "img/background.jpg",
+        "wallpaper_dark": "img/background-dark.jpg",
+        "dark_mode": true,
+        "open_new_tab": true,
+        "ping_dots": true,
+        "blur": true,
+        "animations": true,
+        "trusted_domains": ["my-blue-car.work"]
+      },
+      "services": [
+        { "name": "Authelia", "desc": "Authentication and Authorization service.", "href": "https://auth.my-blue-car.work", "icon": "https://raw.githubusercontent.com/authelia/authelia/refs/heads/master/docs/static/svgs/branding/logo-cropped.svg" },
+        { "name": "Traefik", "desc": "HTTP reverse proxy and load balancer.", "href": "https://traefik.my-blue-car.work", "icon": "https://icon.icepanel.io/Technology/svg/Traefik-Proxy.svg" },
+        { "name": "Grafana", "desc": "Metrics, logs, and alerting dashboards.", "href": "https://grafana.my-blue-car.work", "icon": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/grafana.svg" },
+        { "name": "dash.", "desc": "A modern Server dashboard.", "href": "https://dash.my-blue-car.work", "icon": "https://getdashdot.com/img/logo512.png" },
+        { "name": "Dozzle", "desc": "Docker logs in the browser.", "href": "https://dozzle.my-blue-car.work", "icon": "https://raw.githubusercontent.com/amir20/dozzle/19bb8659135e4232523d45ff8e948a0907b2701c/docs/public/logo.svg" },
+        { "name": "Immich", "desc": "Self-hosted photo and video backup.", "href": "https://immich.my-blue-car.work", "icon": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/immich.svg" },
+        { "name": "IT-Tools", "desc": "Handy tools for developers.", "href": "https://it-tools.my-blue-car.work", "icon": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/it-tools.svg" },
+        { "name": "AIOStreams", "desc": "All-In-One streaming add-on for Stremio.", "href": "https://aiostreams.my-blue-car.work", "icon": "https://raw.githubusercontent.com/Viren070/AIOStreams/refs/heads/main/packages/frontend/public/assets/logo.png" },
+        { "name": "Comet", "desc": "Torrent/Debrid indexer for Stremio.", "href": "https://comet.my-blue-car.work", "icon": "https://i.imgur.com/jmVoVMu.jpeg" },
+        { "name": "MediaFusion", "desc": "Torrent/Debrid indexer for Stremio/Kodi.", "href": "https://mediafusion.my-blue-car.work", "icon": "https://raw.githubusercontent.com/mhdzumair/MediaFusion/main/resources/images/mediafusion_logo.png" },
+        { "name": "StremThru", "desc": "Companion suite for Stremio.", "href": "https://stremthru.my-blue-car.work", "icon": "https://emojiapi.dev/api/v1/sparkles/256.png" },
+        { "name": "Aiometadata", "desc": "Metadata catalog add-on for Stremio.", "href": "https://aiometadata.my-blue-car.work", "icon": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/svg/stremio.svg" },
+        { "name": "Zilean", "desc": "DebridMediaManager-powered search for Stremio.", "href": "https://zilean.my-blue-car.work", "icon": "https://raw.githubusercontent.com/iPromKnight/zilean/main/src/Zilean.ApiService/wwwroot/images/zilean-logo.png" },
+        { "name": "Prowlarr", "desc": "Indexer manager.", "href": "https://prowlarr.my-blue-car.work", "icon": "https://raw.githubusercontent.com/Prowlarr/Prowlarr/refs/heads/develop/Logo/512.png" },
+        { "name": "Bitmagnet", "desc": "Self-hosted DHT crawler and torrent indexer.", "href": "https://bitmagnet.my-blue-car.work", "icon": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/bitmagnet.png" },
+        { "name": "SearXNG", "desc": "Privacy-respecting search engine.", "href": "https://searxng.my-blue-car.work", "icon": "https://raw.githubusercontent.com/searxng/searxng/refs/heads/master/searx/static/themes/simple/img/favicon.png" },
+        { "name": "Calibre-Web Automated", "desc": "Self-hosted ebook library and reader.", "href": "https://calibre.my-blue-car.work", "icon": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/calibre-web.png" },
+        { "name": "Shelfmark", "desc": "Modern reading UI for Calibre-Web.", "href": "https://shelfmark.my-blue-car.work", "icon": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/shelfmark.png" },
+        { "name": "libremdb", "desc": "Privacy-friendly IMDb front-end.", "href": "https://libremdb.my-blue-car.work", "icon": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/libremdb.png" },
+        { "name": "Syncio", "desc": "Stremio library and progress sync.", "href": "https://syncio.my-blue-car.work", "icon": "https://raw.githubusercontent.com/iamneur0/syncio/main/client/public/logo-white.png" }
+      ]
+    }
 ---
 apiVersion: apps/v1
 kind: Deployment
