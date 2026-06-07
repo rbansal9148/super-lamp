@@ -19,14 +19,87 @@ spec:
         addEntryPointsLabels: true
         addServicesLabels: true
         addRoutersLabels: true
+    logs:
+      # Access logs → stdout as JSON; the OTel node-collector tails them into
+      # VictoriaLogs (vlsingle-obs) automatically — query in Grafana with
+      #   {k8s.namespace.name="kube-system", k8s.container.name="traefik"}
+      # Each line carries ClientHost (real visitor IP, see trustedIPs below),
+      # RequestHost, RequestPath, RouterName, DownstreamStatus, Duration, etc.
+      # SECURITY: headers default to "drop", so session cookies / Authorization
+      # are NEVER written. NOTE: RequestPath IS logged — for the Stremio addons
+      # (comet/aiostreams/…) the path embeds the user config blob, which can carry
+      # debrid keys. The log store is internal + Authelia-gated to you, but if you'd
+      # rather not retain those, add  fields.general.names: { RequestPath: redact }.
+      access:
+        enabled: true
+        format: json
+        fields:
+          general:
+            defaultmode: keep
+          headers:
+            defaultmode: drop
     ports:
       # :443 cutover COMPLETE — k3s Traefik now owns host :80/:443 (Docker Traefik
       # decommissioned). Mirrors the bootstrap override at
       # /var/lib/rancher/k3s/server/manifests/traefik-ports.yaml.
       web:
         exposedPort: 80
+        # Trust Cloudflare's edge ranges so X-Forwarded-For resolves to the real
+        # visitor IP (CF proxies all public traffic). A direct origin-bypass hit to
+        # 161.118.165.53 is NOT in these ranges, so it logs its true source IP —
+        # which makes origin-bypass access visible. Source: cloudflare.com/ips.
+        forwardedHeaders:
+          trustedIPs:
+            - 173.245.48.0/20
+            - 103.21.244.0/22
+            - 103.22.200.0/22
+            - 103.31.4.0/22
+            - 141.101.64.0/18
+            - 108.162.192.0/18
+            - 190.93.240.0/20
+            - 188.114.96.0/20
+            - 197.234.240.0/22
+            - 198.41.128.0/17
+            - 162.158.0.0/15
+            - 104.16.0.0/13
+            - 104.24.0.0/14
+            - 172.64.0.0/13
+            - 131.0.72.0/22
+            - 2400:cb00::/32
+            - 2606:4700::/32
+            - 2803:f800::/32
+            - 2405:b500::/32
+            - 2405:8100::/32
+            - 2a06:98c0::/29
+            - 2c0f:f248::/32
       websecure:
         exposedPort: 443
+        # Same Cloudflare trusted ranges as :80 (kept explicit, not a YAML anchor, so
+        # the helm-controller can't mis-handle an alias on cluster-wide ingress config).
+        forwardedHeaders:
+          trustedIPs:
+            - 173.245.48.0/20
+            - 103.21.244.0/22
+            - 103.22.200.0/22
+            - 103.31.4.0/22
+            - 141.101.64.0/18
+            - 108.162.192.0/18
+            - 190.93.240.0/20
+            - 188.114.96.0/20
+            - 197.234.240.0/22
+            - 198.41.128.0/17
+            - 162.158.0.0/15
+            - 104.16.0.0/13
+            - 104.24.0.0/14
+            - 172.64.0.0/13
+            - 131.0.72.0/22
+            - 2400:cb00::/32
+            - 2606:4700::/32
+            - 2803:f800::/32
+            - 2405:b500::/32
+            - 2405:8100::/32
+            - 2a06:98c0::/29
+            - 2c0f:f248::/32
         # Global default middleware: every websecure route inherits the security
         # headers (HSTS/frameDeny/nosniff) — see manifests/observability/security-headers.yaml.
         # Provider-namespaced ref: <namespace>-<name>@kubernetescrd.
