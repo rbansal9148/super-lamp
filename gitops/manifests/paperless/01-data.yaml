@@ -13,7 +13,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata: {name: paperless-postgres, namespace: apps, labels: {app: paperless-postgres}}
 spec:
-  replicas: 1
+  replicas: 0  # PAUSED 2026-06-07 — paperless disabled, picking up later; set back to 1 to re-enable
   strategy: {type: Recreate}
   selector: {matchLabels: {app: paperless-postgres}}
   template:
@@ -52,7 +52,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata: {name: paperless-redis, namespace: apps, labels: {app: paperless-redis}}
 spec:
-  replicas: 1
+  replicas: 0  # PAUSED 2026-06-07 — paperless disabled, picking up later; set back to 1 to re-enable
   selector: {matchLabels: {app: paperless-redis}}
   template:
     metadata: {labels: {app: paperless-redis}}

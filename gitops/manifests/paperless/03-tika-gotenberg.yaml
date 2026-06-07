@@ -7,7 +7,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata: {name: paperless-gotenberg, namespace: apps, labels: {app: paperless-gotenberg}}
 spec:
-  replicas: 1
+  replicas: 0  # PAUSED 2026-06-07 — paperless disabled, picking up later; set back to 1 to re-enable
   selector: {matchLabels: {app: paperless-gotenberg}}
   template:
     metadata: {labels: {app: paperless-gotenberg}}
@@ -32,7 +32,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata: {name: paperless-tika, namespace: apps, labels: {app: paperless-tika}}
 spec:
-  replicas: 1
+  replicas: 0  # PAUSED 2026-06-07 — paperless disabled, picking up later; set back to 1 to re-enable
   selector: {matchLabels: {app: paperless-tika}}
   template:
     metadata: {labels: {app: paperless-tika}}

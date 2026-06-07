@@ -6,7 +6,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata: {name: paperless, namespace: apps, labels: {app: paperless}}
 spec:
-  replicas: 1
+  replicas: 0  # PAUSED 2026-06-07 — paperless disabled, picking up later; set back to 1 to re-enable
   strategy: {type: Recreate}
   selector: {matchLabels: {app: paperless}}
   template:
