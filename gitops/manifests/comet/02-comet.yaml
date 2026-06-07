@@ -31,6 +31,16 @@ metadata: { name: comet, namespace: apps, annotations: { external-dns.alpha.kube
 spec:
   entryPoints: [websecure]
   routes:
+    # /admin dashboard: force through Authelia (defense-in-depth over comet's own
+    # dashboard password). Higher priority than the catch-all so the Stremio addon
+    # paths (everything else) stay bypassed for clients that can't auth.
+    - match: Host(`comet.my-blue-car.work`) && PathPrefix(`/admin`)
+      kind: Rule
+      priority: 100
+      middlewares:
+        - name: authelia
+          namespace: apps
+      services: [{ name: comet, port: 2020 }]
     - match: Host(`comet.my-blue-car.work`)
       kind: Rule
       services: [{ name: comet, port: 2020 }]
