@@ -1,0 +1,88 @@
+# Phase 2 — apps namespace network isolation (default-deny ingress + explicit allows).
+# Supersedes the Phase-1 data-tier-only policy and the it-tools canary (the canary proved
+# kube-router permits the kubelet node→pod readiness probe under a default-deny, so a
+# namespace-wide deny is probe-safe — it-tools stayed 1/1 Ready throughout).
+#
+# Resulting ingress model for the apps namespace (policies are ADDITIVE / OR):
+#   • Everything: denied by default (policy 1).
+#   • Any apps pod → any apps pod: allowed (policy 2) — app↔db, app↔app, *-vacuum/*-prune
+#     CronJobs → db. (Per-app micro-seg — db X ONLY from app X — is a deliberate Phase 2b,
+#     not done here; this still blocks ALL cross-namespace and external lateral movement.)
+#   • kube-system (Traefik ingress) + observability (OTel scrape of authelia) → NON-DB
+#     pods only (policy 3). The DB list is EXCLUDED so the data tier stays in-namespace-only
+#     even from trusted infra namespaces — preserving the Phase-1 data-tier guarantee.
+#   • Kubelet health probes (node-sourced) are permitted implicitly by kube-router (proven
+#     by the canary) — no explicit node allow needed.
+#   • Egress is untouched (policyTypes: Ingress only) → DNS + addon internet access intact.
+#
+# MAINTENANCE: a NEW *-postgres/*-redis must be added to the DB exclusion list below, or
+# trusted infra namespaces could reach it. Fails toward MORE access for that one new DB,
+# never an outage. (A stack-audit check flagging uncovered DB pods is a good follow-up.)
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apps-default-deny-ingress
+  namespace: apps
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  # No ingress rules → deny all ingress (baseline; allows below re-open specific paths).
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apps-allow-intra-namespace
+  namespace: apps
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector: {}   # any pod in the apps namespace (frontends + CronJobs)
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apps-allow-trusted-cross-ns
+  namespace: apps
+spec:
+  # NON-DB pods only: Traefik must reach frontends, observability must scrape authelia,
+  # but neither should reach Postgres/Redis (data tier stays in-namespace-only).
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: NotIn
+        values:
+          - aiometadata-postgres
+          - aiometadata-redis
+          - aiostreams-postgres
+          - aiostreams-redis
+          - bitmagnet-postgres
+          - comet-postgres
+          - immich-postgres
+          - immich-redis
+          - libremdb-redis
+          - mediafusion-postgres
+          - mediafusion-redis
+          - paperless-postgres
+          - paperless-redis
+          - prowlarr-postgres
+          - searxng-redis
+          - stremthru-postgres
+          - stremthru-redis
+          - syncio-postgres
+          - syncio-redis
+          - zilean-postgres
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system     # Traefik ingress controller
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: observability    # OTel Target Allocator scrape
