@@ -26,6 +26,10 @@ spec:
         # 472-owned files (Permission denied) and blocks startup. Disable it.
         initChownData:
           enabled: false
+        # bound the main grafana container (was unlimited → could OOM neighbours)
+        resources:
+          requests: { memory: 256Mi, cpu: 50m }
+          limits: { memory: 1Gi, cpu: "1" }     # 8d peak ~611Mi
         admin:
           existingSecret: grafana-admin   # from a SealedSecret — see secrets/README.md
           userKey: admin-user
@@ -54,6 +58,10 @@ spec:
                 url: http://vlsingle-obs.observability.svc:9428
         # sidecar discovers dashboards from ConfigMaps labelled grafana_dashboard
         sidecar:
+          # bound the 3 watcher sidecars (sc-dashboard/sc-datasources/sc-alerts; were unlimited)
+          resources:
+            requests: { memory: 32Mi, cpu: 10m }
+            limits: { memory: 128Mi, cpu: 200m }
           dashboards:
             enabled: true
             label: grafana_dashboard

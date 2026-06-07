@@ -18,6 +18,10 @@ spec:
     targetRevision: 0.63.1               # operator app v0.70.1 (latest stable as of 2026-05-31)
     helm:
       values: |
+        # bound the operator pod (was unlimited)
+        resources:
+          requests: { memory: 64Mi, cpu: 25m }
+          limits: { memory: 256Mi, cpu: 500m }
         # We author Prometheus-Operator CRDs ourselves (prometheus-operator-crds app),
         # so the operator must not ship/own its own copy.
         crds:

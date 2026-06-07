@@ -36,6 +36,7 @@ metadata:
   namespace: apps
   labels: { app: immich-backup }
 spec:
+  suspend: true                      # PAUSED — backup plan removed for now (was CreateContainerConfigError); flip to false to resume
   schedule: "30 3 * * *"
   timeZone: "Asia/Kolkata"
   concurrencyPolicy: Forbid          # never overlap a slow first-run with the next night

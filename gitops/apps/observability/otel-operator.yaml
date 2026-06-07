@@ -18,6 +18,10 @@ spec:
     helm:
       values: |
         manager:
+          # bound the operator manager container (was unlimited)
+          resources:
+            requests: { memory: 64Mi, cpu: 25m }
+            limits: { memory: 256Mi, cpu: 500m }
           collectorImage:
             # tag tracks the operator appVersion (0.152.0) — contrib publishes the same tags
             repository: otel/opentelemetry-collector-contrib
