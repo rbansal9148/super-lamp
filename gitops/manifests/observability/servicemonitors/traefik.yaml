@@ -34,10 +34,37 @@ spec:
           - kube-system-security-headers@kubernetescrd
       metrics:
         port: 9100
+        # expose.default: false → the metrics entrypoint stays defined and the pod keeps
+        # LISTENING on :9100, but the port is NOT added to the public LoadBalancer service
+        # (k3s ServiceLB would otherwise host-bind it on the node's public IP). Internal
+        # scraping uses the dedicated ClusterIP `traefik-metrics` service below instead.
         expose:
-          default: true
+          default: false
         exposedPort: 9100
         protocol: TCP
+---
+# Dedicated ClusterIP service for Traefik metrics. Selects the Traefik pods and exposes
+# :9100 cluster-internally ONLY (no LoadBalancer), so the OTel TA can scrape it while the
+# metrics port is no longer published on the node's public IP. Lives in kube-system with
+# the Traefik pods; its own label (traefik-metrics) is what the ServiceMonitor targets.
+apiVersion: v1
+kind: Service
+metadata:
+  name: traefik-metrics
+  namespace: kube-system
+  labels:
+    app.kubernetes.io/name: traefik-metrics
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: traefik
+  ports:
+    - name: metrics
+      port: 9100
+      targetPort: metrics
+      protocol: TCP
 ---
 apiVersion: monitoring.coreos.com/v1
 kind: ServiceMonitor
@@ -54,7 +81,7 @@ spec:
       - kube-system
   selector:
     matchLabels:
-      app.kubernetes.io/name: traefik
+      app.kubernetes.io/name: traefik-metrics
   endpoints:
     - port: metrics
       path: /metrics

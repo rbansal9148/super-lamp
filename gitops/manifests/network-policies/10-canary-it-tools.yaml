@@ -1,0 +1,32 @@
+# Phase 2 CANARY — validates the one unknown that gates a namespace-wide default-deny:
+# does k3s's kube-router allow the kubelet's httpGet readiness probe (sourced from the
+# NODE, not a pod) to reach a pod that has a default-deny ingress policy?
+#
+# Scoped to it-tools ONLY (a stateless utility with an httpGet :80 probe — lowest-stakes
+# frontend). It denies all ingress EXCEPT from kube-system (so Traefik can still reach it).
+# It deliberately does NOT add a node/host allow — that's the whole experiment:
+#   • it-tools stays 1/1 Ready  → kube-router permits node→pod probes → a namespace-wide
+#     default-deny is probe-safe; proceed to roll it out to all frontends.
+#   • it-tools goes 0/1 NotReady → probes ARE blocked → the namespace-wide policy must
+#     additionally allow the node CIDR; redesign before rollout. (Revert this one file.)
+#
+# Blast radius if it fails: it-tools' IngressRoute 502s — nothing else. Revert = delete
+# this file. This is intentionally a single-app experiment, NOT the rollout.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: canary-default-deny-it-tools
+  namespace: apps
+spec:
+  podSelector:
+    matchLabels:
+      app: it-tools
+  policyTypes:
+    - Ingress
+  ingress:
+    # Traefik (kube-system) → it-tools, so normal web access still works during the test.
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system

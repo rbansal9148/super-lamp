@@ -48,7 +48,15 @@ spec:
     metadata: { labels: { app: libremdb } }
     spec:
       enableServiceLinks: false
-      securityContext: { runAsUser: 65534, runAsGroup: 65534 }
+      # Gold-standard restricted profile (this app already runs as 65534, so safe):
+      # non-root asserted + RuntimeDefault seccomp, paired with the container-level
+      # readOnlyRootFilesystem / drop-ALL / no-escalation below. Reference profile for
+      # the per-app hardening rollout — copy where the image tolerates it.
+      securityContext:
+        runAsUser: 65534
+        runAsGroup: 65534
+        runAsNonRoot: true
+        seccompProfile: { type: RuntimeDefault }
       containers:
         - name: libremdb
           image: ghcr.io/zyachel/libremdb:latest@sha256:9f65a47fe64133045b4cfaa48e5ef73371c55c62b3d5bf42f7584a90dfd1c1ee
