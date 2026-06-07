@@ -88,6 +88,11 @@ spec:
   routes:
     - match: Host(`zilean.my-blue-car.work`)
       kind: Rule
+      # Gate the whole host behind Authelia. zilean's API consumers (comet/mediafusion/
+      # aiostreams) reach it IN-CLUSTER as zilean:8181, so the public host only serves the
+      # dashboard UI (Zilean__EnableDashboard=true) — no Stremio client hits it directly.
+      middlewares:
+        - name: authelia
       services:
         - name: zilean
           port: 8181

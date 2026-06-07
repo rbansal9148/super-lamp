@@ -13,6 +13,14 @@ metadata:
     argocd.argoproj.io/sync-wave: "2"
 spec:
   valuesContent: |-
+    # Preserve the real client source IP. k3s ServiceLB (klipper) SNATs traffic to the
+    # node under the default Cluster policy, so Traefik saw 10.42.0.1 and the Cloudflare
+    # trustedIPs never matched (ClientHost was always the node). Local keeps the source
+    # (the CF edge IP), which IS in trustedIPs, so X-Forwarded-For resolves to the real
+    # visitor. Single-node cluster, so Local's uneven-distribution caveat doesn't apply.
+    service:
+      spec:
+        externalTrafficPolicy: Local
     metrics:
       prometheus:
         entryPoint: metrics
