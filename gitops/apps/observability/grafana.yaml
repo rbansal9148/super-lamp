@@ -119,8 +119,9 @@ spec:
             root_url: https://grafana.my-blue-car.work
           # SSO via Authelia: Grafana trusts the Remote-User header that the forward-auth
           # middleware injects (Authelia 2FA at the edge), so there is NO separate Grafana
-          # login. auto_sign_up creates the user on first hit; only rbansal can pass Authelia,
-          # so auto_assign_org_role: Admin is safe. The login form is disabled.
+          # login. auto_sign_up creates the user on first hit as a Viewer; rbansal (the
+          # existing admin, userId=2) keeps Admin. A second Authelia account therefore lands
+          # read-only instead of silently inheriting Grafana admin. The login form is disabled.
           #
           # SECURITY: auth.proxy blindly trusts the header, so the ONLY path to grafana:80
           # must be Traefik (which enforces Authelia). Two controls back this:
@@ -141,7 +142,7 @@ spec:
             enable_login_token: false
             whitelist: 10.42.0.0/16
           users:
-            auto_assign_org_role: Admin
+            auto_assign_org_role: Viewer
   destination:
     server: https://kubernetes.default.svc
     namespace: observability

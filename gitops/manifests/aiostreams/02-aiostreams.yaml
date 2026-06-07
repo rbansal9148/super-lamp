@@ -12,9 +12,11 @@ spec:
     metadata: { labels: { app: aiostreams } }
     spec:
       enableServiceLinks: false
+      automountServiceAccountToken: false   # app never calls the k8s API; drop the token mount
       containers:
         - name: aiostreams
-          image: ghcr.io/viren070/aiostreams:v2.30.2
+          # tag kept for readability; digest pins the bits (mutable tag → reproducible pull)
+          image: ghcr.io/viren070/aiostreams:v2.30.2@sha256:a2ab5a7ce8f474de894f1bd079c6d7f73b235857d9f2ba3d8b1ba51829a01b51
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           envFrom: [{ configMapRef: { name: aiostreams-config } }, { secretRef: { name: aiostreams-secrets } }]
           ports: [{ containerPort: 3000, name: http }]

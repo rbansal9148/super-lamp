@@ -16,6 +16,7 @@ spec:
       labels: { app: syncio }
     spec:
       enableServiceLinks: false
+      automountServiceAccountToken: false   # app never calls the k8s API; drop the token mount
       containers:
         - name: syncio
           image: ghcr.io/iamneur0/syncio:public@sha256:bffe1ce0113f516d8de034d2caa2a3ddf2c68f596ba8880b5673ab7a37e902bb

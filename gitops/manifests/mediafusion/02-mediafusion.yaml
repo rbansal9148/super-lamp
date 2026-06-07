@@ -11,9 +11,11 @@ spec:
     metadata: { labels: { app: mediafusion } }
     spec:
       enableServiceLinks: false
+      automountServiceAccountToken: false   # app never calls the k8s API; drop the token mount
       containers:
         - name: mediafusion
-          image: mhdzumair/mediafusion:6.0.0-beta.20
+          # tag kept for readability; digest pins the bits (beta tags are mutable upstream)
+          image: mhdzumair/mediafusion:6.0.0-beta.20@sha256:3c6163467ac2bf2bb4dbbf1487e6f6fb9e61b548bee8cba2b3b328d56734dd9e
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           envFrom: [{ configMapRef: { name: mediafusion-config } }, { secretRef: { name: mediafusion-secrets } }]
           ports: [{ containerPort: 8000, name: http }]

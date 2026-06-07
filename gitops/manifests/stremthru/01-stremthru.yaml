@@ -13,6 +13,7 @@ spec:
     metadata: {labels: {app: stremthru-postgres}}
     spec:
       enableServiceLinks: false
+      automountServiceAccountToken: false   # no k8s API use; drop the token mount
       containers:
         - name: postgres
           image: postgres:18.4
@@ -51,6 +52,7 @@ spec:
     metadata: {labels: {app: stremthru-redis}}
     spec:
       enableServiceLinks: false
+      automountServiceAccountToken: false   # no k8s API use; drop the token mount
       containers:
         - name: redis
           image: redis:8.6.3
@@ -75,6 +77,7 @@ spec:
     metadata: {labels: {app: stremthru}}
     spec:
       enableServiceLinks: false
+      automountServiceAccountToken: false   # no k8s API use; drop the token mount
       containers:
         - name: stremthru
           image: muniftanjim/stremthru@sha256:83d9bdc8e43acd8f29da117b760239797214622e0dc8f37cf2c23c7f2df38b02

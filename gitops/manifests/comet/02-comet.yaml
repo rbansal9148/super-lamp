@@ -10,6 +10,7 @@ spec:
     metadata: { labels: { app: comet } }
     spec:
       enableServiceLinks: false
+      automountServiceAccountToken: false   # app never calls the k8s API; drop the token mount
       containers:
         - name: comet
           image: g0ldyy/comet:dev@sha256:2725968b372b8efcfdcd13c6a9277b334a84152a312429975d7057768024de62
