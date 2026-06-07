@@ -27,6 +27,11 @@ spec:
         exposedPort: 80
       websecure:
         exposedPort: 443
+        # Global default middleware: every websecure route inherits the security
+        # headers (HSTS/frameDeny/nosniff) — see manifests/observability/security-headers.yaml.
+        # Provider-namespaced ref: <namespace>-<name>@kubernetescrd.
+        middlewares:
+          - kube-system-security-headers@kubernetescrd
       metrics:
         port: 9100
         expose:

@@ -359,3 +359,42 @@ data:
             labels: { severity: warning }
             annotations:
               summary: 'ArgoCD app {{ $labels.name }} health is Degraded/Missing for 15m — check the app resources'
+
+      - orgId: 1
+        name: platform-auth
+        folder: platform
+        interval: 1m
+        rules:
+          # ── Authelia failed-login spike: >20 failed first-factor auths in 10m ──
+          # Source: authelia metrics (servicemonitors live in authelia/authelia.yaml).
+          # authelia_authn_duration_count{success="false"} counts failed first-factor logins.
+          # Authelia's own regulation bans after 3 failures/2m PER USER, so a legitimate
+          # fat-finger never reaches 20 globally — this catches the distributed / multi-user
+          # credential-stuffing case that per-user regulation can't see. noDataState=OK: a
+          # healthy realm emits no success="false" series at all (increase → no data).
+          - uid: authelia-failed-logins
+            title: Authelia failed-login spike
+            condition: C
+            for: 2m
+            noDataState: OK
+            execErrState: OK
+            data:
+              - refId: A
+                relativeTimeRange: { from: 600, to: 0 }
+                datasourceUid: victoriametrics
+                model:
+                  refId: A
+                  instant: true
+                  expr: |-
+                    sum(increase(authelia_authn_duration_count{success="false"}[10m]))
+              - refId: C
+                datasourceUid: __expr__
+                model:
+                  refId: C
+                  type: threshold
+                  expression: A
+                  conditions:
+                    - evaluator: { type: gt, params: [20] }
+            labels: { severity: warning }
+            annotations:
+              summary: '>20 failed Authelia logins in 10m — possible credential-stuffing / brute-force'

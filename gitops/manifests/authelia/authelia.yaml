@@ -1,6 +1,6 @@
-# Self-contained Authelia for the k8s realm (ADR: k8s auth, separate from Docker).
-# DISTINCT cookie domain (k8s.my-blue-car.work) + portal (auth.k8s.my-blue-car.work)
-# so it never collides with the Docker Authelia's cookie on the parent domain.
+# Self-contained Authelia for the k8s realm. Cookie domain + portal live on the parent
+# my-blue-car.work (auth.my-blue-car.work). The Docker realm that this once had to avoid
+# colliding with is decommissioned, so the parent domain is now unambiguous.
 # Storage: local SQLite on local-path-retain PVC. Sessions: in-memory (single replica,
 # redis omitted). Secrets (session/storage-encryption/jwt + users.yml) come from the
 # SealedSecret 'authelia-secrets' (sealedsecret.yaml), mounted at /secrets.
@@ -55,6 +55,11 @@ data:
         - domain: 'my-blue-car.work'
           policy: 'one_factor'
     session:
+      # Strict session lifetimes: cookie dies after 1h absolute or 5m idle, and
+      # remember_me is disabled (-1) so there is no long-lived bypass of re-auth.
+      expiration: '1 hour'
+      inactivity: '5 minutes'
+      remember_me: '-1'
       cookies:
         - name: 'authelia_session'
           domain: 'my-blue-car.work'

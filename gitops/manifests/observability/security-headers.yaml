@@ -1,0 +1,31 @@
+# Global HTTP security headers, applied to EVERY websecure route via the Traefik
+# entrypoint default-middleware (ports.websecure.middlewares in the HelmChartConfig at
+# servicemonitors/traefik.yaml → reference `kube-system-security-headers@kubernetescrd`).
+# Entrypoint-level so there are NO gaps: every current and future IngressRoute inherits
+# it, including the Authelia login portal itself (clickjacking protection on the login
+# page) and the bypassed Stremio addon hosts (the headers are harmless on JSON APIs).
+#
+# frameDeny is safe here: the only dashboards (dashdot, honey) are standalone and do not
+# iframe other internal apps (verified), so X-Frame-Options: DENY breaks nothing.
+# HSTS: 1y + includeSubDomains + forceSTSHeader, but NOT preload — `preload` implies the
+# permanent hstspreload.org list submission, which is genuinely hard to undo; add it later
+# as a deliberate step if desired. Lives in kube-system (Traefik's namespace) so the
+# entrypoint reference resolves; managed cross-namespace by the observability Application
+# (same as the traefik HelmChartConfig it pairs with).
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: security-headers
+  namespace: kube-system
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  headers:
+    frameDeny: true                       # X-Frame-Options: DENY
+    contentTypeNosniff: true              # X-Content-Type-Options: nosniff
+    browserXssFilter: true                # X-XSS-Protection: 1; mode=block
+    referrerPolicy: 'strict-origin-when-cross-origin'
+    stsSeconds: 31536000                  # HSTS 1 year
+    stsIncludeSubdomains: true
+    forceSTSHeader: true
