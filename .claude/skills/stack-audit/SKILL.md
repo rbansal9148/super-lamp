@@ -107,6 +107,17 @@ volumes, but the **default** `local-path` SC is still Delete. Reads each bound P
 reclaim policy (what governs data fate) and flags `Delete`; also flags any PVC stuck
 unbound (HIGH). Healthy state = silent.
 
+### 05-securitycontext.sh
+Pod securityContext hardening. Calibrated to avoid noise: genuine escape/root risks are
+flagged per-container at **HIGH** (`privileged: true`, `hostNetwork/PID/IPC`, explicit
+`runAsUser: 0`) / **MED** (escape-grade added caps — `SYS_ADMIN`, `NET_RAW`, … —
+allowlisted per container via `SECCTX_ADDED_CAPS_ALLOW`, default `gluetun` for its VPN
+tunnel); the broad baseline gap (most images run with the default context) is reported as
+a few **aggregate LOW** lines per namespace (`N/M containers don't enforce runAsNonRoot /
+drop ALL caps / set allowPrivilegeEscalation=false`) rather than ~70 per-container lines
+that would drown the signal. Remediating the baseline is per-image work (some break as
+non-root), hence LOW not a per-container nag.
+
 ## Thresholds (`thresholds.sh`)
 
 | Threshold | Default | Used by |
