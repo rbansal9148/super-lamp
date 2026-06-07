@@ -56,10 +56,12 @@ data:
           policy: 'one_factor'
     session:
       # Strict session lifetimes: cookie dies after 1h absolute or 5m idle, and
-      # remember_me is disabled (-1) so there is no long-lived bypass of re-auth.
+      # remember_me is disabled so there is no long-lived bypass of re-auth.
+      # NOTE: the disable sentinel is '0' — Authelia 4.39's duration parser rejects '-1'
+      # (it can't decode a bare negative as a time.Duration), and '0' disables the feature.
       expiration: '1 hour'
       inactivity: '5 minutes'
-      remember_me: '-1'
+      remember_me: '0'
       cookies:
         - name: 'authelia_session'
           domain: 'my-blue-car.work'
