@@ -26,7 +26,7 @@ data:
       "tags": ["platform", "gitops", "traefik", "security"],
       "timezone": "browser",
       "schemaVersion": 39,
-      "version": 1,
+      "version": 2,
       "refresh": "30s",
       "time": { "from": "now-6h", "to": "now" },
       "templating": { "list": [] },
@@ -72,6 +72,20 @@ data:
           "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
           "options": { "showTime": true, "wrapLogMessage": true, "enableLogDetails": true, "sortOrder": "Descending" },
           "targets": [ { "refId": "A", "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" }, "queryType": "instant", "expr": "{k8s.container.name=\"traefik\"} | unpack_json | RequestHost:~\"(aiometadata|aiostreams|comet|immich|mediafusion|stremthru)\" | fields _time, ClientHost, RequestHost, RequestMethod, RequestPath, DownstreamStatus" } ]
+        },
+        {
+          "id": 7, "type": "table", "title": "Top exact URLs (24h, all hosts) — scheme://host/path",
+          "gridPos": { "h": 12, "w": 24, "x": 0, "y": 38 },
+          "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+          "options": { "showHeader": true },
+          "targets": [ { "refId": "A", "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" }, "queryType": "stats", "expr": "{k8s.container.name=\"traefik\"} RequestHost | unpack_json | format \"<RequestScheme>://<RequestHost><RequestPath>\" as url | stats by (url, RequestMethod, DownstreamStatus) count() hits | sort by (hits desc) | limit 200" } ]
+        },
+        {
+          "id": 8, "type": "logs", "title": "Recent requests — client IP / method / full URL / status",
+          "gridPos": { "h": 14, "w": 24, "x": 0, "y": 50 },
+          "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+          "options": { "showTime": true, "wrapLogMessage": true, "enableLogDetails": true, "sortOrder": "Descending" },
+          "targets": [ { "refId": "A", "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" }, "queryType": "instant", "expr": "{k8s.container.name=\"traefik\"} RequestHost | unpack_json | format \"<RequestScheme>://<RequestHost><RequestPath>\" as url | fields _time, ClientHost, RequestMethod, url, DownstreamStatus" } ]
         }
       ]
     }
