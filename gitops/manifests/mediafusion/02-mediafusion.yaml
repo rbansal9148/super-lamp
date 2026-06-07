@@ -19,7 +19,7 @@ spec:
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           envFrom: [{ configMapRef: { name: mediafusion-config } }, { secretRef: { name: mediafusion-secrets } }]
           ports: [{ containerPort: 8000, name: http }]
-          resources: { requests: { memory: 256Mi, cpu: 50m }, limits: { memory: 3Gi, cpu: "2" } }
+          resources: { requests: { memory: 256Mi, cpu: 50m }, limits: { memory: 1Gi, cpu: "2" } }   # rightsized: 8d peak <0.5Gi (was 3Gi)
           readinessProbe: { httpGet: { path: /health, port: 8000 }, initialDelaySeconds: 20, periodSeconds: 20, timeoutSeconds: 8 }
 ---
 apiVersion: v1

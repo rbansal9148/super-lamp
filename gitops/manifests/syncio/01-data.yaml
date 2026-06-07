@@ -43,7 +43,7 @@ spec:
           ports: [{containerPort: 5432, name: postgres}]
           resources:
             requests: {memory: 128Mi, cpu: 25m}
-            limits: {memory: 1Gi, cpu: 500m}
+            limits: {memory: 512Mi, cpu: 500m}   # rightsized: peak ~49Mi (was 1Gi)
           volumeMounts:
             - {name: data, mountPath: /var/lib/postgresql/data}
             - {name: dshm, mountPath: /dev/shm}

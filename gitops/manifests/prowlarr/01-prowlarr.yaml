@@ -26,7 +26,7 @@ spec:
             - name: POSTGRES_PASSWORD
               valueFrom: {secretKeyRef: {name: prowlarr-db, key: POSTGRES_PASSWORD}}
           ports: [{containerPort: 5432, name: postgres}]
-          resources: {requests: {memory: 128Mi, cpu: 25m}, limits: {memory: 1Gi, cpu: 500m}}
+          resources: {requests: {memory: 128Mi, cpu: 25m}, limits: {memory: 512Mi, cpu: 500m}}   # rightsized: peak <100Mi (was 1Gi)
           volumeMounts:
             - {name: pgdata, mountPath: /var/lib/postgresql/data}
             - {name: dshm, mountPath: /dev/shm}
@@ -74,7 +74,7 @@ spec:
             - {name: HTTPS_PROXY, value: "http://gluetun.apps.svc.cluster.local:8888"}
             - {name: NO_PROXY, value: "localhost,127.0.0.1,prowlarr-postgres,flaresolverr,.svc,.cluster.local,10.42.0.0/16,10.43.0.0/16"}
           ports: [{containerPort: 9696, name: http}]
-          resources: {requests: {memory: 128Mi, cpu: 25m}, limits: {memory: 6Gi, cpu: "2"}}
+          resources: {requests: {memory: 128Mi, cpu: 25m}, limits: {memory: 1Gi, cpu: "2"}}   # rightsized: 8d peak <0.5Gi (was 6Gi)
           volumeMounts: [{name: config, mountPath: /config}]
           readinessProbe: {httpGet: {path: /ping, port: 9696}, initialDelaySeconds: 20, periodSeconds: 20, timeoutSeconds: 8}
       volumes:

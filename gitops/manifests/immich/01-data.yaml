@@ -27,7 +27,7 @@ spec:
             - name: POSTGRES_PASSWORD
               valueFrom: { secretKeyRef: { name: immich-secrets, key: DB_PASSWORD } }
           ports: [{ containerPort: 5432, name: postgres }]
-          resources: { requests: { memory: 256Mi, cpu: 25m }, limits: { memory: 1Gi, cpu: "1" } }
+          resources: { requests: { memory: 256Mi, cpu: 25m }, limits: { memory: 768Mi, cpu: "1" } }   # rightsized: peak ~102Mi (was 1Gi)
           volumeMounts:
             - { name: pgdata, mountPath: /var/lib/postgresql/data }
             - { name: dshm, mountPath: /dev/shm }
