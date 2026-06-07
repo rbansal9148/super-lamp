@@ -1,0 +1,13 @@
+# Cross-cutting NetworkPolicies (data-tier isolation, future micro-seg). Mirrors the
+# priorityclasses shared-resource app pattern, but targets the apps namespace since the
+# policies are namespaced there.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: network-policies
+  namespace: argocd
+spec:
+  project: default
+  source: { repoURL: git@github.com:rbansal9148/super-lamp.git, targetRevision: main, path: gitops/manifests/network-policies, directory: { recurse: true } }
+  destination: { server: https://kubernetes.default.svc, namespace: apps }
+  syncPolicy: { automated: { prune: true, selfHeal: true }, syncOptions: [CreateNamespace=false, ApplyOutOfSyncOnly=true] }

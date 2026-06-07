@@ -1,0 +1,64 @@
+# Phase 1 network segmentation — data-tier ingress isolation.
+#
+# Threat closed: with ZERO NetworkPolicies the cluster network is flat — any pod
+# (including the internet-exposed, auth-bypassed Stremio addons) can open a direct
+# TCP connection to every Postgres/Redis, and any pod in another namespace
+# (observability/argocd/kube-system) can too. This policy restricts ingress to the
+# data tier so a DB only accepts connections from pods INSIDE the apps namespace
+# (its own app frontend + its vacuum/prune CronJobs). Cross-namespace and external
+# direct-to-DB access is denied.
+#
+# Why this phase is outage-safe (verified before shipping):
+#   • Every legitimate DB client (app frontends + *-vacuum/*-prune CronJobs) lives in
+#     the apps namespace, so `from: podSelector: {}` (same-namespace) covers them all.
+#   • DB readiness probes are ALL `exec` (pg_isready / redis-cli in-container), so this
+#     ingress policy cannot break health checks — unlike the app frontends, whose
+#     httpGet probes make a namespace-wide deny risky (that's deliberately NOT done here).
+#   • No ServiceMonitor scrapes any DB, so there is no cross-namespace scrape to allow.
+#   • policyTypes is Ingress only → egress (DB → internet/DNS) is untouched.
+#
+# MAINTENANCE: this selects DBs by an explicit `app` list. A NEW *-postgres/*-redis must
+# be added here or it stays unprotected (fails OPEN, not closed — no outage, just a gap).
+# A future stack-audit check should flag apps-namespace DB pods not covered by a netpol.
+#
+# Phase 2 (separate, careful): per-app micro-segmentation (DB X only from app X, not from
+# sibling apps) and a namespace default-deny with explicit traefik/scrape/DNS allows.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: data-tier-ingress-isolation
+  namespace: apps
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - aiometadata-postgres
+          - aiometadata-redis
+          - aiostreams-postgres
+          - aiostreams-redis
+          - bitmagnet-postgres
+          - comet-postgres
+          - immich-postgres
+          - immich-redis
+          - libremdb-redis
+          - mediafusion-postgres
+          - mediafusion-redis
+          - paperless-postgres
+          - paperless-redis
+          - prowlarr-postgres
+          - searxng-redis
+          - stremthru-postgres
+          - stremthru-redis
+          - syncio-postgres
+          - syncio-redis
+          - zilean-postgres
+  policyTypes:
+    - Ingress
+  ingress:
+    # Allow only same-namespace (apps) sources: the app frontend + its CronJobs.
+    # An empty podSelector with no namespaceSelector = all pods in THIS namespace.
+    - from:
+        - podSelector: {}
