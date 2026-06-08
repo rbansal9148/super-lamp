@@ -1,0 +1,64 @@
+# cert-manager CONTROLLER (the Helm release), adopted into GitOps.
+#
+# cert-manager was installed out-of-band (`helm install cert-manager jetstack/cert-manager`,
+# rev 1, chart v1.20.2) and ran with NO resource requests/limits → BestEffort QoS, first
+# to be OOM-killed under the node's memory-limit overcommit. This Application adopts that
+# release so its resources live in git and auto-reconcile.
+#
+# ADOPTION SAFETY (this is taking over live, traffic-serving control-plane resources):
+#  • helm.releaseName: cert-manager — reproduces the exact resource names (cert-manager,
+#    -webhook, -cainjector) so ArgoCD adopts the live Deployments in place, not duplicates.
+#  • crds.enabled: false — the CRDs already exist with `helm.sh/resource-policy: keep`.
+#    Decoupling them from this app means an errant sync/prune can NEVER cascade-delete
+#    Certificates/Issuers. CRDs are upgraded out-of-band on chart bumps (documented tradeoff).
+#  • prune: false — additive adoption only; nothing is ever deleted by this app.
+#  • The existing `cert-manager` Application (gitops/manifests/cert-manager) keeps managing
+#    the CRs (ClusterIssuer/Certificate/token) — a DISJOINT resource set, different tracking
+#    label value, so the two apps never fight.
+# Resources sized from live usage (controller 37Mi / cainjector 53Mi / webhook 24Mi); memory
+# limits only (no CPU limit → Burstable QoS, no throttle on a latency-sensitive controller).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: cert-manager-controller
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-2"
+spec:
+  project: default
+  source:
+    repoURL: https://charts.jetstack.io
+    chart: cert-manager
+    targetRevision: v1.20.2
+    helm:
+      releaseName: cert-manager
+      values: |
+        crds:
+          enabled: false
+        startupapicheck:
+          enabled: false
+        resources:
+          requests: { cpu: 25m, memory: 64Mi }
+          limits: { memory: 256Mi }
+        webhook:
+          resources:
+            requests: { cpu: 10m, memory: 48Mi }
+            limits: { memory: 128Mi }
+        cainjector:
+          resources:
+            requests: { cpu: 10m, memory: 64Mi }
+            limits: { memory: 256Mi }
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: cert-manager
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+      - CreateNamespace=false
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 5
+      backoff: { duration: 10s, factor: 2, maxDuration: 3m }
