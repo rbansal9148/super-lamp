@@ -45,7 +45,17 @@ spec:
           general:
             defaultmode: keep
           headers:
-            defaultmode: drop
+            defaultmode: drop                  # cookies / Authorization NEVER written
+            names:
+              # Capture request-correlation IDs only (not secrets) so a single request
+              # can be followed across components in VictoriaLogs without a trace backend.
+              # Cf-Ray = Cloudflare's per-request id (origin is behind CF) → the join key.
+              # traceparent / X-Request-Id are kept ahead of the later OTLP step so app
+              # spans (when instrumented) correlate to the same id. LogsQL recipe:
+              #   {k8s.container.name="traefik"} | unpack_json | filter request_Cf-Ray:"<id>"
+              Cf-Ray: keep
+              X-Request-Id: keep
+              traceparent: keep
     ports:
       # :443 cutover COMPLETE — k3s Traefik now owns host :80/:443 (Docker Traefik
       # decommissioned). Mirrors the bootstrap override at
