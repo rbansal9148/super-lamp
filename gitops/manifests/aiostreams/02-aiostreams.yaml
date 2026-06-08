@@ -36,8 +36,20 @@ metadata: { name: aiostreams, namespace: apps, annotations: { external-dns.alpha
 spec:
   entryPoints: [websecure]
   routes:
+    # Human-facing UI + config-mutation API -> Authelia SSO. Stremio clients never hit
+    # these paths. Excludes the self-token-authed proxy/playback + health endpoints so
+    # addon installation and video playback keep working without an interactive login.
+    - match: Host(`aiostreams.my-blue-car.work`) && (Path(`/`) || PathPrefix(`/login`) || Path(`/configure`) || Path(`/stremio/configure`) || Path(`/u/configure`) || (PathPrefix(`/api/v1`) && !PathPrefix(`/api/v1/proxy`) && !Path(`/api/v1/health`) && !Path(`/api/v1/status`)))
+      kind: Rule
+      priority: 100
+      middlewares: [{ name: authelia }]
+      services: [{ name: aiostreams, port: 3000 }]
+    # Public: Stremio manifest/stream (/stremio/<uuid>/...), built-in proxy playback
+    # (/proxy, /stremio/proxy, /api/v1/proxy), static assets, health. Self-authed by
+    # the per-user UUID / signed proxy token in the URL.
     - match: Host(`aiostreams.my-blue-car.work`)
       kind: Rule
+      priority: 1
       services: [{ name: aiostreams, port: 3000 }]
   tls: {}
 ---
