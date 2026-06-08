@@ -19,6 +19,14 @@ spec:
           image: ghcr.io/viren070/aiostreams:v2.30.2@sha256:a2ab5a7ce8f474de894f1bd079c6d7f73b235857d9f2ba3d8b1ba51829a01b51
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           envFrom: [{ configMapRef: { name: aiostreams-config } }, { secretRef: { name: aiostreams-secrets } }]
+          # Phase 2 of the Authelia cutover: native instance login is now redundant — the
+          # IngressRoute above path-scopes Authelia SSO over every UI/config-mutation path.
+          # Blank these two (explicit env wins over the envFrom secret) to drop aiostreams'
+          # own /login + addon-password gate so users get a single Authelia prompt, not two.
+          # The sealed secret still carries the values; un-setting these env reverts cleanly.
+          env:
+            - { name: AIOSTREAMS_AUTH, value: "" }
+            - { name: ADDON_PASSWORD, value: "" }
           ports: [{ containerPort: 3000, name: http }]
           resources: { requests: { memory: 128Mi, cpu: 25m }, limits: { memory: 1Gi, cpu: "1" } }
           volumeMounts: [{ name: data, mountPath: /app/data }]
