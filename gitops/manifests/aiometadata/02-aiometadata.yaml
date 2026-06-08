@@ -59,5 +59,14 @@ spec:
               env:
                 - name: PGPASSWORD
                   valueFrom: { secretKeyRef: { name: aiometadata-secrets, key: POSTGRES_PASSWORD } }
-              command: ["psql","-h","aiometadata-postgres","-U","aiometadata","-d","aiometadata","-c","VACUUM (ANALYZE);"]
+              # in-pod retry: ride out transient connection-refused blips instead of failing.
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  sleep 15
+                  for i in $(seq 1 20); do
+                    psql -h aiometadata-postgres -U aiometadata -d aiometadata -c "VACUUM (ANALYZE);" && exit 0
+                    echo "attempt $i: db unreachable, retry in 6s"; sleep 6
+                  done
+                  echo "aiometadata vacuum failed after 20 attempts"; exit 1
               resources: { requests: { memory: 32Mi, cpu: 25m }, limits: { memory: 128Mi, cpu: 250m } }

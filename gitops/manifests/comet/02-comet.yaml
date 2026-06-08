@@ -69,5 +69,15 @@ spec:
               env:
                 - name: PGPASSWORD
                   valueFrom: { secretKeyRef: { name: comet-secrets, key: POSTGRES_PASSWORD } }
-              command: ["psql","-h","comet-postgres","-U","comet","-d","comet","-c","VACUUM (ANALYZE);"]
+              # in-pod retry: ride out transient connection-refused blips (kube-proxy
+              # REJECT during a brief endpoint gap) instead of failing the whole job.
+              command: ["/bin/sh", "-c"]
+              args:
+                - |
+                  sleep 15
+                  for i in $(seq 1 20); do
+                    psql -h comet-postgres -U comet -d comet -c "VACUUM (ANALYZE);" && exit 0
+                    echo "attempt $i: db unreachable, retry in 6s"; sleep 6
+                  done
+                  echo "comet vacuum failed after 20 attempts"; exit 1
               resources: { requests: { memory: 32Mi, cpu: 25m }, limits: { memory: 128Mi, cpu: 250m } }
