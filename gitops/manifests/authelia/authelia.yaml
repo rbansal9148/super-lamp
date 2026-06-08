@@ -51,10 +51,13 @@ data:
         # IngressRoutes also omit the forward-auth Middleware; this is belt-and-suspenders.
         # zilean is NOT here: its public host serves only the dashboard UI (in-cluster
         # consumers hit zilean:8181), so it falls through to the two_factor catch-all below.
+        # aiostreams is NOT here either: its IngressRoute path-scopes the forward-auth
+        # middleware to the UI/config paths (/, /login, /configure, /api/v1 non-proxy),
+        # leaving Stremio manifest/stream/proxy open. So its UI hits the two_factor
+        # catch-all below while Stremio clients (which never traverse the middleware) work.
         - domain:
             - 'comet.my-blue-car.work'
             - 'mediafusion.my-blue-car.work'
-            - 'aiostreams.my-blue-car.work'
             - 'stremthru.my-blue-car.work'
             - 'aiometadata.my-blue-car.work'
           policy: 'bypass'
