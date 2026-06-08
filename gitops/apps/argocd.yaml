@@ -57,9 +57,12 @@ spec:
             requests: { cpu: 25m, memory: 32Mi }
             limits: { memory: 128Mi }
         dex:
+          # 256Mi (not 128): the dex container loads the full ~170MB argocd binary
+          # (`argocd-dex rundex`) at startup, which segfaults (exit 139) under a 128Mi
+          # cap. Matches the server component, which runs the same binary fine at 256Mi.
           resources:
             requests: { cpu: 10m, memory: 64Mi }
-            limits: { memory: 128Mi }
+            limits: { memory: 256Mi }
         applicationSet:
           resources:
             requests: { cpu: 10m, memory: 64Mi }
