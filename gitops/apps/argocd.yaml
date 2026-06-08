@@ -1,0 +1,84 @@
+# ArgoCD itself (the Helm release), self-managed via GitOps.
+#
+# ArgoCD was bootstrapped out-of-band (`helm install argocd argo/argo-cd`, rev 1, chart
+# 9.5.17) and every component ran with NO resource requests/limits → BestEffort QoS, first
+# to be OOM-killed under the node's memory-limit overcommit (and it's the one component
+# whose death stops all GitOps reconciliation). This Application has ArgoCD manage its own
+# Helm release so the resources live in git.
+#
+# ADOPTION / SELF-MANAGEMENT SAFETY:
+#  • helm.releaseName: argocd — reproduces the live resource names (argocd-server, etc.)
+#    so the chart render adopts the running Deployments in place, not duplicates.
+#  • Only ported user value is configs.params."server.insecure" (TLS terminated at Traefik);
+#    everything else is chart-9.5.17 defaults = exactly what's live (rev 1, never customized
+#    outside helm), so the render does not revert any live config (incl. the chart-default
+#    application.instanceLabelKey=argocd.argoproj.io/instance that ArgoCD tracks by).
+#  • crds.install: false — Argo CRDs already exist; decoupled so no sync/prune can touch them.
+#  • prune: false — additive only. The application-controller will roll itself once to pick
+#    up its new resources; ArgoCD tolerates self-upgrade (applies, then restarts, then
+#    re-reconciles). Nothing is deleted.
+# Resources sized from live usage (controller 430Mi is the heavy one); memory limits only
+# (no CPU limit → Burstable, no throttle on the control plane).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: argocd
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+spec:
+  project: default
+  source:
+    repoURL: https://argoproj.github.io/argo-helm
+    chart: argo-cd
+    targetRevision: 9.5.17
+    helm:
+      releaseName: argocd
+      values: |
+        crds:
+          install: false
+        configs:
+          params:
+            server.insecure: true
+        controller:
+          resources:
+            requests: { cpu: 100m, memory: 512Mi }
+            limits: { memory: 1Gi }
+        server:
+          resources:
+            requests: { cpu: 25m, memory: 64Mi }
+            limits: { memory: 256Mi }
+        repoServer:
+          resources:
+            requests: { cpu: 50m, memory: 128Mi }
+            limits: { memory: 512Mi }
+        redis:
+          resources:
+            requests: { cpu: 25m, memory: 32Mi }
+            limits: { memory: 128Mi }
+        dex:
+          resources:
+            requests: { cpu: 10m, memory: 64Mi }
+            limits: { memory: 128Mi }
+        applicationSet:
+          resources:
+            requests: { cpu: 10m, memory: 64Mi }
+            limits: { memory: 128Mi }
+        notifications:
+          resources:
+            requests: { cpu: 10m, memory: 64Mi }
+            limits: { memory: 128Mi }
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - ServerSideApply=true
+      - CreateNamespace=false
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 5
+      backoff: { duration: 10s, factor: 2, maxDuration: 3m }
