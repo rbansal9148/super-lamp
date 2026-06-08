@@ -51,6 +51,7 @@ spec:
             exec: {command: ["pg_isready", "-U", "syncio", "-d", "syncio"]}
             initialDelaySeconds: 10
             periodSeconds: 10
+            timeoutSeconds: 3   # 1s default flaps the endpoint under load -> connection-refused blips
       volumes:
         - name: data
           persistentVolumeClaim: {claimName: syncio-db-data}
@@ -92,6 +93,7 @@ spec:
             exec: {command: ["redis-cli", "ping"]}
             initialDelaySeconds: 5
             periodSeconds: 10
+            timeoutSeconds: 3   # 1s default flaps the endpoint under load -> connection-refused blips
 ---
 apiVersion: v1
 kind: Service

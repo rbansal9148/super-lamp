@@ -26,7 +26,7 @@ spec:
           volumeMounts:
             - {name: pgdata, mountPath: /var/lib/postgresql/data}
             - {name: dshm, mountPath: /dev/shm}
-          readinessProbe: {exec: {command: ["pg_isready", "-U", "bitmagnet", "-d", "bitmagnet"]}, initialDelaySeconds: 15, periodSeconds: 10}
+          readinessProbe: {exec: {command: ["pg_isready", "-U", "bitmagnet", "-d", "bitmagnet"]}, initialDelaySeconds: 15, periodSeconds: 10, timeoutSeconds: 3}
       volumes:
         - name: pgdata
           hostPath: {path: /opt/docker/data/bitmagnet/db, type: Directory}

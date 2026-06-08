@@ -87,10 +87,12 @@ spec:
             exec: {command: ["pg_isready", "-U", "zilean", "-d", "zilean"]}
             initialDelaySeconds: 10
             periodSeconds: 10
+            timeoutSeconds: 3   # 1s default flaps the endpoint under load -> connection-refused blips
           livenessProbe:
             exec: {command: ["pg_isready", "-U", "zilean", "-d", "zilean"]}
             initialDelaySeconds: 30
             periodSeconds: 30
+            timeoutSeconds: 5   # generous: a tight liveness timeout would RESTART postgres under load
       volumes:
         - name: data
           persistentVolumeClaim: {claimName: zilean-db-data}
