@@ -13,7 +13,7 @@ data:
   CACHE_WARMUP_UUID: b5f78ce0-61b5-403b-97fc-b334069e6bea
   CACHE_WARM_INTERVAL_HOURS: '12'
   CATALOG_LIST_ITEMS_SIZE: '100'
-  CATALOG_WARMUP_MAX_PAGES_PER_CATALOG: '100'
+  CATALOG_WARMUP_MAX_PAGES_PER_CATALOG: '25'
   DISABLE_METRICS: 'true'
   ENABLE_CACHE_WARMING: 'true'
   HOST_NAME: https://aiometadata.my-blue-car.work
@@ -25,5 +25,5 @@ data:
   PORT: '1337'
   REDIS_URL: redis://aiometadata-redis:6379
   TMDB_POPULAR_WARMING_ENABLED: 'true'
-  TRAKT_CONCURRENCY: '10'
+  TRAKT_CONCURRENCY: '4'
   TRAKT_REDIRECT_URI: https://aiometadata.${DOMAIN}/api/auth/trakt/callback
