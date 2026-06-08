@@ -10,6 +10,12 @@ data:
   ADDON_CATALOG_CACHE_TTL: '3600'
   ADDON_ID: aiostreams.viren070.com
   ADDON_NAME: AIOStreams
+  # Authelia SSO (path-scoped on the IngressRoute) is the sole gate for the config UI.
+  # Make the app-layer config page public so users get ONE login (Authelia), not two.
+  # This env OVERRIDES the DB-persisted setting (which was toggled true via the dashboard);
+  # api.authRequired defaults false but the DB had it true. Stremio manifest/stream/proxy
+  # are unaffected (already public). Source: config/schema/api.ts -> AIOSTREAMS_AUTH_REQUIRED.
+  AIOSTREAMS_AUTH_REQUIRED: 'false'
   AIOSTREAMS_TAG: v2.30.0
   ALTERNATE_DESIGN: 'false'
   ANIME_DB_EXTENDED_ANITRAKT_MOVIES_REFRESH_INTERVAL: '86400'
