@@ -94,6 +94,39 @@ data:
             annotations:
               summary: 'Node filesystem on {{ index $labels "k8s.node.name" }} over 85% used'
 
+          # ── Node memory pressure: MemAvailable < ~10% (>90% used) ──
+          # Swapless single node, so MemAvailable hitting low == imminent OOM (the
+          # kernel can't fall back to swap). We alert on the OTLP MemAvailable gauge
+          # (k8s.node.memory.available) directly, NOT usage/total: kubeletstats'
+          # k8s.node.memory.usage counts reclaimable page cache, so usage+available
+          # exceeds node total and a usage ratio would false-fire. Absolute threshold
+          # 2.5e9 bytes ≈ 10% of this node's 23.4 GiB (24550352Ki) — the condition the
+          # control-plane mem-limit overcommit would create before BestEffort pods die.
+          - uid: node-memory-pressure
+            title: Node memory >90% used
+            condition: C
+            for: 5m
+            data:
+              - refId: A
+                relativeTimeRange: { from: 300, to: 0 }
+                datasourceUid: victoriametrics
+                model:
+                  refId: A
+                  instant: true
+                  expr: |-
+                    min by (k8s.node.name) ({__name__="k8s.node.memory.available"})
+              - refId: C
+                datasourceUid: __expr__
+                model:
+                  refId: C
+                  type: threshold
+                  expression: A
+                  conditions:
+                    - evaluator: { type: lt, params: [2500000000] }
+            labels: { severity: warning }
+            annotations:
+              summary: 'Node {{ index $labels "k8s.node.name" }} memory available below 2.5Gi (>90% used)'
+
       - orgId: 1
         name: platform-scrape
         folder: platform
