@@ -56,6 +56,13 @@ spec:
     metadata: {labels: {app: prowlarr}}
     spec:
       enableServiceLinks: false
+      initContainers:
+        # prowlarr's FluentMigrator runs at boot and crashes if postgres isn't up yet
+        # ("Failed to connect to ...:5432"). Gate start on the DB being reachable.
+        - name: wait-for-postgres
+          image: busybox:1.37
+          command: ['sh', '-c', 'until nc -z prowlarr-postgres 5432; do echo "waiting for postgres"; sleep 2; done']
+          securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}, runAsNonRoot: true, runAsUser: 65534, seccompProfile: {type: RuntimeDefault}}
       containers:
         - name: prowlarr
           image: ghcr.io/hotio/prowlarr:nightly@sha256:98a73a32a3cb67277dd91a1ecd65426c01195a11b82bc923ae30fc2b82b4fb53

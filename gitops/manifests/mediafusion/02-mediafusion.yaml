@@ -12,6 +12,13 @@ spec:
     spec:
       enableServiceLinks: false
       automountServiceAccountToken: false   # app never calls the k8s API; drop the token mount
+      initContainers:
+        # mediafusion logs "postgres not ready, retrying" repeatedly at boot when the DB
+        # isn't up yet. Gate start on the DB being reachable to shorten startup churn.
+        - name: wait-for-postgres
+          image: busybox:1.37
+          command: ['sh', '-c', 'until nc -z mediafusion-postgres 5432; do echo "waiting for postgres"; sleep 2; done']
+          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, runAsNonRoot: true, runAsUser: 65534, seccompProfile: { type: RuntimeDefault } }
       containers:
         - name: mediafusion
           # tag kept for readability; digest pins the bits (beta tags are mutable upstream)
