@@ -19,6 +19,15 @@ data:
         authz:
           forward-auth:
             implementation: 'ForwardAuth'
+            # Authenticate via the session cookie ONLY. The default strategy list puts
+            # HeaderAuthorization(Basic) first, so Authelia would grab ANY inbound
+            # `Authorization: Basic` header, try to validate it as an Authelia user, fail,
+            # and 401 — before checking the cookie. aiostreams sends `Authorization: Basic
+            # <uuid>:<config-password>` for its own config auth; dropping HeaderAuthorization
+            # lets that header pass through to the app. No gated service logs into Authelia
+            # via Basic/Bearer (all are browser/cookie), so this only removes a 2FA-bypass.
+            authn_strategies:
+              - name: 'CookieSession'
     log:
       level: 'info'
       format: 'text'
