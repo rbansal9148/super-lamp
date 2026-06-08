@@ -65,7 +65,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: vacuum
-              image: postgres:18.4
+              image: postgres:18-alpine
               env:
                 - name: PGPASSWORD
                   valueFrom: { secretKeyRef: { name: comet-secrets, key: POSTGRES_PASSWORD } }
