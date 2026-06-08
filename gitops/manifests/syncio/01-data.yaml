@@ -83,7 +83,7 @@ spec:
       enableServiceLinks: false
       containers:
         - name: redis
-          image: redis:8.6.3
+          image: redis:8.8.0
           args: ["redis-server", "--appendonly", "no", "--maxmemory", "64mb", "--maxmemory-policy", "allkeys-lru", "--save", ""]
           ports: [{containerPort: 6379, name: redis}]
           resources:

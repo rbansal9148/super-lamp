@@ -35,7 +35,7 @@ spec:
       enableServiceLinks: false
       containers:
         - name: searxng
-          image: searxng/searxng:latest@sha256:47c01962ec215ac0787a66f6a7023b07343ea8d6a1433f80492dc3b136c7dc12
+          image: searxng/searxng:latest@sha256:02d441bbb647b7be422d21041420115cddadac4644368f67c7c7f407bbe72e22
           env:
             - { name: SEARXNG_BASE_URL, value: "https://searxng.my-blue-car.work/" }
             - { name: UWSGI_WORKERS, value: "2" }
