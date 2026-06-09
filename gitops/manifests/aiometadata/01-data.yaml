@@ -60,6 +60,7 @@ spec:
       containers:
         - name: redis
           image: redis:8.8.0@sha256:aa049e689e141a4358ad1d4562dc49c88a89fbab711fd8fcc33f684c80b26301
+          securityContext: { runAsNonRoot: true, runAsUser: 999, runAsGroup: 999, allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           args: ["redis-server", "--save", "", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
           ports: [{containerPort: 6379}]
           resources: {requests: {memory: 128Mi, cpu: 10m}, limits: {memory: 256Mi, cpu: 200m}}  # was 16Mi/160Mi — OOMKilled: redis RSS (dataset+fragmentation) ran ~1.5-2x maxmemory 128mb, past the 160Mi ceiling. 256Mi = 2x headroom; honest 128Mi request
