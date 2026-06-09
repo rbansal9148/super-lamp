@@ -25,7 +25,7 @@ spec:
   commonName: identity.linkerd.cluster.local
   dnsNames: [identity.linkerd.cluster.local]
   issuerRef: { name: linkerd-trust-anchor, kind: Issuer }
-  privateKey: { algorithm: ECDSA, size: 256 }
+  privateKey: { algorithm: ECDSA, size: 256, encoding: PKCS8 }
   usages: [cert sign, crl sign]
 ---
 # ── admission-webhook server certs ─────────────────────────────────────────────
@@ -46,7 +46,7 @@ spec:
   dnsNames: [linkerd-proxy-injector.linkerd.svc]
   isCA: false
   issuerRef: { name: linkerd-webhook-ca, kind: Issuer }
-  privateKey: { algorithm: ECDSA }
+  privateKey: { algorithm: ECDSA, encoding: PKCS8 }
   usages: [server auth]
 ---
 apiVersion: cert-manager.io/v1
@@ -60,7 +60,7 @@ spec:
   dnsNames: [linkerd-policy-validator.linkerd.svc]
   isCA: false
   issuerRef: { name: linkerd-webhook-ca, kind: Issuer }
-  privateKey: { algorithm: ECDSA }
+  privateKey: { algorithm: ECDSA, encoding: PKCS8 }
   usages: [server auth]
 ---
 apiVersion: cert-manager.io/v1
@@ -74,5 +74,5 @@ spec:
   dnsNames: [linkerd-sp-validator.linkerd.svc]
   isCA: false
   issuerRef: { name: linkerd-webhook-ca, kind: Issuer }
-  privateKey: { algorithm: ECDSA }
+  privateKey: { algorithm: ECDSA, encoding: PKCS8 }
   usages: [server auth]
