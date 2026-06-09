@@ -22,6 +22,7 @@ spec:
   template:
     metadata:
       labels: { app: gluetun }
+      annotations: { linkerd.io/inject: disabled }   # VPN tunnel: a mesh sidecar's iptables would fight gluetun's
     spec:
       enableServiceLinks: false
       containers:

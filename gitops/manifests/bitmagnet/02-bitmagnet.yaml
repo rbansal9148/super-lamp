@@ -12,7 +12,7 @@ spec:
   strategy: { type: Recreate }
   selector: { matchLabels: { app: bitmagnet } }
   template:
-    metadata: { labels: { app: bitmagnet } }
+    metadata: { labels: { app: bitmagnet }, annotations: { linkerd.io/inject: disabled } }   # in-pod gluetun VPN sidecar — exclude from mesh
     spec:
       enableServiceLinks: false
       # bitmagnet runs in gluetun's netns where gluetun owns DNS (can't resolve k8s svc
