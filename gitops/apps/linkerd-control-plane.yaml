@@ -16,6 +16,10 @@ spec:
     helm:
       releaseName: linkerd-control-plane
       values: |
+        # Anonymous usage telemetry to versioncheck.linkerd.io (Cloudflare). The node
+        # won't route to it ("no route to host"), so the daily CronJob only produces
+        # Failed pods that trip the pod-not-ready alarm. No operational value here.
+        disableHeartbeat: true
         identityTrustAnchorsPEM: |
           -----BEGIN CERTIFICATE-----
           MIIBsDCCAVWgAwIBAgIUAeBZmDLrwTeL3vHZXGAIuQS/ZJkwCgYIKoZIzj0EAwIw

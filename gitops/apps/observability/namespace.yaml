@@ -4,3 +4,7 @@ metadata:
   name: observability
   annotations:
     argocd.argoproj.io/sync-wave: "-1"   # exists before any wave-0 operator installs into it
+    # Phase 2: mesh the observability stack. Scraping a meshed app from here becomes
+    # mTLS; scraping unmeshed/host targets (kubelet, cAdvisor) stays plaintext. No
+    # hostNetwork pods here, so all are injectable.
+    linkerd.io/inject: enabled
