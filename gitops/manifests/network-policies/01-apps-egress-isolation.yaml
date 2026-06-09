@@ -1,0 +1,128 @@
+# Phase 3 — apps namespace EGRESS isolation (default-deny egress + explicit allows).
+#
+# Unlike the ingress model (00-*, which fails toward MORE access), egress default-deny
+# fails CLOSED: any unlisted destination is an outage. The allow set below is the
+# complete egress dependency map for the apps namespace, measured against the live
+# cluster:
+#   • DNS            → kube-system CoreDNS :53 (every pod resolves names)
+#   • linkerd CP     → linkerd ns (dst :8086, identity :8080, policy :8090). MANDATORY for
+#                      every MESHED pod — without it the proxy loses identity/discovery and
+#                      mTLS (and therefore app↔db) breaks cluster-wide. Allowed to the whole
+#                      linkerd ns (trusted control plane) to be robust to port changes.
+#   • intra-ns       → any apps pod → any apps pod (app↔db, app↔redis, app↔gluetun:8888,
+#                      *-prune/*-vacuum CronJobs → db). Matches the destination POD IP, so it
+#                      is correct under service DNAT.
+#   • kube-apiserver → 10.43.0.1:443 (pre-DNAT svc IP) + node 10.0.0.140:6443 (post-DNAT
+#                      endpoint). No apps pod uses a custom SA today, but allowed defensively
+#                      so a future API-using app fails open here, not closed.
+#   • internet       → 0.0.0.0/0 EXCEPT the cluster CIDRs and the cloud metadata IP. Streaming
+#                      addons need broad outbound (TMDB, trackers, debrid, Stremio); gluetun
+#                      needs WireGuard UDP to Mullvad; bitmagnet needs DHT/peer traffic through
+#                      the tunnel. No port restriction (UDP+TCP, all ports).
+#                      EXCEPTions: 10.42/16 + 10.43/16 (force in-cluster traffic through the
+#                      selective allows above → blocks ALL cross-namespace egress lateral
+#                      movement), and 169.254.169.254/32 (OCI IMDS — never re-allowed, so it
+#                      is hard-blocked; anti-SSRF/credential-theft).
+#
+# gluetun + bitmagnet are NOT meshed but ARE in this namespace, so the deny applies to them
+# too: their WireGuard/DHT egress is covered by the internet rule, their DB access by intra-ns,
+# their DNS by the DNS rule. They simply never exercise the linkerd allow.
+#
+# ROLLOUT: the default-deny at the bottom is scoped to app=aiostreams (canary — it exercises
+# DNS + linkerd + db + redis + external API in one app). Once validated, the podSelector
+# widens to {} (all apps pods) in the follow-up commit. Rollback = delete that one policy.
+#
+# MAINTENANCE: a new app needing a destination NOT covered above (e.g. a second cluster ns,
+# or a host service on a non-6443 port) must get an explicit allow here, or it fails closed.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apps-allow-egress-dns
+  namespace: apps
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - { protocol: UDP, port: 53 }
+        - { protocol: TCP, port: 53 }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apps-allow-egress-linkerd
+  namespace: apps
+spec:
+  # Meshed pods' proxies → linkerd control plane (identity/discovery/policy). Whole ns,
+  # trusted, so a control-plane port change can't silently break the data plane.
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: linkerd
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apps-allow-egress-intra-namespace
+  namespace: apps
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - podSelector: {}   # any apps pod (app↔db, app↔redis, app↔gluetun, CronJobs→db)
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apps-allow-egress-kube-apiserver
+  namespace: apps
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock: { cidr: 10.43.0.1/32 }    # apiserver ClusterIP (pre-DNAT)
+        - ipBlock: { cidr: 10.0.0.140/32 }   # node InternalIP (post-DNAT apiserver endpoint)
+      ports:
+        - { protocol: TCP, port: 443 }
+        - { protocol: TCP, port: 6443 }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apps-allow-egress-internet
+  namespace: apps
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.42.0.0/16        # pod CIDR — in-cluster pod traffic must use selective allows
+              - 10.43.0.0/16        # service CIDR
+              - 169.254.169.254/32  # OCI instance metadata — hard-blocked (anti-SSRF)
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: apps-default-deny-egress
+  namespace: apps
+spec:
+  # CANARY: aiostreams only. Widens to podSelector {} (all apps pods) once validated.
+  podSelector:
+    matchLabels:
+      app: aiostreams
+  policyTypes: [Egress]
+  # No egress rules here → deny all egress for the selected pods; the allows above re-open
+  # the measured dependency paths (policies are additive / OR).
