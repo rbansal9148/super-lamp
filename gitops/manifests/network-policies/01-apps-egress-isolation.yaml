@@ -28,9 +28,9 @@
 # too: their WireGuard/DHT egress is covered by the internet rule, their DB access by intra-ns,
 # their DNS by the DNS rule. They simply never exercise the linkerd allow.
 #
-# ROLLOUT: the default-deny at the bottom is scoped to app=aiostreams (canary — it exercises
-# DNS + linkerd + db + redis + external API in one app). Once validated, the podSelector
-# widens to {} (all apps pods) in the follow-up commit. Rollback = delete that one policy.
+# ROLLOUT: validated on an app=aiostreams canary (DNS + linkerd + db + redis + external API
+# all confirmed; metadata IMDS confirmed blocked), then widened to podSelector {} (all apps
+# pods). Rollback = delete the apps-default-deny-egress policy (instant, namespace-wide).
 #
 # MAINTENANCE: a new app needing a destination NOT covered above (e.g. a second cluster ns,
 # or a host service on a non-6443 port) must get an explicit allow here, or it fails closed.
@@ -119,10 +119,9 @@ metadata:
   name: apps-default-deny-egress
   namespace: apps
 spec:
-  # CANARY: aiostreams only. Widens to podSelector {} (all apps pods) once validated.
-  podSelector:
-    matchLabels:
-      app: aiostreams
+  # Canary (app=aiostreams) validated: app functional, internet allowed, metadata
+  # blocked (502 via proxy), mTLS intact. Now enforced namespace-wide.
+  podSelector: {}
   policyTypes: [Egress]
   # No egress rules here → deny all egress for the selected pods; the allows above re-open
   # the measured dependency paths (policies are additive / OR).
