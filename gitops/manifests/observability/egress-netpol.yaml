@@ -1,0 +1,91 @@
+# Phase 3 (observability) — EGRESS isolation (default-deny egress + explicit allows).
+#
+# The observability stack is a CLUSTER-WIDE SCRAPER: the OTel collector's
+# serviceMonitorNamespaceSelector is {} (all namespaces), so it must reach pod IPs in
+# every namespace. CoreDNS and the linkerd control plane are also just pods in the pod
+# CIDR. So one allow to the pod CIDR covers DNS + linkerd identity + intra-namespace
+# datasource queries + cross-namespace scrape in a single rule. On top of that the only
+# non-pod destinations are the kube-apiserver / kubelet (host-network) and the internet.
+#
+# KEY LOCKDOWN: internet egress is allowed for GRAFANA ONLY (it posts alerts to the hosted
+# ntfy.sh webhook and its sidecars watch ConfigMaps via the apiserver). The data-bearing
+# components — vmsingle, vlsingle, the collectors, kube-state-metrics, the operators — get
+# NO internet egress at all, so a compromised metrics/log store cannot exfiltrate off-box.
+# The OCI metadata IP (169.254.169.254) is denied even to grafana (anti-SSRF).
+#
+# Cross-namespace reach is bounded by the TARGETS' ingress policies (e.g. apps only admits
+# observability to non-DB pods), so the broad pod-CIDR egress here does not widen blast
+# radius — the restriction lives on the receiving side.
+#
+# ROLLOUT: the default-deny is scoped to the scrape-collector (the component with the most
+# egress dependencies — apiserver discovery + kubelet + cross-ns scrape) as a canary, then
+# widens to podSelector {}. Rollback = delete apps-default-deny-egress equivalent below.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: obs-allow-egress-cluster-pods
+  namespace: observability
+spec:
+  # Every in-cluster pod: CoreDNS (:53), linkerd CP (identity/dst/policy), intra-ns
+  # datasource queries (grafana→vm/vl), and cross-namespace scrape targets. Matches the
+  # destination POD IP (post-DNAT), so service-IP traffic is covered too.
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock: { cidr: 10.42.0.0/16 }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: obs-allow-egress-apiserver-kubelet
+  namespace: observability
+spec:
+  # Host-network targets (not in the pod CIDR): kube-apiserver (target discovery,
+  # kube-state-metrics watches, operator reconciles, grafana sidecar ConfigMap watches)
+  # and the kubelet/cAdvisor metrics endpoint on the node.
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock: { cidr: 10.43.0.1/32 }     # apiserver ClusterIP (pre-DNAT)
+        - ipBlock: { cidr: 10.0.0.140/32 }    # node InternalIP: apiserver endpoint + kubelet
+      ports:
+        - { protocol: TCP, port: 443 }
+        - { protocol: TCP, port: 6443 }
+        - { protocol: TCP, port: 10250 }
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: obs-allow-egress-internet-grafana
+  namespace: observability
+spec:
+  # GRAFANA ONLY → internet (hosted ntfy.sh alert webhook). Everything else in this
+  # namespace has no internet egress. Metadata IP hard-blocked even here.
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: grafana
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.42.0.0/16
+              - 10.43.0.0/16
+              - 169.254.169.254/32   # OCI instance metadata — anti-SSRF
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: obs-default-deny-egress
+  namespace: observability
+spec:
+  # CANARY: scrape-collector only. Widens to podSelector {} once scraping is confirmed.
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: scrape-collector
+  policyTypes: [Egress]
+  # No egress rules → deny all egress for selected pods; allows above re-open measured paths.
