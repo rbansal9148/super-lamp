@@ -39,6 +39,12 @@ data:
             title: Traefik 5xx rate elevated
             condition: C
             for: 10m
+            # The ratio query returns NO series when there are zero 5xx (numerator empty)
+            # — which Grafana's default noDataState treats as a firing DatasourceNoData
+            # alert. For a 5xx-rate rule, "no 5xx data" == healthy, so map NoData -> OK.
+            # A genuinely broken query surfaces via execErrState (Error) + scrape-down.
+            noDataState: OK
+            execErrState: Error
             data:
               - refId: A
                 relativeTimeRange: { from: 600, to: 0 }
