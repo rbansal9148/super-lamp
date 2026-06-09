@@ -63,3 +63,16 @@ comet.my-blue-car.work /manifest.json
 EOF
 )}"
 : "${PUBLIC_ENDPOINT_PROBE_TIMEOUT:=10}"
+
+# Export everything: bash checks see these via sourcing, but child processes
+# (the Python check 01-resource-allocation.sh, and any future awk/python check)
+# only inherit EXPORTED vars. Without this, `:=` set the shell var but not the
+# environment, so threshold overrides — via this file OR `VAR=x bash audit.sh` —
+# silently never reached the Python checks (they fell back to hardcoded defaults).
+export RESOURCE_OWNED_NAMESPACES \
+       MEM_LIMIT_OVERCOMMIT_PCT_WARN MEM_LIMIT_OVERCOMMIT_PCT_CRIT \
+       MEM_LIMIT_OVERSIZE_RATIO MEM_LIMIT_OVERSIZE_FLOOR_MI \
+       MEM_REQUEST_UNDER_RATIO MEM_REQUEST_UNDER_FLOOR_MI \
+       CHECK_TIMEOUT_SECS CHECK_TIMEOUT_SECS_DEEP \
+       IMAGE_PIN_SKIP_CONTAINERS GITOPS_DIR \
+       AUTH_PORTAL_HOST PUBLIC_ENDPOINT_PROBES PUBLIC_ENDPOINT_PROBE_TIMEOUT
