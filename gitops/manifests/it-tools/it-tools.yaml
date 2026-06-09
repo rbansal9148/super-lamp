@@ -24,6 +24,7 @@ spec:
   template:
     metadata:
       labels: { app: it-tools }
+      annotations: { linkerd.io/inject: enabled }   # Phase 2 canary: mesh this one stateless app first
     spec:
       containers:
         - name: it-tools
