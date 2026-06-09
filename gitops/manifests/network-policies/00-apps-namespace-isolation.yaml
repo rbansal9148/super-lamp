@@ -67,8 +67,6 @@ spec:
           - libremdb-redis
           - mediafusion-postgres
           - mediafusion-redis
-          - paperless-postgres
-          - paperless-redis
           - prowlarr-postgres
           - searxng-redis
           - stremthru-postgres
