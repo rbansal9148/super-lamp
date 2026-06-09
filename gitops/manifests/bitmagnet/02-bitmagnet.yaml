@@ -58,7 +58,7 @@ spec:
             - { name: BM_FILTER_CATEGORIES, value: "2000,5000" }
             - { name: LOG_FILE_ROTATOR_ENABLED, value: "false" }
           ports: [{ containerPort: 3333, name: http }]
-          resources: { requests: { memory: 128Mi, cpu: 100m }, limits: { memory: 1Gi, cpu: "2" } }
+          resources: { requests: { memory: 448Mi, cpu: 100m }, limits: { memory: 1Gi, cpu: "2" } }   # req rightsized: 7d peak ~530Mi (was 128Mi)
           readinessProbe:
             httpGet: { path: /, port: 3333 }
             initialDelaySeconds: 30
@@ -101,7 +101,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: prune
-              image: postgres:16-alpine
+              image: postgres:16-alpine@sha256:16bc17c64a573ef34162af9298258d1aec548232985b33ed7b1eac33ba35c229
               env:
                 - name: PGPASSWORD
                   valueFrom: { secretKeyRef: { name: bitmagnet-secrets, key: POSTGRES_PASSWORD } }

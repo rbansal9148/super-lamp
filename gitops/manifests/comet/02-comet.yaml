@@ -17,7 +17,7 @@ spec:
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           envFrom: [{ configMapRef: { name: comet-config } }, { secretRef: { name: comet-secrets } }]
           ports: [{ containerPort: 2020, name: http }]
-          resources: { requests: { memory: 128Mi, cpu: 25m }, limits: { memory: 1536Mi, cpu: "2" } }   # rightsized: 8d peak ~962Mi (was 2Gi)
+          resources: { requests: { memory: 512Mi, cpu: 25m }, limits: { memory: 1536Mi, cpu: "2" } }   # req rightsized: 7d peak ~606Mi (was 128Mi); limit kept for 962Mi burst headroom
           volumeMounts: [{ name: data, mountPath: /app/data }]
           readinessProbe: { httpGet: { path: /health, port: 2020 }, initialDelaySeconds: 20, periodSeconds: 20, timeoutSeconds: 8 }
       volumes: [{ name: data, emptyDir: {} }]
@@ -65,7 +65,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: vacuum
-              image: postgres:18.4
+              image: postgres:18.4@sha256:8ff36f3c66371cba71d20ceedccfc3de9669a68737607888c4ef0af93abe8e39
               env:
                 - name: PGPASSWORD
                   valueFrom: { secretKeyRef: { name: comet-secrets, key: POSTGRES_PASSWORD } }

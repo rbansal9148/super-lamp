@@ -32,5 +32,5 @@ spec:
       memory: 256Mi
       cpu: 25m
     limits:
-      memory: 1Gi
+      memory: 384Mi   # rightsized: 7d peak ~95Mi (was 1Gi)
       cpu: "1"

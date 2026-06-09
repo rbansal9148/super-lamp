@@ -37,7 +37,7 @@ spec:
         fsGroup: 70 # postgres uid/gid in the alpine image owns the volume
       containers:
         - name: postgres
-          image: postgres:17.10-alpine
+          image: postgres:17.10-alpine@sha256:979c4379dd698aba0b890599a6104e082035f98ef31d9b9291ec22f2b13059ca
           args:
             - "postgres"
             - "-c"
@@ -79,7 +79,7 @@ spec:
             - {containerPort: 5432, name: postgres}
           resources:
             requests: {memory: 512Mi, cpu: 50m}
-            limits: {memory: 1Gi, cpu: "1"}   # rightsized: 8d peak ~525Mi (was 2Gi)
+            limits: {memory: 640Mi, cpu: "1"}   # rightsized: 7d peak ~305Mi; limit 1Gi→640Mi
           volumeMounts:
             - {name: data, mountPath: /var/lib/postgresql/data}
             - {name: dshm, mountPath: /dev/shm} # compose set shm_size: 2G; parallel-query shmem

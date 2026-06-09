@@ -22,7 +22,7 @@ spec:
       securityContext: {fsGroup: 999}
       containers:
         - name: postgres
-          image: postgres:18.4
+          image: postgres:18.4@sha256:8ff36f3c66371cba71d20ceedccfc3de9669a68737607888c4ef0af93abe8e39
           args: ["postgres", "-c", "shared_buffers=128MB", "-c", "effective_cache_size=384MB", "-c", "maintenance_work_mem=64MB", "-c", "checkpoint_completion_target=0.9", "-c", "wal_buffers=8MB", "-c", "random_page_cost=1.1", "-c", "effective_io_concurrency=200", "-c", "work_mem=8MB", "-c", "max_connections=100", "-c", "log_min_duration_statement=1000"]
           env:
             - {name: PGDATA, value: /var/lib/postgresql/data/pgdata}
@@ -59,7 +59,7 @@ spec:
       enableServiceLinks: false
       containers:
         - name: redis
-          image: redis:8.8.0
+          image: redis:8.8.0@sha256:aa049e689e141a4358ad1d4562dc49c88a89fbab711fd8fcc33f684c80b26301
           args: ["redis-server", "--save", "", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
           ports: [{containerPort: 6379}]
           resources: {requests: {memory: 16Mi, cpu: 10m}, limits: {memory: 160Mi, cpu: 200m}}

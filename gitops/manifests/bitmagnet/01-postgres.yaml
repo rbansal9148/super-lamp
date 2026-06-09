@@ -13,7 +13,7 @@ spec:
       enableServiceLinks: false
       containers:
         - name: postgres
-          image: postgres:16-alpine
+          image: postgres:16-alpine@sha256:16bc17c64a573ef34162af9298258d1aec548232985b33ed7b1eac33ba35c229
           args: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements", "-c", "pg_stat_statements.track=top", "-c", "shared_buffers=2GB", "-c", "effective_cache_size=8GB", "-c", "maintenance_work_mem=512MB", "-c", "work_mem=16MB", "-c", "wal_buffers=16MB", "-c", "max_wal_size=4GB", "-c", "checkpoint_completion_target=0.9", "-c", "random_page_cost=1.1", "-c", "effective_io_concurrency=200", "-c", "max_connections=100", "-c", "log_min_duration_statement=1000", "-c", "log_parameter_max_length=0", "-c", "log_parameter_max_length_on_error=0", "-c", "autovacuum_vacuum_scale_factor=0.05", "-c", "autovacuum_analyze_scale_factor=0.05", "-c", "autovacuum_naptime=30s", "-c", "autovacuum_max_workers=4", "-c", "idle_session_timeout=900000"]
           env:
             - {name: PGDATA, value: /var/lib/postgresql/data/pgdata}
@@ -22,7 +22,7 @@ spec:
             - name: POSTGRES_PASSWORD
               valueFrom: {secretKeyRef: {name: bitmagnet-secrets, key: POSTGRES_PASSWORD}}
           ports: [{containerPort: 5432, name: postgres}]
-          resources: {requests: {memory: 1Gi, cpu: 50m}, limits: {memory: 4Gi, cpu: "2"}}   # rightsized: 8d peak ~3.5Gi (real heavy DB) (was 6Gi)
+          resources: {requests: {memory: 2560Mi, cpu: 50m}, limits: {memory: 4Gi, cpu: "2"}}   # rightsized: 7d peak ~3.4Gi (heavy DB); req raised from 1Gi
           volumeMounts:
             - {name: pgdata, mountPath: /var/lib/postgresql/data}
             - {name: dshm, mountPath: /dev/shm}

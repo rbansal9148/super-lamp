@@ -12,7 +12,7 @@ spec:
       enableServiceLinks: false
       containers:
         - name: valkey
-          image: valkey/valkey:9.1.0
+          image: valkey/valkey:9.1.0@sha256:4963247afc4cd33c7d3b2d2816b9f7f8eeebab148d29056c2ca4d7cbc966f2d9
           args: ["valkey-server","--save","","--maxmemory","64mb","--maxmemory-policy","allkeys-lru"]
           ports: [{ containerPort: 6379 }]
           resources: { requests: { memory: 16Mi, cpu: 10m }, limits: { memory: 96Mi, cpu: 200m } }

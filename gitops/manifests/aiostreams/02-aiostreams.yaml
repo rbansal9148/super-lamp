@@ -20,7 +20,7 @@ spec:
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           envFrom: [{ configMapRef: { name: aiostreams-config } }, { secretRef: { name: aiostreams-secrets } }]
           ports: [{ containerPort: 3000, name: http }]
-          resources: { requests: { memory: 128Mi, cpu: 25m }, limits: { memory: 1Gi, cpu: "1" } }
+          resources: { requests: { memory: 448Mi, cpu: 25m }, limits: { memory: 1Gi, cpu: "1" } }   # req rightsized: 7d peak ~538Mi (was 128Mi)
           volumeMounts: [{ name: data, mountPath: /app/data }]
           readinessProbe: { httpGet: { path: /, port: 3000 }, initialDelaySeconds: 15, periodSeconds: 20, timeoutSeconds: 8 }
       volumes: [{ name: data, emptyDir: {} }]
@@ -70,7 +70,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: vacuum
-              image: postgres:18.4
+              image: postgres:18.4@sha256:8ff36f3c66371cba71d20ceedccfc3de9669a68737607888c4ef0af93abe8e39
               env: [{ name: PGPASSWORD, valueFrom: { secretKeyRef: { name: aiostreams-db, key: POSTGRES_PASSWORD } } }]
               # in-pod retry: ride out transient connection-refused blips instead of failing.
               command: ["/bin/sh", "-c"]

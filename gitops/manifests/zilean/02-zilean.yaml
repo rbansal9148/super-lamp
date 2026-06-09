@@ -119,7 +119,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: vacuum
-              image: postgres:17.10-alpine
+              image: postgres:17.10-alpine@sha256:979c4379dd698aba0b890599a6104e082035f98ef31d9b9291ec22f2b13059ca
               env:
                 - name: PGPASSWORD
                   valueFrom:

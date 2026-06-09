@@ -16,7 +16,7 @@ spec:
       automountServiceAccountToken: false   # no k8s API use; drop the token mount
       containers:
         - name: postgres
-          image: postgres:18.4
+          image: postgres:18.4@sha256:8ff36f3c66371cba71d20ceedccfc3de9669a68737607888c4ef0af93abe8e39
           args: ["postgres", "-c", "shared_buffers=512MB", "-c", "effective_cache_size=1536MB", "-c", "maintenance_work_mem=256MB", "-c", "checkpoint_completion_target=0.9", "-c", "wal_buffers=16MB", "-c", "random_page_cost=1.1", "-c", "effective_io_concurrency=200", "-c", "work_mem=16MB", "-c", "max_connections=100", "-c", "log_min_duration_statement=1000"]
           env:
             - {name: PGDATA, value: /var/lib/postgresql/data/pgdata}
@@ -55,7 +55,7 @@ spec:
       automountServiceAccountToken: false   # no k8s API use; drop the token mount
       containers:
         - name: redis
-          image: redis:8.8.0
+          image: redis:8.8.0@sha256:aa049e689e141a4358ad1d4562dc49c88a89fbab711fd8fcc33f684c80b26301
           args: ["redis-server", "--save", "", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
           ports: [{containerPort: 6379}]
           resources: {requests: {memory: 32Mi, cpu: 10m}, limits: {memory: 320Mi, cpu: 300m}}
@@ -83,7 +83,7 @@ spec:
         # at boot if the proxy isn't up ("Failed to resolve Tunnel IP Map"). Gate start
         # on the gluetun proxy being reachable to avoid CrashLoopBackOff after rolls.
         - name: wait-for-gluetun
-          image: busybox:1.37
+          image: busybox:1.37@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028
           command: ['sh', '-c', 'until nc -z gluetun 8888; do echo "waiting for gluetun proxy"; sleep 2; done']
           securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}, runAsNonRoot: true, runAsUser: 65534, seccompProfile: {type: RuntimeDefault}}
       containers:
@@ -132,7 +132,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: vacuum
-              image: postgres:18.4
+              image: postgres:18.4@sha256:8ff36f3c66371cba71d20ceedccfc3de9669a68737607888c4ef0af93abe8e39
               env:
                 - name: PGPASSWORD
                   valueFrom: {secretKeyRef: {name: stremthru-secrets, key: POSTGRES_PASSWORD}}

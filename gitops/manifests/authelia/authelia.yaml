@@ -137,7 +137,7 @@ spec:
         fsGroup: 1000
       containers:
         - name: authelia
-          image: authelia/authelia:4.39.20
+          image: authelia/authelia:4.39.20@sha256:1b363e9279e742397966333f364e0876ae02bf5c876de73e83af6d48c57ff51b
           # No args: the image's default entrypoint reads /config/configuration.yml.
           ports:
             - containerPort: 9091

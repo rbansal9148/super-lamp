@@ -17,7 +17,7 @@ spec:
       enableServiceLinks: false
       containers:
         - name: postgres
-          image: postgres:18.4
+          image: postgres:18.4@sha256:8ff36f3c66371cba71d20ceedccfc3de9669a68737607888c4ef0af93abe8e39
           args: ["postgres", "-c", "shared_buffers=128MB", "-c", "effective_cache_size=384MB", "-c", "maintenance_work_mem=64MB", "-c", "checkpoint_completion_target=0.9", "-c", "wal_buffers=8MB", "-c", "random_page_cost=1.1", "-c", "effective_io_concurrency=200", "-c", "work_mem=8MB", "-c", "max_connections=100", "-c", "log_min_duration_statement=1000"]
           env:
             - {name: PGDATA, value: /var/lib/postgresql/data/pgdata}
@@ -60,7 +60,7 @@ spec:
         # prowlarr's FluentMigrator runs at boot and crashes if postgres isn't up yet
         # ("Failed to connect to ...:5432"). Gate start on the DB being reachable.
         - name: wait-for-postgres
-          image: busybox:1.37
+          image: busybox:1.37@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028
           command: ['sh', '-c', 'until nc -z prowlarr-postgres 5432; do echo "waiting for postgres"; sleep 2; done']
           securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}, runAsNonRoot: true, runAsUser: 65534, seccompProfile: {type: RuntimeDefault}}
       containers:
@@ -125,7 +125,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: prune
-              image: postgres:18.4
+              image: postgres:18.4@sha256:8ff36f3c66371cba71d20ceedccfc3de9669a68737607888c4ef0af93abe8e39
               env:
                 - name: PGPASSWORD
                   valueFrom: {secretKeyRef: {name: prowlarr-db, key: POSTGRES_PASSWORD}}
