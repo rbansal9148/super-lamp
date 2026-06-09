@@ -1,0 +1,87 @@
+# Wave -1: Linkerd control plane. cert-manager owns all TLS:
+#  - identityTrustAnchorsPEM = the mesh root (public); identity issuer rotates off it
+#    (scheme kubernetes.io/tls -> reads the cert-manager-managed linkerd-identity-issuer).
+#  - the 3 admission webhooks use externalSecret + caBundle (the webhook root), so ArgoCD
+#    never fights Helm-generated self-signed webhook certs (they'd re-randomise each sync).
+# Meshes NOTHING by itself: injection is opt-in per-namespace/pod (Phase 2).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata: { name: linkerd-control-plane, namespace: argocd, annotations: { argocd.argoproj.io/sync-wave: "-1" } }
+spec:
+  project: default
+  source:
+    repoURL: https://helm.linkerd.io/edge
+    chart: linkerd-control-plane
+    targetRevision: 2026.6.1
+    helm:
+      releaseName: linkerd-control-plane
+      values: |
+        identityTrustAnchorsPEM: |
+          -----BEGIN CERTIFICATE-----
+          MIIBsDCCAVWgAwIBAgIUAeBZmDLrwTeL3vHZXGAIuQS/ZJkwCgYIKoZIzj0EAwIw
+          JTEjMCEGA1UEAwwacm9vdC5saW5rZXJkLmNsdXN0ZXIubG9jYWwwHhcNMjYwNjA5
+          MDAzNTU2WhcNMzYwNjA2MDAzNTU2WjAlMSMwIQYDVQQDDBpyb290LmxpbmtlcmQu
+          Y2x1c3Rlci5sb2NhbDBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABJO/kI/4MwVS
+          x+Vn5biSOmNKZq45UOwDGJBkAYiUV7lPFm6lT+ijK51fCQSPZPR4wsIiqsDjC2oo
+          He356X7WFvOjYzBhMB0GA1UdDgQWBBRE+RKA2Qq160T4M1tdIIfiZ53q6zAfBgNV
+          HSMEGDAWgBRE+RKA2Qq160T4M1tdIIfiZ53q6zAOBgNVHQ8BAf8EBAMCAYYwDwYD
+          VR0TAQH/BAUwAwEB/zAKBggqhkjOPQQDAgNJADBGAiEAlSkuDnOFUCH8fFBCM2t8
+          m4rM60usMrSeruSRbj+NGzECIQC6UJuQNeS4prV36meQ8kmMLhUAiYWDVf9r76/9
+          VW9kdA==
+          -----END CERTIFICATE-----
+        identity:
+          issuer:
+            scheme: kubernetes.io/tls
+        proxyInjector:
+          externalSecret: true
+          caBundle: |
+            -----BEGIN CERTIFICATE-----
+            MIIBtjCCAVugAwIBAgIUCNI9Bed72SfT2021F0THeaJt/JEwCgYIKoZIzj0EAwIw
+            KDEmMCQGA1UEAwwdd2ViaG9vay5saW5rZXJkLmNsdXN0ZXIubG9jYWwwHhcNMjYw
+            NjA5MDAzNzQ4WhcNMzYwNjA2MDAzNzQ4WjAoMSYwJAYDVQQDDB13ZWJob29rLmxp
+            bmtlcmQuY2x1c3Rlci5sb2NhbDBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABFT4
+            EXQV5ny8dPikn5M/ivxxoAZ1JCC89ZpqKSAq710gxwRh+FntA6g1YwZgW7MH+Uzw
+            I1gtyk7agplByzGqxYWjYzBhMB0GA1UdDgQWBBQpKVCrxKIicjXzOV67KuR9ue2E
+            LTAfBgNVHSMEGDAWgBQpKVCrxKIicjXzOV67KuR9ue2ELTAOBgNVHQ8BAf8EBAMC
+            AYYwDwYDVR0TAQH/BAUwAwEB/zAKBggqhkjOPQQDAgNJADBGAiEA0qxXXQTI8hU9
+            99C4Y7YX38cky/qXz0fswt1OwWexCXwCIQDczjDLbcs0oYbzdq3RZHr9PiC2spgu
+            aiYXazNfeGfkmg==
+            -----END CERTIFICATE-----
+        profileValidator:
+          externalSecret: true
+          caBundle: |
+            -----BEGIN CERTIFICATE-----
+            MIIBtjCCAVugAwIBAgIUCNI9Bed72SfT2021F0THeaJt/JEwCgYIKoZIzj0EAwIw
+            KDEmMCQGA1UEAwwdd2ViaG9vay5saW5rZXJkLmNsdXN0ZXIubG9jYWwwHhcNMjYw
+            NjA5MDAzNzQ4WhcNMzYwNjA2MDAzNzQ4WjAoMSYwJAYDVQQDDB13ZWJob29rLmxp
+            bmtlcmQuY2x1c3Rlci5sb2NhbDBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABFT4
+            EXQV5ny8dPikn5M/ivxxoAZ1JCC89ZpqKSAq710gxwRh+FntA6g1YwZgW7MH+Uzw
+            I1gtyk7agplByzGqxYWjYzBhMB0GA1UdDgQWBBQpKVCrxKIicjXzOV67KuR9ue2E
+            LTAfBgNVHSMEGDAWgBQpKVCrxKIicjXzOV67KuR9ue2ELTAOBgNVHQ8BAf8EBAMC
+            AYYwDwYDVR0TAQH/BAUwAwEB/zAKBggqhkjOPQQDAgNJADBGAiEA0qxXXQTI8hU9
+            99C4Y7YX38cky/qXz0fswt1OwWexCXwCIQDczjDLbcs0oYbzdq3RZHr9PiC2spgu
+            aiYXazNfeGfkmg==
+            -----END CERTIFICATE-----
+        policyValidator:
+          externalSecret: true
+          caBundle: |
+            -----BEGIN CERTIFICATE-----
+            MIIBtjCCAVugAwIBAgIUCNI9Bed72SfT2021F0THeaJt/JEwCgYIKoZIzj0EAwIw
+            KDEmMCQGA1UEAwwdd2ViaG9vay5saW5rZXJkLmNsdXN0ZXIubG9jYWwwHhcNMjYw
+            NjA5MDAzNzQ4WhcNMzYwNjA2MDAzNzQ4WjAoMSYwJAYDVQQDDB13ZWJob29rLmxp
+            bmtlcmQuY2x1c3Rlci5sb2NhbDBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABFT4
+            EXQV5ny8dPikn5M/ivxxoAZ1JCC89ZpqKSAq710gxwRh+FntA6g1YwZgW7MH+Uzw
+            I1gtyk7agplByzGqxYWjYzBhMB0GA1UdDgQWBBQpKVCrxKIicjXzOV67KuR9ue2E
+            LTAfBgNVHSMEGDAWgBQpKVCrxKIicjXzOV67KuR9ue2ELTAOBgNVHQ8BAf8EBAMC
+            AYYwDwYDVR0TAQH/BAUwAwEB/zAKBggqhkjOPQQDAgNJADBGAiEA0qxXXQTI8hU9
+            99C4Y7YX38cky/qXz0fswt1OwWexCXwCIQDczjDLbcs0oYbzdq3RZHr9PiC2spgu
+            aiYXazNfeGfkmg==
+            -----END CERTIFICATE-----
+        proxy:
+          resources:
+            cpu: { request: 10m }
+            memory: { request: 20Mi, limit: 128Mi }
+  destination: { server: https://kubernetes.default.svc, namespace: linkerd }
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=false, ServerSideApply=true]

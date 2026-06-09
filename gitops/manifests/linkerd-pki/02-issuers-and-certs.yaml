@@ -1,0 +1,78 @@
+# cert-manager PKI for Linkerd, so every cert rotates automatically (no manual
+# `linkerd upgrade` cert dance). Two roots, both committed as SealedSecrets:
+#   - linkerd-trust-anchor: the mesh identity root. Its public cert is also pinned
+#     inline as identityTrustAnchorsPEM in the control-plane app. cert-manager issues
+#     a SHORT-LIVED intermediate (linkerd-identity-issuer, 48h) off it.
+#   - linkerd-webhook-ca: a separate root that signs the 3 admission-webhook server
+#     certs. Its public cert is the caBundle in the control-plane app. Kept separate
+#     from mesh identity so a webhook-cert compromise can't mint workload identities.
+---
+# ── mesh identity ──────────────────────────────────────────────────────────────
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata: { name: linkerd-trust-anchor, namespace: linkerd }
+spec:
+  ca: { secretName: linkerd-trust-anchor }
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata: { name: linkerd-identity-issuer, namespace: linkerd }
+spec:
+  secretName: linkerd-identity-issuer   # consumed by the identity controller (scheme kubernetes.io/tls → tls.crt/tls.key/ca.crt)
+  duration: 48h
+  renewBefore: 25h                       # cert-manager re-issues daily; identity controller hot-reloads
+  isCA: true                             # it signs per-workload mTLS leaf certs
+  commonName: identity.linkerd.cluster.local
+  dnsNames: [identity.linkerd.cluster.local]
+  issuerRef: { name: linkerd-trust-anchor, kind: Issuer }
+  privateKey: { algorithm: ECDSA, size: 256 }
+  usages: [cert sign, crl sign]
+---
+# ── admission-webhook server certs ─────────────────────────────────────────────
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata: { name: linkerd-webhook-ca, namespace: linkerd }
+spec:
+  ca: { secretName: linkerd-webhook-ca }
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata: { name: linkerd-proxy-injector, namespace: linkerd }
+spec:
+  secretName: linkerd-proxy-injector-k8s-tls
+  duration: 2160h          # 90d server cert; webhook TLS, low rotation need
+  renewBefore: 360h        # 15d
+  commonName: linkerd-proxy-injector.linkerd.svc
+  dnsNames: [linkerd-proxy-injector.linkerd.svc]
+  isCA: false
+  issuerRef: { name: linkerd-webhook-ca, kind: Issuer }
+  privateKey: { algorithm: ECDSA }
+  usages: [server auth]
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata: { name: linkerd-policy-validator, namespace: linkerd }
+spec:
+  secretName: linkerd-policy-validator-k8s-tls
+  duration: 2160h
+  renewBefore: 360h
+  commonName: linkerd-policy-validator.linkerd.svc
+  dnsNames: [linkerd-policy-validator.linkerd.svc]
+  isCA: false
+  issuerRef: { name: linkerd-webhook-ca, kind: Issuer }
+  privateKey: { algorithm: ECDSA }
+  usages: [server auth]
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata: { name: linkerd-sp-validator, namespace: linkerd }
+spec:
+  secretName: linkerd-sp-validator-k8s-tls
+  duration: 2160h
+  renewBefore: 360h
+  commonName: linkerd-sp-validator.linkerd.svc
+  dnsNames: [linkerd-sp-validator.linkerd.svc]
+  isCA: false
+  issuerRef: { name: linkerd-webhook-ca, kind: Issuer }
+  privateKey: { algorithm: ECDSA }
+  usages: [server auth]

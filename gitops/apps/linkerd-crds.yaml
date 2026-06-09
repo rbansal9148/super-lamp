@@ -1,0 +1,15 @@
+# Wave -2: Linkerd CRDs (policy/server CRDs the control plane needs at startup).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata: { name: linkerd-crds, namespace: argocd, annotations: { argocd.argoproj.io/sync-wave: "-2" } }
+spec:
+  project: default
+  source:
+    repoURL: https://helm.linkerd.io/edge
+    chart: linkerd-crds
+    targetRevision: 2026.6.1
+    helm: { releaseName: linkerd-crds }
+  destination: { server: https://kubernetes.default.svc, namespace: linkerd }
+  syncPolicy:
+    automated: { prune: true, selfHeal: true }
+    syncOptions: [CreateNamespace=false, ServerSideApply=true]

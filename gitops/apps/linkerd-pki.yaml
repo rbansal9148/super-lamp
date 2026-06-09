@@ -1,0 +1,12 @@
+# Wave -3: Linkerd PKI (namespace + sealed trust anchors + cert-manager issuers/certs).
+# Must be Healthy (certs Ready) before the control plane starts, so it consumes the
+# identity-issuer + webhook secrets. CreateNamespace=false: the Namespace is in-manifest
+# (carries the PSA + control-plane labels the bare ArgoCD-created ns would lack).
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata: { name: linkerd-pki, namespace: argocd, annotations: { argocd.argoproj.io/sync-wave: "-3" } }
+spec:
+  project: default
+  source: { repoURL: git@github.com:rbansal9148/super-lamp.git, targetRevision: main, path: gitops/manifests/linkerd-pki, directory: { recurse: true } }
+  destination: { server: https://kubernetes.default.svc, namespace: linkerd }
+  syncPolicy: { automated: { prune: true, selfHeal: true }, syncOptions: [CreateNamespace=false, ServerSideApply=true] }

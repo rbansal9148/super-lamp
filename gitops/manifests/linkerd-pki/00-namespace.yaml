@@ -1,0 +1,16 @@
+# Linkerd control-plane namespace. proxy-init (the meshed control-plane pods run the
+# Linkerd proxy themselves) needs NET_ADMIN/NET_RAW to set up iptables, which exceeds
+# PSA 'baseline' — so this trusted control-plane ns is pinned to 'privileged'.
+# admission-webhooks disabled here so the proxy-injector never tries to mutate its own
+# control-plane pods (avoids a webhook-calls-itself bootstrap deadlock).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: linkerd
+  annotations:
+    linkerd.io/inject: disabled
+  labels:
+    linkerd.io/is-control-plane: "true"
+    config.linkerd.io/admission-webhooks: disabled
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/warn: privileged
