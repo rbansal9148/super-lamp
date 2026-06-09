@@ -118,6 +118,31 @@ drop ALL caps / set allowPrivilegeEscalation=false`) rather than ~70 per-contain
 that would drown the signal. Remediating the baseline is per-image work (some break as
 non-root), hence LOW not a per-container nag.
 
+### 06-alert-delivery.sh — silent notification breakage
+Static, reads `$GITOPS_DIR`, not the cluster. The failure it guards is **alerts that fire
+but never arrive**: the component that would page you about a broken notifier *is* the
+notifier, so no metric catches it — it only surfaces as an ERROR buried in Grafana's log.
+The concrete trap (Jun 2026): Grafana's **embedded** gomplate rejects the two-variable
+range `{{ range $i, $a := .Alerts }}` inside `tmpl.Inline` with `unexpected ',' in range`,
+so every notification through that contact point was dropped and retried-then-discarded
+every 5m. (Standalone gomplate accepts it; the bundled one does not.) Flags any two-var
+range in a file that defines a gomplate contact-point template (`tmpl.Inline`) at **HIGH**;
+the fix is single-var range over a stdlib `slice`. Skips YAML comment lines so a warning
+comment isn't self-flagged. Healthy state = silent.
+
+### 07-public-endpoints.sh — client endpoint hidden behind SSO
+Behavioral probe (needs `curl` + network; degrades to one LOW if offline). Some services
+serve **non-browser clients** (Stremio addons, plain APIs) whose entrypoints must stay
+reachable without an interactive Authelia session. When a forward-auth middleware
+over-matches and swallows such a path, the service stays Running/Ready and every dashboard
+is green — but the client gets a 302 to the login portal (HTML) instead of its payload
+(the paperless-`ALLOWED_HOSTS` class: up, but every real request fails). Jun 2026:
+aiostreams `/api/v1/debrid/playback` got gated → players received the login page →
+"unrecognized format". Each `$PUBLIC_ENDPOINT_PROBES` entry is hit with a
+**bogus-but-prefix-matching path** so it tests the *routing decision* (is auth applied to
+this prefix?) without a valid signed URL; a redirect to `$AUTH_PORTAL_HOST` is flagged
+**HIGH**. Could graduate to a blackbox-exporter alarm once one exists.
+
 ## Thresholds (`thresholds.sh`)
 
 | Threshold | Default | Used by |
@@ -130,6 +155,11 @@ non-root), hence LOW not a per-container nag.
 | `MEM_REQUEST_UNDER_RATIO` | 1.5 | under-request |
 | `MEM_REQUEST_UNDER_FLOOR_MI` | 256 | under-request floor |
 | `CHECK_TIMEOUT_SECS` / `_DEEP` | 20 / 60 | per-check budget |
+| `IMAGE_PIN_SKIP_CONTAINERS` | `linkerd-proxy linkerd-init` | mesh-injected sidecars skipped by 02 (not manifest-controlled) |
+| `GITOPS_DIR` | `/opt/docker/gitops` | desired-state tree for 06 |
+| `AUTH_PORTAL_HOST` | `auth.my-blue-car.work` | 07 gating discriminator |
+| `PUBLIC_ENDPOINT_PROBES` | aiostreams playback, comet manifest | 07 must-be-public probe list |
+| `PUBLIC_ENDPOINT_PROBE_TIMEOUT` | 10 | 07 per-probe curl timeout (s) |
 
 Override any of them inline: `MEM_LIMIT_OVERCOMMIT_PCT_WARN=120 bash audit.sh`.
 

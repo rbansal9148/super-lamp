@@ -14,7 +14,12 @@
 
 # --- Resource allocation (01-resource-allocation.sh) -------------------------
 # Single swapless node → memory is the scarce, non-compressible resource.
-: "${MEM_LIMIT_OVERCOMMIT_PCT_WARN:=150}"   # sum(mem limits) / node allocatable %
+# WARN raised 150→200 (Jun 2026): with 30+ workloads peak-sized on a 21.4Gi node,
+# limit-overcommit sits ~184% by design — peaks don't coincide, and the real
+# coincident-peak OOM risk is covered by the pod-oomkilled alarm, not this check.
+# 150% produced a permanent false-HIGH; 200% flags genuine drift above the
+# accepted density. CRIT 250% (node-OOM-likely) unchanged.
+: "${MEM_LIMIT_OVERCOMMIT_PCT_WARN:=200}"   # sum(mem limits) / node allocatable %
 : "${MEM_LIMIT_OVERCOMMIT_PCT_CRIT:=250}"
 : "${MEM_LIMIT_OVERSIZE_RATIO:=8}"          # limit ≥ N× live usage → oversized
 : "${MEM_LIMIT_OVERSIZE_FLOOR_MI:=1024}"    # …and limit ≥ this many Mi (ignore tiny pods)
@@ -26,3 +31,35 @@
 # api-server shouldn't wedge the whole audit.
 : "${CHECK_TIMEOUT_SECS:=20}"
 : "${CHECK_TIMEOUT_SECS_DEEP:=60}"
+
+# --- Image pinning (02-image-pins.sh) ----------------------------------------
+# Mesh-injected sidecars (Linkerd proxy/init) are added by the proxy-injector
+# webhook, not declared in any workload manifest — their image is pinned ONCE at
+# the Linkerd control-plane proxy version, not per-pod. Flagging them per-workload
+# is un-actionable noise (92 of 123 pin findings, Jun 2026), so skip by container
+# name. Mesh proxy pinning is a linkerd-config concern, out of this audit's
+# per-workload scope.
+: "${IMAGE_PIN_SKIP_CONTAINERS:=linkerd-proxy linkerd-init}"
+
+# --- GitOps source tree (06-alert-delivery.sh) -------------------------------
+# Static checks read desired-state manifests, not the live cluster.
+: "${GITOPS_DIR:=/opt/docker/gitops}"
+
+# --- Public-endpoint auth gating (07-public-endpoints.sh) --------------------
+# Some services serve non-browser clients (Stremio addons, APIs) whose client
+# entrypoints MUST stay reachable without an interactive SSO session. The
+# aiostreams playback outage (Jun 2026) was exactly this: a forward-auth
+# middleware silently swallowed /api/v1/debrid/playback, so players got the
+# Authelia login page (HTML) instead of a stream and failed with "unrecognized
+# format". No metric catches it — the app is Running/Ready; only the client sees
+# the 302. The probe uses a bogus-but-prefix-matching path so it tests the
+# ROUTING decision (auth middleware applied?) without needing a valid signed URL.
+# Each entry: "host<space>path" — path SHOULD resolve WITHOUT redirect to the
+# auth portal. A redirect to $AUTH_PORTAL_HOST = the gate is mis-applied.
+: "${AUTH_PORTAL_HOST:=auth.my-blue-car.work}"
+: "${PUBLIC_ENDPOINT_PROBES:=$(cat <<'EOF'
+aiostreams.my-blue-car.work /api/v1/debrid/playback/x/y/z/probe.mkv
+comet.my-blue-car.work /manifest.json
+EOF
+)}"
+: "${PUBLIC_ENDPOINT_PROBE_TIMEOUT:=10}"

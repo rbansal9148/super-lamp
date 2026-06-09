@@ -16,6 +16,7 @@ for ns in $OWNED; do
     | (.spec.containers[], (.spec.initContainers // [])[])
     | [$p, .name, .image] | @tsv' 2>/dev/null \
   | while IFS=$'\t' read -r pod cn img; do
+      case " ${IMAGE_PIN_SKIP_CONTAINERS:-} " in *" $cn "*) continue ;; esac  # mesh-injected sidecar — pinned via control-plane, not this manifest
       case "$img" in
         *@sha256:*) : ;;                                        # pinned — good
         *:latest|*:latest@*) echo "MED|image/pin|$ns/$pod ($cn) runs :latest — non-reproducible, next pull may break it|pin to a @sha256 digest in its manifest" ;;
