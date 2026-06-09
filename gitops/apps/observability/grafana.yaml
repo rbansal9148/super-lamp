@@ -108,7 +108,10 @@ spec:
                           {{`{{ coll.Dict
                             "topic" "mbc-homelab-alerts-66b36c08e2196778657fa50d6de95e68"
                             "title" (tmpl.Inline "{{ if eq .Status \"resolved\" }}RESOLVED{{ else }}FIRING{{ end }}: {{ .CommonLabels.alertname }}" .)
-                            "message" (tmpl.Inline "{{ len .Alerts }} alert(s):{{ \"\\n\" }}{{ range $i, $a := .Alerts }}{{ if lt $i 8 }}{{ $a.Annotations.summary }}{{ \"\\n\" }}{{ end }}{{ end }}" .)
+                            # NOTE: avoid two-var range ({{ range $i, $a := … }}) — Grafana 12.3.1's
+                            # embedded gomplate rejects it inside tmpl.Inline ("unexpected ',' in range"),
+                            # silently dropping every notification. Cap to first 8 via stdlib slice instead.
+                            "message" (tmpl.Inline "{{ $n := len .Alerts }}{{ if gt $n 8 }}{{ $n = 8 }}{{ end }}{{ len .Alerts }} alert(s):{{ \"\\n\" }}{{ range (slice .Alerts 0 $n) }}{{ .Annotations.summary }}{{ \"\\n\" }}{{ end }}" .)
                             "priority" (tmpl.Inline "{{ if eq .Status \"resolved\" }}3{{ else if eq .CommonLabels.severity \"critical\" }}5{{ else }}4{{ end }}" . | data.JSON)
                             "tags" (coll.Slice (tmpl.Inline "{{ if eq .Status \"resolved\" }}white_check_mark{{ else if eq .CommonLabels.severity \"critical\" }}rotating_light{{ else }}warning{{ end }}" .))
                             "markdown" true
