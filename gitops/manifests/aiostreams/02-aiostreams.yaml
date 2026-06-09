@@ -39,7 +39,7 @@ spec:
     # Human-facing UI + config-mutation API -> Authelia SSO. Stremio clients never hit
     # these paths. Excludes the self-token-authed proxy/playback + health endpoints so
     # addon installation and video playback keep working without an interactive login.
-    - match: Host(`aiostreams.my-blue-car.work`) && (Path(`/`) || PathPrefix(`/login`) || Path(`/configure`) || Path(`/stremio/configure`) || Path(`/u/configure`) || (PathPrefix(`/api/v1`) && !PathPrefix(`/api/v1/proxy`) && !Path(`/api/v1/health`) && !Path(`/api/v1/status`)))
+    - match: Host(`aiostreams.my-blue-car.work`) && (Path(`/`) || PathPrefix(`/login`) || Path(`/configure`) || Path(`/stremio/configure`) || Path(`/u/configure`) || (PathPrefix(`/api/v1`) && !PathPrefix(`/api/v1/proxy`) && !PathPrefix(`/api/v1/debrid`) && !Path(`/api/v1/health`) && !Path(`/api/v1/status`)))
       kind: Rule
       priority: 100
       middlewares: [{ name: authelia }]
