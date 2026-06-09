@@ -108,7 +108,7 @@ spec:
                           {{`{{ coll.Dict
                             "topic" "mbc-homelab-alerts-66b36c08e2196778657fa50d6de95e68"
                             "title" (tmpl.Inline "{{ if eq .Status \"resolved\" }}RESOLVED{{ else }}FIRING{{ end }}: {{ .CommonLabels.alertname }}" .)
-                            "message" (tmpl.Inline "{{ range .Alerts }}{{ .Annotations.summary }}{{ \"\\n\" }}{{ end }}" .)
+                            "message" (tmpl.Inline "{{ len .Alerts }} alert(s):{{ \"\\n\" }}{{ range $i, $a := .Alerts }}{{ if lt $i 8 }}{{ $a.Annotations.summary }}{{ \"\\n\" }}{{ end }}{{ end }}" .)
                             "priority" (tmpl.Inline "{{ if eq .Status \"resolved\" }}3{{ else if eq .CommonLabels.severity \"critical\" }}5{{ else }}4{{ end }}" . | data.JSON)
                             "tags" (coll.Slice (tmpl.Inline "{{ if eq .Status \"resolved\" }}white_check_mark{{ else if eq .CommonLabels.severity \"critical\" }}rotating_light{{ else }}warning{{ end }}" .))
                             "markdown" true

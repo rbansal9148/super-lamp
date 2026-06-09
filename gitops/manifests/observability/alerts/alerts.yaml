@@ -1,65 +1,63 @@
-# Wave 2 — alerting. The live routing (contact point + notification policy → ntfy)
-# is provisioned in grafana.yaml. Alert RULES are environment-specific; this file
-# carries one concrete, symptom-based example (primer §6: alert on symptoms, not
-# causes) and documents both authoring paths.
+# Wave 2 — Traefik HTTP-symptom alert (primer §6: alert on symptoms, not causes).
+# Active path = Grafana-managed rule via a ConfigMap the alerting sidecar loads
+# (label grafana_alert). Routing (contact point + policy → ntfy) is in grafana.yaml.
 #
-# ── Path A (active in this stack): Grafana-managed alert rule ──────────────────
-# Provision via a ConfigMap the Grafana alerting sidecar loads. Enable it by adding
-#   sidecar: { alerts: { enabled: true, label: grafana_alert } }
-# to grafana.yaml, then ship a ConfigMap like:
+# History: this file previously shipped a VMRule (TraefikHigh5xxRate). This topology
+# has NO vmalert deployment (alerting is consolidated on Grafana), so the VMRule was
+# never evaluated — a silent dead alert. Converted to a Grafana-provisioned rule so
+# 5xx is actually monitored. Metric VERIFIED present in VMSingle (Prometheus-native,
+# NOT OTLP-dotted): traefik_router_requests_total{code=~"5.."} (57 series live).
 #
-#   apiVersion: v1
-#   kind: ConfigMap
-#   metadata:
-#     name: alert-traefik-5xx
-#     namespace: observability
-#     labels: { grafana_alert: "1" }
-#   data:
-#     traefik-5xx.yaml: |
-#       apiVersion: 1
-#       groups:
-#         - orgId: 1
-#           name: traefik
-#           folder: platform
-#           interval: 1m
-#           rules:
-#             - uid: traefik-5xx-rate
-#               title: Traefik 5xx rate elevated
-#               condition: C
-#               for: 5m                       # primer §6: the anti-flap knob
-#               data:
-#                 - refId: A
-#                   datasourceUid: victoriametrics
-#                   model:
-#                     expr: sum(rate(traefik_router_requests_total{code=~"5.."}[5m]))
-#                   ...
-#
-# ── Path B (VM-native alternative, ADR D5): VMRule ─────────────────────────────
-# Evaluated by VMAlert. NOT active here — this topology has no VMAlert deployment
-# (alerting is consolidated on Grafana). Included as the documented alternative if
-# you later add VMAlert + a notifier. It is harmless/inert without VMAlert.
+# Why this matters: crashloop / OOM / pod-not-ready / scrape-down (platform-alerts)
+# all PASS for a pod that is Ready but serving 500s (app-level fault, DB down,
+# upstream 5xx). This rule is the only one that catches that user-visible class.
 ---
-apiVersion: operator.victoriametrics.com/v1beta1
-kind: VMRule
+apiVersion: v1
+kind: ConfigMap
 metadata:
-  name: traefik-symptoms
+  name: grafana-traefik-alerts
   namespace: observability
+  labels:
+    grafana_alert: "1"
   annotations:
     argocd.argoproj.io/sync-wave: "2"
-    # CRD (VMRule) installed by vm-operator earlier — skip pre-sync dry-run.
-    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
-spec:
-  groups:
-    - name: traefik.symptoms
-      interval: 1m
-      rules:
-        - alert: TraefikHigh5xxRate
-          expr: |-
-            sum by (router) (rate(traefik_router_requests_total{code=~"5.."}[5m]))
-              /
-            sum by (router) (rate(traefik_router_requests_total[5m])) > 0.05
-          for: 5m
-          labels:
-            severity: warning
-          annotations:
-            summary: "Traefik router {{ $labels.router }} 5xx rate >5% for 5m"
+data:
+  traefik-alerts.yaml: |
+    apiVersion: 1
+    groups:
+      - orgId: 1
+        name: traefik-http
+        folder: platform
+        interval: 1m
+        rules:
+          # ── Traefik 5xx rate >5% per router, sustained 10m ──
+          # The full ratio lives in the PromQL query (refId A); C thresholds it. for:10m
+          # (vs the old VMRule's 5m) dampens single-500 blips on low-traffic routers — a
+          # homelab router may see few requests, so a sustained 10m breach is the real
+          # signal. Routers with zero traffic produce no series (0/0) and never fire.
+          - uid: traefik-5xx-rate
+            title: Traefik 5xx rate elevated
+            condition: C
+            for: 10m
+            data:
+              - refId: A
+                relativeTimeRange: { from: 600, to: 0 }
+                datasourceUid: victoriametrics
+                model:
+                  refId: A
+                  instant: true
+                  expr: |-
+                    sum by (router) (rate(traefik_router_requests_total{code=~"5.."}[5m]))
+                      /
+                    sum by (router) (rate(traefik_router_requests_total[5m]))
+              - refId: C
+                datasourceUid: __expr__
+                model:
+                  refId: C
+                  type: threshold
+                  expression: A
+                  conditions:
+                    - evaluator: { type: gt, params: [0.05] }
+            labels: { severity: warning }
+            annotations:
+              summary: "Traefik router {{ $labels.router }} 5xx rate >5% for 10m — a Ready pod is serving errors (check the backend app/DB/upstream)"
