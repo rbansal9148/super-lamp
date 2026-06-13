@@ -83,8 +83,14 @@ alarm-shaped (over-provisioning never "fires"; the OOM consequence is already al
 
 Sizing findings are scoped to `RESOURCE_OWNED_NAMESPACES` (default `apps observability`) —
 flagging third-party Helm installs (argocd, cert-manager, kube-system) is un-actionable
-noise. Overcommit is the one node-wide signal. Uses `kubectl top` for live usage; if
-metrics-server is down it skips the usage-relative findings (still reports overcommit).
+noise. Overcommit is the one node-wide signal. For usage, prefers **VM peak**
+(`max_over_time(k8s.pod.memory.working_set[VM_PEAK_WINDOW])`, default 30d) over
+instantaneous `kubectl top` — spiky pods idle low between bursts, so `top` under-reports
+and the sizing checks false-positive. VM is reached via the apiserver service-proxy (works
+wherever kubectl does). Falls back to `kubectl top`, then to overcommit-only, if VM is
+unreachable. Caveat: peak is keyed by exact pod name (no workload label from kubeletstats),
+so a pod younger than the window misses spikes on its pre-rollover predecessors — set
+`USE_VM_PEAK=0` to revert to instantaneous top.
 
 ### 02-image-pins.sh
 This stack pins images by `@sha256` digest so a restart can't silently pull a breaking

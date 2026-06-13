@@ -26,6 +26,27 @@
 : "${MEM_REQUEST_UNDER_RATIO:=1.5}"         # usage ≥ N× request → under-requested
 : "${MEM_REQUEST_UNDER_FLOOR_MI:=256}"      # …and usage ≥ this many Mi
 
+# Usage source for the sizing checks (oversized-limit, under-request).
+# Prefer VictoriaMetrics PEAK (max working_set over a window) over instantaneous
+# `kubectl top`: spiky workloads idle low between bursts, so `top` under-reports and
+# the sizing checks false-positive (zilean idles ~114Mi but peaks ~800Mi → looked 18×
+# oversized vs a 2Gi limit that's actually right). VM is reached via the apiserver
+# service-proxy (works wherever kubectl does — no ClusterIP routing/port-forward/exec).
+# Falls back to `kubectl top`, then to overcommit-only, if VM is unreachable.
+# Set USE_VM_PEAK=0 to force the old instantaneous-top behaviour.
+: "${USE_VM_PEAK:=1}"
+: "${VM_PEAK_METRIC:=k8s.pod.memory.working_set}"   # per-pod working set (OTLP/kubeletstats)
+: "${VM_PEAK_WINDOW:=30d}"                           # max_over_time lookback — 30d captures monthly
+                                                     # peaks (e.g. import bursts); VMSingle keeps 3mo.
+# CAVEAT: peak is keyed by exact pod name (kubeletstats has no workload label), so a pod
+# younger than the window under-reports its WORKLOAD's historical peak — a spike on a prior
+# pod (pre-rollover) is invisible. Conservative for under-request; can false-flag
+# oversized-limit (see zilean in .audit-ignore). Proper fix: add k8s.deployment.name via the
+# OTel k8sattributes processor, then aggregate `... by (k8s.deployment.name)`.
+: "${VM_NAMESPACE:=observability}"
+: "${VM_SERVICE:=vmsingle-obs}"
+: "${VM_PORT:=8428}"
+
 # --- Audit orchestration -----------------------------------------------------
 # Per-check wall-clock budget. kubectl round-trips are the slow part; a hung
 # api-server shouldn't wedge the whole audit.
@@ -74,5 +95,6 @@ export RESOURCE_OWNED_NAMESPACES \
        MEM_LIMIT_OVERSIZE_RATIO MEM_LIMIT_OVERSIZE_FLOOR_MI \
        MEM_REQUEST_UNDER_RATIO MEM_REQUEST_UNDER_FLOOR_MI \
        CHECK_TIMEOUT_SECS CHECK_TIMEOUT_SECS_DEEP \
+       USE_VM_PEAK VM_PEAK_METRIC VM_PEAK_WINDOW VM_NAMESPACE VM_SERVICE VM_PORT \
        IMAGE_PIN_SKIP_CONTAINERS GITOPS_DIR \
        AUTH_PORTAL_HOST PUBLIC_ENDPOINT_PROBES PUBLIC_ENDPOINT_PROBE_TIMEOUT
