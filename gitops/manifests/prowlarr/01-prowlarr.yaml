@@ -79,7 +79,11 @@ spec:
               valueFrom: {secretKeyRef: {name: prowlarr-db, key: POSTGRES_PASSWORD}}
             - {name: HTTP_PROXY, value: "http://gluetun.apps.svc.cluster.local:8888"}
             - {name: HTTPS_PROXY, value: "http://gluetun.apps.svc.cluster.local:8888"}
-            - {name: NO_PROXY, value: "localhost,127.0.0.1,prowlarr-postgres,flaresolverr,.svc,.cluster.local,10.42.0.0/16,10.43.0.0/16"}
+            # bitmagnet is an INTERNAL torznab indexer — must bypass the gluetun VPN proxy like
+            # the other internal services. .NET's HttpClient only honours EXACT names here (it
+            # ignores the .svc/.cluster.local suffix entries), so list bitmagnet explicitly or
+            # its indexer fetch is sent through the proxy and times out (Servarr ExecuteProxied).
+            - {name: NO_PROXY, value: "localhost,127.0.0.1,prowlarr-postgres,flaresolverr,bitmagnet,.svc,.cluster.local,10.42.0.0/16,10.43.0.0/16"}
           ports: [{containerPort: 9696, name: http}]
           resources: {requests: {memory: 128Mi, cpu: 25m}, limits: {memory: 1Gi, cpu: "2"}}   # rightsized: 8d peak <0.5Gi (was 6Gi)
           volumeMounts: [{name: config, mountPath: /config}]
