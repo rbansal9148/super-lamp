@@ -89,7 +89,7 @@ spec:
           securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}, runAsNonRoot: true, runAsUser: 65534, seccompProfile: {type: RuntimeDefault}}
       containers:
         - name: stremthru
-          image: muniftanjim/stremthru@sha256:83d9bdc8e43acd8f29da117b760239797214622e0dc8f37cf2c23c7f2df38b02
+          image: muniftanjim/stremthru@sha256:4cf7829557148931fcb386d16cf2ae1fe97b38a2d46d4079089748d4eff1c692
           securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}, seccompProfile: {type: RuntimeDefault}}
           envFrom: [{configMapRef: {name: stremthru-config}}, {secretRef: {name: stremthru-secrets}}]
           ports: [{containerPort: 8080, name: http}]

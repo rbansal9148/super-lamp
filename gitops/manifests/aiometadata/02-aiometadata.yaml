@@ -13,7 +13,7 @@ spec:
       automountServiceAccountToken: false   # app never calls the k8s API; drop the token mount
       containers:
         - name: aiometadata
-          image: ghcr.io/cedya77/aiometadata:latest@sha256:26bfa2c7e2419f4eaf9d923bd0ff86b8cc0c943a981e78c50866093f70e5f75b
+          image: ghcr.io/cedya77/aiometadata:latest@sha256:52e8106b56e74c5d2a04b7099597208e685fb578ac9cc4481a2b130876ac011e
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           envFrom: [{ configMapRef: { name: aiometadata-config } }, { secretRef: { name: aiometadata-secrets } }]
           ports: [{ containerPort: 1337, name: http }]
