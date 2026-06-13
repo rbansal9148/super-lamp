@@ -14,6 +14,9 @@ metadata:
   annotations:
     argocd.argoproj.io/sync-wave: "1"
 rules:
+  # `pods` + `namespaces` below ALSO back the node collector's k8sattributes processor
+  # (workload-name enrichment via pod ownerRefs). At the default
+  # deployment_name_from_replicaset:true no `replicasets` grant is needed — don't strip these.
   - apiGroups: [""]
     resources: [nodes, nodes/metrics, nodes/stats, nodes/proxy, services, endpoints, pods, namespaces, configmaps, secrets]
     verbs: [get, list, watch]
@@ -66,7 +69,7 @@ spec:
   # metrics spike the collector could balloon and starve the Docker containers.
   resources:
     requests:
-      memory: 128Mi
+      memory: 256Mi   # req→256Mi: 30d peak 318Mi (was 128Mi, under-counted). limit/memory_limiter unchanged.
       cpu: 50m
     limits:
       memory: 512Mi
@@ -193,6 +196,25 @@ spec:
         check_interval: 5s
         limit_percentage: 80
         spike_limit_percentage: 25
+      # Stamp pod metrics with their owning WORKLOAD so peak usage can be aggregated
+      # across pod rollovers (a deploy/restart mints a new pod name; kubeletstats keys
+      # purely by pod name, so a pre-rollover spike is invisible to a per-pod peak query
+      # — the zilean "looks 12× oversized" blind-spot). k8s.deployment.name is derived
+      # from the pod's owner ReplicaSet name (default deployment_name_from_replicaset:
+      # true → no replicasets RBAC needed; existing pods/namespaces/nodes grants suffice).
+      # node_from_env_var scopes the informer to THIS node's pods (daemonset hygiene).
+      k8sattributes:
+        auth_type: serviceAccount
+        passthrough: false
+        filter:
+          node_from_env_var: K8S_NODE_NAME
+        pod_association:
+          - sources: [{ from: resource_attribute, name: k8s.pod.uid }]
+          - sources:
+              - { from: resource_attribute, name: k8s.pod.name }
+              - { from: resource_attribute, name: k8s.namespace.name }
+        extract:
+          metadata: [k8s.deployment.name, k8s.statefulset.name, k8s.daemonset.name]
       resourcedetection:
         detectors: [env, system]
         system:
@@ -217,5 +239,5 @@ spec:
           exporters: [otlphttp/vlogs]
         metrics:
           receivers: [hostmetrics, kubeletstats, otlp]
-          processors: [memory_limiter, resourcedetection, deltatocumulative, batch]
+          processors: [memory_limiter, k8sattributes, resourcedetection, deltatocumulative, batch]
           exporters: [otlphttp/vm]

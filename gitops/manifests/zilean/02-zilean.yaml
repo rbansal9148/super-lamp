@@ -45,8 +45,8 @@ spec:
           ports:
             - { containerPort: 8181, name: http }
           resources:
-            requests: { memory: 256Mi, cpu: 50m }
-            limits: { memory: 2Gi, cpu: "2" }      # rightsized: 8d peak ~800Mi w/ scrape spikes (was 4Gi)
+            requests: { memory: 768Mi, cpu: 50m }   # req→768Mi: 30d workload-peak 800Mi (was 256Mi — a prior pod's import burst the per-pod view missed)
+            limits: { memory: 2Gi, cpu: "2" }      # 30d workload-peak ~800Mi w/ scrape spikes (was 4Gi); 2Gi headroom for import bursts
           volumeMounts:
             - { name: tmp, mountPath: /tmp }
           readinessProbe:

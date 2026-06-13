@@ -88,8 +88,11 @@ noise. Overcommit is the one node-wide signal. For usage, prefers **VM peak**
 instantaneous `kubectl top` — spiky pods idle low between bursts, so `top` under-reports
 and the sizing checks false-positive. VM is reached via the apiserver service-proxy (works
 wherever kubectl does). Falls back to `kubectl top`, then to overcommit-only, if VM is
-unreachable. Caveat: peak is keyed by exact pod name (no workload label from kubeletstats),
-so a pod younger than the window misses spikes on its pre-rollover predecessors — set
+unreachable. Peak is aggregated by **workload**, not per pod, so a spike on a pod that has
+since been replaced still counts: the node collector's k8sattributes processor stamps
+`k8s.deployment.name`, and the check folds historical samples onto the same workload key by
+pod-name derivation until the label fills the window. (This closed the zilean rollover
+blind-spot — an ~800Mi import burst on a since-replaced pod that a per-pod peak missed.) Set
 `USE_VM_PEAK=0` to revert to instantaneous top.
 
 ### 02-image-pins.sh

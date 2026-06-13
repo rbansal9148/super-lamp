@@ -38,11 +38,12 @@
 : "${VM_PEAK_METRIC:=k8s.pod.memory.working_set}"   # per-pod working set (OTLP/kubeletstats)
 : "${VM_PEAK_WINDOW:=30d}"                           # max_over_time lookback — 30d captures monthly
                                                      # peaks (e.g. import bursts); VMSingle keeps 3mo.
-# CAVEAT: peak is keyed by exact pod name (kubeletstats has no workload label), so a pod
-# younger than the window under-reports its WORKLOAD's historical peak — a spike on a prior
-# pod (pre-rollover) is invisible. Conservative for under-request; can false-flag
-# oversized-limit (see zilean in .audit-ignore). Proper fix: add k8s.deployment.name via the
-# OTel k8sattributes processor, then aggregate `... by (k8s.deployment.name)`.
+# Peak is aggregated by WORKLOAD (not per pod), so a spike on a prior pod survives a
+# rollover: the node collector's k8sattributes processor stamps k8s.deployment.name
+# (authoritative) and the check folds historical samples onto the same workload key by
+# pod-name derivation until the label has filled the window. This closed the zilean
+# rollover blind-spot (an ~800Mi import burst on a since-replaced pod that a per-pod peak
+# missed — it then read 2Gi as 12× oversized and hid a real under-request).
 : "${VM_NAMESPACE:=observability}"
 : "${VM_SERVICE:=vmsingle-obs}"
 : "${VM_PORT:=8428}"

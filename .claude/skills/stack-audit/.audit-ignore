@@ -20,12 +20,6 @@ image/pin.*victoriametrics/(victoria-logs|victoria-metrics|operator):
 workload/probe.*container grafana-sc-
 workload/probe.*(node-collector|scrape-collector).*otc-container
 
-# --- zilean memory limit: rollover blind-spot false positive ---
-# 01 now uses VM 30d peak, but keys it by exact pod name. The zilean WORKLOAD peaked
-# ~800Mi (MEASURED: max_over_time k8s.pod.memory.working_set over 30d/90d across zilean-*
-# pods — the initial DMM hashlist import), but that was on a PRIOR pod; the current pod
-# (created 2026-06-09) only peaks ~188Mi, so the per-pod lookup misses the 800Mi and the
-# 2Gi limit looks ~12× oversized. It isn't — 2Gi is intentional headroom for import bursts
-# (already cut from 4Gi). Suppress until the OTel k8sattributes processor adds a workload
-# label so peak can aggregate across rollovers (see thresholds.sh VM_PEAK caveat).
-resource/oversized-limit.*apps/zilean-
+# (zilean oversized-limit suppression REMOVED Jun 2026: check 01 now aggregates VM peak by
+# WORKLOAD, so the prior pod's ~800Mi import burst is captured and the 2Gi limit reads as
+# 2.5× peak — no longer a false positive. zilean's request was raised to 768Mi to match.)

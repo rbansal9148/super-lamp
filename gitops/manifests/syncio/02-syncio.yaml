@@ -27,7 +27,7 @@ spec:
             - { name: TZ, value: "Asia/Kolkata" }
           ports: [{ containerPort: 3000, name: http }]
           resources:
-            requests: { memory: 128Mi, cpu: 25m }
+            requests: { memory: 384Mi, cpu: 25m }   # req→384Mi: 30d workload-peak 467Mi (was 128Mi, under-counted across rollovers)
             limits: { memory: 1Gi, cpu: "1" }
           readinessProbe:
             httpGet: { path: /, port: 3000 }

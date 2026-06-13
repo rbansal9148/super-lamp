@@ -17,7 +17,7 @@ spec:
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           envFrom: [{ configMapRef: { name: comet-config } }, { secretRef: { name: comet-secrets } }]
           ports: [{ containerPort: 2020, name: http }]
-          resources: { requests: { memory: 512Mi, cpu: 25m }, limits: { memory: 1536Mi, cpu: "2" } }   # req rightsized: 7d peak ~606Mi (was 128Mi); limit kept for 962Mi burst headroom
+          resources: { requests: { memory: 768Mi, cpu: 25m }, limits: { memory: 1536Mi, cpu: "2" } }   # req→768Mi: 30d workload-peak 962Mi (was 512Mi); limit 1536Mi for burst headroom
           volumeMounts: [{ name: data, mountPath: /app/data }]
           readinessProbe: { httpGet: { path: /health, port: 2020 }, initialDelaySeconds: 20, periodSeconds: 20, timeoutSeconds: 8 }
       volumes: [{ name: data, emptyDir: {} }]
