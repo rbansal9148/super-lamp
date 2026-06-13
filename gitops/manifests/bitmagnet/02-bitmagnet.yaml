@@ -26,6 +26,13 @@ spec:
           image: qmcgaw/gluetun@sha256:1a5bf4b4820a879cdf8d93d7ef0d2d963af56670c9ebff8981860b6804ebc8ab
           securityContext:
             capabilities: { add: ["NET_ADMIN"] }
+          lifecycle:
+            postStart:
+              exec:
+                # Clear stale ip rules left by an abrupt prior exit — fixes the CrashLoop
+                # "adding ip rule 101 … table 51820: file exists" (gluetun-wiki:
+                # setup/advanced/kubernetes.md). NET_ADMIN above authorizes the ip cmd.
+                command: ["/bin/sh", "-c", "(ip rule del table 51820; ip -6 rule del table 51820) || true"]
           env:
             - { name: VPN_SERVICE_PROVIDER, value: "mullvad" }
             - { name: VPN_TYPE, value: "wireguard" }
