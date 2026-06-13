@@ -15,10 +15,17 @@ metadata:
     argocd.argoproj.io/sync-wave: "1"
 rules:
   # `pods` + `namespaces` below ALSO back the node collector's k8sattributes processor
-  # (workload-name enrichment via pod ownerRefs). At the default
-  # deployment_name_from_replicaset:true no `replicasets` grant is needed — don't strip these.
+  # (workload-name enrichment) — don't strip them.
   - apiGroups: [""]
     resources: [nodes, nodes/metrics, nodes/stats, nodes/proxy, services, endpoints, pods, namespaces, configmaps, secrets]
+    verbs: [get, list, watch]
+  # k8sattributes derives k8s.deployment.name from the pod owner-ref (works without this),
+  # but processor v0.152.1 ALSO starts a ReplicaSet informer regardless and, without this
+  # grant, retries `replicasets.apps is forbidden` forever — error spam into VictoriaLogs +
+  # api-server churn. Granting read on replicasets silences it (verified in node-collector
+  # logs Jun 2026). Contradicts the upstream README's "not needed at default" note.
+  - apiGroups: [apps]
+    resources: [replicasets]
     verbs: [get, list, watch]
   - apiGroups: [discovery.k8s.io]
     resources: [endpointslices]
@@ -200,8 +207,9 @@ spec:
       # across pod rollovers (a deploy/restart mints a new pod name; kubeletstats keys
       # purely by pod name, so a pre-rollover spike is invisible to a per-pod peak query
       # — the zilean "looks 12× oversized" blind-spot). k8s.deployment.name is derived
-      # from the pod's owner ReplicaSet name (default deployment_name_from_replicaset:
-      # true → no replicasets RBAC needed; existing pods/namespaces/nodes grants suffice).
+      # from the pod's owner ReplicaSet name (default deployment_name_from_replicaset:true).
+      # NB: the processor still starts a ReplicaSet informer, so the ClusterRole grants
+      # replicasets read (see RBAC above) to avoid forbidden-watch error spam.
       # node_from_env_var scopes the informer to THIS node's pods (daemonset hygiene).
       k8sattributes:
         auth_type: serviceAccount
