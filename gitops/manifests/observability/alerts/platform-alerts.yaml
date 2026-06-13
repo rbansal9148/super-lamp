@@ -1,7 +1,7 @@
 # Wave 2 — active Grafana-provisioned alert rules (Path A from alerts.yaml).
 # Loaded by the Grafana alerting sidecar (label grafana_alert, enabled in
-# grafana.yaml). Routing contact point + policy → ntfy are provisioned in
-# grafana.yaml; these are the RULES that actually fire into that pipe.
+# grafana.yaml). Routing contact point + policy → ntfy live beside this file in
+# contactpoints.yaml (same grafana_alert label); these are the RULES that fire into that pipe.
 #
 # Scope: the failure classes the single operator cannot self-detect by using the
 # apps — silent disk-fill (the ADR's #1 documented failure mode, on Delete-reclaim
