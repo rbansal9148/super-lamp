@@ -1,0 +1,56 @@
+# Wave 2 — Grafana ntfy contact point + default notification policy.
+# Loaded by the grafana-sc-alerts sidecar (label grafana_alert) and HOT-RELOADED
+# via POST /api/admin/provisioning/alerting/reload — no pod restart needed.
+#
+# Moved here from grafana.yaml .Values.alerting (2026-06-13): that path mounts as
+# configmap subPaths, which (a) load only at boot and (b) are NOT live-updated by
+# the kubelet, so every contact-point edit silently required `rollout restart`.
+# As a sidecar-discovered ConfigMap it behaves exactly like the alert RULES in
+# this dir — edit, commit, ArgoCD syncs, sidecar reloads. No restart.
+#
+# Template note: this is a PLAIN manifest (no Helm tpl), so the gomplate template
+# is written RAW — no {{` `}} raw-string escaping, which removes the class of bug
+# where a `#` inside the escaped block crashed gomplate. Grafana 12.3.1's embedded
+# gomplate still evaluates the {{ }} at notify time, so the template must stay free
+# of `#` comments and two-variable range ({{ range $i, $a := … }}): gomplate
+# rejects both. Cap to first 8 alerts via stdlib slice instead.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-contactpoints
+  namespace: observability
+  labels:
+    grafana_alert: "1"
+data:
+  contactpoints.yaml: |
+    apiVersion: 1
+    contactPoints:
+      - orgId: 1
+        name: ntfy
+        receivers:
+          - uid: ntfy-webhook
+            type: webhook
+            settings:
+              # HOSTED ntfy.sh, JSON-publish mode: POST ntfy's own schema
+              # ({topic,title,message,priority,tags}) to the ROOT url so ntfy renders a
+              # human-readable notification instead of dumping Grafana's raw alert JSON.
+              # topic stays 128-bit random = the access control; ntfy.sh is off-box and
+              # survives node death (an in-cluster sink can't deliver a "node down" alert).
+              url: https://ntfy.sh
+              httpMethod: POST
+              payload:
+                template: |-
+                  {{ coll.Dict
+                    "topic" "mbc-homelab-alerts-66b36c08e2196778657fa50d6de95e68"
+                    "title" (tmpl.Inline "{{ if eq .Status \"resolved\" }}RESOLVED{{ else }}FIRING{{ end }}: {{ .CommonLabels.alertname }}" .)
+                    "message" (tmpl.Inline "{{ $n := len .Alerts }}{{ if gt $n 8 }}{{ $n = 8 }}{{ end }}{{ len .Alerts }} alert(s):{{ \"\\n\" }}{{ range (slice .Alerts 0 $n) }}{{ .Annotations.summary }}{{ \"\\n\" }}{{ end }}" .)
+                    "priority" (tmpl.Inline "{{ if eq .Status \"resolved\" }}3{{ else if eq .CommonLabels.severity \"critical\" }}5{{ else }}4{{ end }}" . | data.JSON)
+                    "tags" (coll.Slice (tmpl.Inline "{{ if eq .Status \"resolved\" }}white_check_mark{{ else if eq .CommonLabels.severity \"critical\" }}rotating_light{{ else }}warning{{ end }}" .))
+                    "markdown" true
+                  | data.ToJSON }}
+  policies.yaml: |
+    apiVersion: 1
+    policies:
+      - orgId: 1
+        receiver: ntfy
+        group_by: [grafana_folder, alertname]
