@@ -10,14 +10,12 @@ include:
   # - apps/anime-kitsu/compose.yaml
   # - apps/apprise/compose.yaml
   # - apps/arcane/compose.yaml
-  - apps/authelia/compose.yaml
   # - apps/autosync/compose.yaml
   # - apps/bazarr/compose.yaml
   # - apps/beszel/compose.yaml
   # - apps/bitmagnet/compose.yaml        # MIGRATED to k3s (gitops/manifests/bitmagnet, gluetun netns sidecar + hostPath-reuse)
   # - apps/borgmatic/compose.yaml
   # - apps/byparr/compose.yaml
-  - apps/cloudflare-ddns/compose.yaml
   # - apps/comet/compose.yaml            # MIGRATED to k3s (gitops/manifests/comet)
   # - apps/crowdsec/compose.yaml
   # - apps/dash/compose.yaml             # MIGRATED to k3s (gitops/manifests/dash)
@@ -25,13 +23,11 @@ include:
   # - apps/decypharr/compose.yaml
   # - apps/discord-tickets/compose.yaml
   # - apps/dockge/compose.yaml
-  - apps/dozzle/compose.yaml
   # - apps/easynews-indexer/compose.yaml
   # - apps/easynews-plus/compose.yaml
   # - apps/easynews-plus-plus/compose.yaml
   # - apps/fivefilters-full-text-rss/compose.yaml
   # - apps/freshrss/compose.yaml
-  - apps/gluetun/compose.yaml
   # - apps/homarr/compose.yaml
   # - apps/honey/compose.yaml            # MIGRATED to k3s (gitops/manifests/honey)
   # - apps/huntarr/compose.yaml
@@ -65,7 +61,6 @@ include:
   # - apps/prowlarr/compose.yaml         # MIGRATED to k3s (gitops/manifests/prowlarr, hostPath-reuse)
   # - apps/quetre/compose.yaml
   # - apps/radarr/compose.yaml
-  - apps/redlib/compose.yaml
   # - apps/realdebrid-account-monitor/compose.yaml
   # - apps/recyclarr/compose.yaml
   # - apps/rss-bridge/compose.yaml
@@ -96,7 +91,6 @@ include:
   # - apps/tmdb-collections/compose.yaml
   # - apps/torbox-manager/compose.yaml
   # - apps/torbox-media-center/compose.yaml
-  - apps/traefik/compose.yaml
   # - apps/tweakio/compose.yaml
   # - apps/uptime-kuma/compose.yaml
   # - apps/usenet-streamer/compose.yaml
