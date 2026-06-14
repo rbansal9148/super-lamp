@@ -90,6 +90,15 @@ aiostreams, aiometadata, mediafusion, stremthru DBs and all redis (caches).
   `argocd.argoproj.io/secret-type=repository`). Back this up alongside the
   sealing key.
 - The ClusterIssuer is named **`letsencrypt`** (DNS-01 via the Cloudflare token).
+- **Prowlarr indexer config is DB-only (not declarative, not in git).** Indexers and
+  indexer-proxies live in prowlarr's DB under the `/opt/docker/data/prowlarr` hostPath
+  (StorageClass `local-path-retain`). Restoring that hostPath restores them; a *clean*
+  rebuild without it means re-adding indexers via the Prowlarr UI/API. Two fixups that
+  must hold after any rebuild: the Bitmagnet (Local) indexer URL is
+  `http://bitmagnet:3333/torznab` (NOT the legacy `bitmagnet_vpn`), and the "Http"
+  indexer-proxy points at gluetun port **8888**. prowlarr also needs `bitmagnet` in its
+  `NO_PROXY` (in git) so internal torznab fetches bypass the VPN proxy. API key:
+  `<ApiKey>` in `/opt/docker/data/prowlarr/config.xml`.
 
 ---
 
