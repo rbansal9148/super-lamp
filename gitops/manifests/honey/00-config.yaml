@@ -61,7 +61,7 @@ spec:
           image: ghcr.io/dani3l0/honey:latest@sha256:fe6ce43acf93a211ab63cf247e4ce573cb63a41608092f0bffb1b3bf72527ac5
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           ports: [{ containerPort: 4173, name: http }]
-          resources: { requests: { memory: 32Mi, cpu: 10m }, limits: { memory: 128Mi, cpu: 250m } }
+          resources: { requests: { memory: 32Mi, cpu: 10m }, limits: { memory: 192Mi, cpu: 250m } }
           volumeMounts:
             - { name: config, mountPath: /app/dist/config/config.json, subPath: config.json, readOnly: true }
             - { name: img, mountPath: /app/dist/img/custom }
