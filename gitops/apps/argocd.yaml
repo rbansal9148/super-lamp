@@ -43,7 +43,11 @@ spec:
         controller:
           resources:
             requests: { cpu: 100m, memory: 512Mi }
-            limits: { memory: 1Gi }
+            # Steady-state working_set is ~400-600Mi (24h max 624Mi), but a cold start that
+            # coincides with a backlog of concurrent sync operations briefly spikes >1Gi
+            # (cache rebuild + op resume) → OOMKill ~9s in → crashloop. 2Gi is transient
+            # headroom to survive that spike; it settles back to ~600Mi after draining.
+            limits: { memory: 2Gi }
         server:
           resources:
             requests: { cpu: 25m, memory: 64Mi }
