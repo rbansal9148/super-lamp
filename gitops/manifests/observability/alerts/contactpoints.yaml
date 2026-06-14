@@ -12,8 +12,11 @@
 # is written RAW — no {{` `}} raw-string escaping, which removes the class of bug
 # where a `#` inside the escaped block crashed gomplate. Grafana 12.3.1's embedded
 # gomplate still evaluates the {{ }} at notify time, so the template must stay free
-# of `#` comments and two-variable range ({{ range $i, $a := … }}): gomplate
-# rejects both. Cap to first 8 alerts via stdlib slice instead.
+# of `#` comments, two-variable range ({{ range $i, $a := … }}), AND variable
+# assignment ({{ $n := … }} / {{ $n = … }}): the bundled gomplate rejects all three
+# (the assignment form silently dropped EVERY notification for hours, Jun 2026).
+# Cap to first 8 alerts via a count branch + literal-bound stdlib slice (slice 0 8),
+# never a $-var — and `slice 0 8` only when len>8 (it panics on shorter lists).
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -43,7 +46,7 @@ data:
                   {{ coll.Dict
                     "topic" "mbc-homelab-alerts-66b36c08e2196778657fa50d6de95e68"
                     "title" (tmpl.Inline "{{ if eq .Status \"resolved\" }}RESOLVED{{ else }}FIRING{{ end }}: {{ .CommonLabels.alertname }}" .)
-                    "message" (tmpl.Inline "{{ $n := len .Alerts }}{{ if gt $n 8 }}{{ $n = 8 }}{{ end }}{{ len .Alerts }} alert(s):{{ \"\\n\" }}{{ range (slice .Alerts 0 $n) }}{{ .Annotations.summary }}{{ \"\\n\" }}{{ end }}" .)
+                    "message" (tmpl.Inline "{{ len .Alerts }} alert(s):{{ \"\\n\" }}{{ if gt (len .Alerts) 8 }}{{ range (slice .Alerts 0 8) }}{{ .Annotations.summary }}{{ \"\\n\" }}{{ end }}{{ else }}{{ range .Alerts }}{{ .Annotations.summary }}{{ \"\\n\" }}{{ end }}{{ end }}" .)
                     "priority" (tmpl.Inline "{{ if eq .Status \"resolved\" }}3{{ else if eq .CommonLabels.severity \"critical\" }}5{{ else }}4{{ end }}" . | data.JSON)
                     "tags" (coll.Slice (tmpl.Inline "{{ if eq .Status \"resolved\" }}white_check_mark{{ else if eq .CommonLabels.severity \"critical\" }}rotating_light{{ else }}warning{{ end }}" .))
                     "markdown" true
