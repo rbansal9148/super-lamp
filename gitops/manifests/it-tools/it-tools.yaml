@@ -33,6 +33,7 @@ spec:
       containers:
         - name: it-tools
           image: ghcr.io/corentinth/it-tools:latest@sha256:8b8128748339583ca951af03dfe02a9a4d7363f61a216226fc28030731a5a61f
+          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL], add: [NET_BIND_SERVICE, CHOWN, SETGID, SETUID, DAC_OVERRIDE] }, seccompProfile: { type: RuntimeDefault } }
           ports:
             - containerPort: 80
           resources:
