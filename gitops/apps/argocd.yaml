@@ -40,6 +40,11 @@ spec:
         configs:
           params:
             server.insecure: true
+            # Cap concurrent sync OPERATIONS at 4 (chart default 10). A single git commit
+            # touching many apps fans out to N independent auto-syncs; at 10 concurrent the
+            # cold-start op-resume spike OOM-killed the 1Gi controller (now 2Gi). 4 bounds
+            # that fan-out while keeping bootstrap/DR mass-sync reasonably parallel.
+            controller.operation.processors: 4
         controller:
           resources:
             requests: { cpu: 100m, memory: 512Mi }
