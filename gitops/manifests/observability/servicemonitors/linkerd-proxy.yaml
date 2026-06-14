@@ -1,0 +1,68 @@
+# Scrape linkerd-proxy native-sidecar metrics (:4191/metrics) into VictoriaMetrics so the
+# service mesh's OBSERVED call graph is queryable (the declared/config graph misses
+# DB-configured edges like prowlarr→bitmagnet). linkerd-proxy is injected as a NATIVE
+# sidecar (init container, restartPolicy: Always) exposing the named port `linkerd-admin`
+# (4191). The OTel Target Allocator selects all PodMonitors (podMonitorSelector: {}).
+#
+# Edge query (who calls whom), outbound side only:
+#   sum by (linkerd_io_proxy_deployment, dst_namespace, dst_deployment) (
+#     rate(tcp_open_total{direction="outbound"}[5m]))
+# linkerd_io_proxy_deployment = SOURCE workload (the scraped pod); dst_* = DESTINATION.
+#
+# Scope: apps namespace, MESHED pods, EXCLUDING the data tier (postgres/redis). Those are
+# blocked from observability by the data-isolation NetworkPolicy (00-apps-namespace-isolation),
+# so scraping them would only yield down targets + scrape-target-down noise. No edges are
+# lost — every app→db call is recorded OUTBOUND on the calling app's own proxy. (Keep this
+# NotIn list in sync with that NetworkPolicy's DB exclusion list.)
+#
+# Cardinality control: KEEP only the edge counters and DROP the proxy's latency histograms
+# (response_latency_ms_bucket et al. are the cardinality bombs) plus the highest-card labels,
+# so ~22 proxies stay cheap on the single-node VMSingle.
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: linkerd-proxy
+  namespace: observability
+  annotations:
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+spec:
+  namespaceSelector:
+    matchNames: [apps]
+  selector:
+    matchExpressions:
+      - { key: linkerd.io/control-plane-ns, operator: In, values: [linkerd] }
+      - key: app
+        operator: NotIn
+        values:
+          - aiometadata-postgres
+          - aiometadata-redis
+          - aiostreams-postgres
+          - aiostreams-redis
+          - bitmagnet-postgres
+          - comet-postgres
+          - immich-postgres
+          - immich-redis
+          - libremdb-redis
+          - mediafusion-postgres
+          - mediafusion-redis
+          - prowlarr-postgres
+          - searxng-redis
+          - stremthru-postgres
+          - stremthru-redis
+          - syncio-postgres
+          - syncio-redis
+          - zilean-postgres
+  podTargetLabels:
+    - linkerd.io/proxy-deployment      # → source workload label on every scraped series
+  podMetricsEndpoints:
+    - port: linkerd-admin              # native-sidecar port name (4191)
+      path: /metrics
+      interval: 30s
+      metricRelabelings:
+        # keep only the edge COUNTERS — drops every latency/handle-time histogram
+        - action: keep
+          sourceLabels: [__name__]
+          regex: 'request_total|response_total|tcp_open_total|tcp_close_total'
+        # drop the highest-cardinality labels (keep direction + dst_namespace/dst_deployment/dst_service)
+        - action: labeldrop
+          regex: 'authority|target_addr|target_ip|target_port|client_id|server_id|tls|no_tls_reason|dst_pod|dst_addr|dst_control_plane_ns|dst_serviceaccount|status_code|error|route_.*|srv_.*'
