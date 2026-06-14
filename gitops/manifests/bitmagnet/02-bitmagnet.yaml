@@ -24,10 +24,11 @@ spec:
       containers:
         - name: gluetun
           image: qmcgaw/gluetun@sha256:1a5bf4b4820a879cdf8d93d7ef0d2d963af56670c9ebff8981860b6804ebc8ab
+          # NOTE: gluetun is NOT drop-ALL/seccomp-hardened — RuntimeDefault seccomp + cap-drop
+          # break its /dev/net/tun access ("opening TUN device file: permission denied"). It is a
+          # VPN gateway that legitimately needs NET_ADMIN + tun; the audit allowlists its caps.
           securityContext:
-            allowPrivilegeEscalation: false
-            capabilities: { drop: ["ALL"], add: ["NET_ADMIN", "MKNOD"] }   # NET_ADMIN: tunnel+iptables; MKNOD: /dev/net/tun
-            seccompProfile: { type: RuntimeDefault }
+            capabilities: { add: ["NET_ADMIN"] }
           lifecycle:
             postStart:
               exec:
