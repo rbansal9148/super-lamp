@@ -289,10 +289,15 @@ data:
           # cert renewal happens ~30d out. If under 14d remain, renewal is FAILING (ACME
           # challenge broken, rate-limited, DNS) and needs a push — the operator never sees
           # a cert page until the browser throws. `name` is the Certificate resource name.
+          # Fires on RENEWAL OVERDUE, not absolute time-to-expiry. cert-manager keeps a cert's
+          # renewal timestamp in the FUTURE during healthy operation (renews at renewBefore); when
+          # now passes it and STAYS past (for:2h), renewal is stuck/failing. Duration-agnostic —
+          # the old "<14d to expiry" form false-fired EVERY cycle on short-lived certs (linkerd
+          # identity issuer = 48h duration / 25h renewBefore → always <14d, yet perfectly healthy).
           - uid: cert-expiring-soon
-            title: TLS certificate expiring <14d
+            title: TLS cert renewal overdue
             condition: C
-            for: 1h
+            for: 2h
             noDataState: OK
             execErrState: OK
             data:
@@ -304,9 +309,9 @@ data:
                   instant: true
                   expr: |-
                     (
-                      min by (name) (certmanager_certificate_expiration_timestamp_seconds)
+                      min by (name) (certmanager_certificate_renewal_timestamp_seconds)
                       - time()
-                    ) / 86400
+                    ) / 3600
               - refId: C
                 datasourceUid: __expr__
                 model:
@@ -314,10 +319,10 @@ data:
                   type: threshold
                   expression: A
                   conditions:
-                    - evaluator: { type: lt, params: [14] }
+                    - evaluator: { type: lt, params: [0] }
             labels: { severity: warning }
             annotations:
-              summary: 'Certificate {{ $labels.name }} expires in <14d — cert-manager renewal is failing'
+              summary: 'cert-manager has not renewed {{ $labels.name }} past its scheduled renewal time — renewal is stuck; the cert will expire if unfixed (check its CertificateRequest / Issuer)'
 
       - orgId: 1
         name: platform-gitops
