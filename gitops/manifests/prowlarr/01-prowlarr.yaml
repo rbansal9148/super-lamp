@@ -69,6 +69,7 @@ spec:
       containers:
         - name: prowlarr
           image: ghcr.io/hotio/prowlarr:nightly@sha256:4090c641a2cd16920de9f48fb991c46ca7c8b9e0174c91d95a26dd66dc187324
+          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL], add: [CHOWN, DAC_OVERRIDE, FOWNER, FSETID, KILL, SETGID, SETUID, SETPCAP] }, seccompProfile: { type: RuntimeDefault } }
           env:
             - {name: PUID, value: "1001"}
             - {name: PGID, value: "1001"}
