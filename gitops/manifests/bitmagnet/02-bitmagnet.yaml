@@ -25,7 +25,9 @@ spec:
         - name: gluetun
           image: qmcgaw/gluetun@sha256:1a5bf4b4820a879cdf8d93d7ef0d2d963af56670c9ebff8981860b6804ebc8ab
           securityContext:
-            capabilities: { add: ["NET_ADMIN"] }
+            allowPrivilegeEscalation: false
+            capabilities: { drop: ["ALL"], add: ["NET_ADMIN", "MKNOD"] }   # NET_ADMIN: tunnel+iptables; MKNOD: /dev/net/tun
+            seccompProfile: { type: RuntimeDefault }
           lifecycle:
             postStart:
               exec:
