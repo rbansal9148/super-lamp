@@ -1,0 +1,72 @@
+# Service-mesh call graph dashboard. Provisioned by the Grafana sidecar (watches
+# ConfigMaps labelled grafana_dashboard in this namespace, see apps/observability/grafana.yaml).
+# GitOps-managed — do NOT click-build in the UI (UI dashboards live only in Grafana's DB and
+# vanish on redeploy).
+#
+# Source: linkerd-proxy metrics scraped by the linkerd-proxy PodMonitor
+# (manifests/observability/servicemonitors/linkerd-proxy.yaml) → VictoriaMetrics.
+# linkerd_io_proxy_deployment = SOURCE workload; dst_deployment/dst_namespace = DESTINATION.
+# tcp_open_total counts NEW connections (under-counts keep-alive-pooled HTTP), so an HTTP-level
+# edge table (request_total) is included alongside the TCP one to catch pooled edges. Edges to
+# the data tier still appear here (outbound on the caller); the DB pods themselves aren't scraped.
+# All panel queries verified non-empty against VM before commit.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-mesh-call-graph
+  namespace: observability
+  labels:
+    grafana_dashboard: "1"
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+data:
+  mesh-call-graph.json: |
+    {
+      "uid": "mesh-call-graph",
+      "title": "Service Mesh Call Graph",
+      "tags": ["platform", "gitops", "linkerd", "mesh"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "30s",
+      "time": { "from": "now-6h", "to": "now" },
+      "templating": { "list": [] },
+      "annotations": { "list": [] },
+      "panels": [
+        {
+          "id": 1, "type": "table", "title": "Mesh edges — TCP connections (source → destination, last 1h)",
+          "gridPos": { "h": 10, "w": 12, "x": 0, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum by (linkerd_io_proxy_deployment, dst_deployment, dst_namespace) (increase(tcp_open_total{direction=\"outbound\", dst_deployment!=\"\"}[1h]))", "instant": true, "format": "table" } ],
+          "transformations": [ { "id": "organize", "options": { "excludeByName": { "Time": true }, "renameByName": { "linkerd_io_proxy_deployment": "source", "dst_deployment": "destination", "dst_namespace": "dst ns", "Value": "conns (1h)" } } } ],
+          "fieldConfig": { "defaults": { "custom": { "align": "auto" } }, "overrides": [] },
+          "options": { "sortBy": [ { "displayName": "conns (1h)", "desc": true } ], "footer": { "show": false } }
+        },
+        {
+          "id": 2, "type": "table", "title": "Mesh edges — HTTP requests (source → destination, last 1h) [catches pooled]",
+          "gridPos": { "h": 10, "w": 12, "x": 12, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum by (linkerd_io_proxy_deployment, dst_deployment) (increase(request_total{direction=\"outbound\", dst_deployment!=\"\"}[1h]))", "instant": true, "format": "table" } ],
+          "transformations": [ { "id": "organize", "options": { "excludeByName": { "Time": true }, "renameByName": { "linkerd_io_proxy_deployment": "source", "dst_deployment": "destination", "Value": "HTTP reqs (1h)" } } } ],
+          "fieldConfig": { "defaults": { "custom": { "align": "auto" } }, "overrides": [] },
+          "options": { "sortBy": [ { "displayName": "HTTP reqs (1h)", "desc": true } ], "footer": { "show": false } }
+        },
+        {
+          "id": 3, "type": "timeseries", "title": "Outbound connection rate by edge",
+          "gridPos": { "h": 9, "w": 24, "x": 0, "y": 10 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum by (linkerd_io_proxy_deployment, dst_deployment) (rate(tcp_open_total{direction=\"outbound\", dst_deployment!=\"\"}[5m]))", "legendFormat": "{{linkerd_io_proxy_deployment}} → {{dst_deployment}}" } ],
+          "fieldConfig": { "defaults": { "unit": "cps", "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+          "options": { "legend": { "displayMode": "table", "placement": "right", "calcs": ["lastNotNull", "max"] }, "tooltip": { "mode": "multi", "sort": "desc" } }
+        },
+        {
+          "id": 4, "type": "table", "title": "External / off-mesh egress by app (last 1h)",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 19 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum by (linkerd_io_proxy_deployment) (increase(tcp_open_total{direction=\"outbound\", dst_deployment=\"\"}[1h]))", "instant": true, "format": "table" } ],
+          "transformations": [ { "id": "organize", "options": { "excludeByName": { "Time": true }, "renameByName": { "linkerd_io_proxy_deployment": "app", "Value": "external conns (1h)" } } } ],
+          "fieldConfig": { "defaults": { "custom": { "align": "auto" } }, "overrides": [] },
+          "options": { "sortBy": [ { "displayName": "external conns (1h)", "desc": true } ], "footer": { "show": false } }
+        }
+      ]
+    }
