@@ -49,6 +49,7 @@ spec:
             periodSeconds: 30
         - name: bitmagnet
           image: ghcr.io/bitmagnet-io/bitmagnet@sha256:cf2c16fac5b51f1c18e630b4710175d35d7e44b83012cfd05a2b43712feec05e
+          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           command: ["bitmagnet","worker","run","--all"]
           env:
             - { name: POSTGRES_HOST, value: "bitmagnet-postgres" }
