@@ -20,6 +20,9 @@ spec:
       containers:
         - name: postgres
           image: ghcr.io/immich-app/postgres:14-vectorchord0.4.3-pgvectors0.2.0@sha256:6244e923bfde05b58bc4fc26b21025415c166c6239b6b9886fb0e806dcc99001  # arm64
+          # baseline hardening: drop ALL caps, re-add only the postgres entrypoint's needs
+          # (CHOWN/DAC_OVERRIDE/FOWNER for PGDATA setup; SETUID/SETGID for gosu drop).
+          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL], add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID] }, seccompProfile: { type: RuntimeDefault } }
           env:
             - { name: POSTGRES_USER, value: postgres }
             - { name: POSTGRES_DB, value: immich }
