@@ -8,7 +8,7 @@
 # Grafana additionally keeps its OWN login (defense-in-depth): Authelia 2FA gates the
 # public edge, then Grafana authenticates the user. The `*.my-blue-car.work → two_factor`
 # Authelia rule already covers grafana, so no access_control change is needed. external-dns
-# publishes each host (Cloudflare-proxied) from the per-route target annotation.
+# publishes each host (Cloudflare-proxied) at the origin IP via its --default-targets arg.
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
@@ -17,9 +17,6 @@ metadata:
   namespace: observability
   annotations:
     argocd.argoproj.io/sync-wave: "2"
-    # Publish a public (Cloudflare-proxied) DNS record at the origin IP — same pattern as
-    # the public apps. external-dns watches IngressRoutes but needs this target to act.
-    external-dns.alpha.kubernetes.io/target: "161.118.165.53"
 spec:
   entryPoints:
     - websecure

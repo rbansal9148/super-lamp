@@ -79,7 +79,7 @@ spec: { selector: { app: honey }, ports: [{ name: http, port: 4173, targetPort: 
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
-metadata: { name: honey, namespace: apps, annotations: { external-dns.alpha.kubernetes.io/target: "161.118.165.53" } }
+metadata: { name: honey, namespace: apps }
 spec:
   entryPoints: [websecure]
   routes:

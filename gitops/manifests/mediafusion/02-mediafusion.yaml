@@ -36,7 +36,7 @@ spec: { selector: { app: mediafusion }, ports: [{ name: http, port: 8000, target
 ---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
-metadata: { name: mediafusion, namespace: apps, annotations: { external-dns.alpha.kubernetes.io/target: "161.118.165.53" } }
+metadata: { name: mediafusion, namespace: apps }
 spec:
   entryPoints: [websecure]
   routes:

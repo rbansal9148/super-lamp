@@ -208,8 +208,6 @@ kind: IngressRoute
 metadata:
   name: authelia
   namespace: apps
-  annotations:
-    external-dns.alpha.kubernetes.io/target: "161.118.165.53"
 spec:
   entryPoints: [websecure]
   routes:
