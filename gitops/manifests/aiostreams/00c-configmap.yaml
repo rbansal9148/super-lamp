@@ -100,7 +100,13 @@ data:
   PORT: '3000'
   PRECACHE_NEXT_EPISODE_MIN_INTERVAL: '3600'
   PRELOAD_MIN_INTERVAL: '300'
-  PRELOAD_STREAMS_CONCURRENCY: '10'
+  # Capped low: preloading episode ranges fires one search PER episode to EVERY addon
+  # at once. At 10 this bursts TorBox Search past its (tight, undocumented) search-API
+  # rate limit -> TorBox returns a cooldown that surfaces as "Rate limit exceeded: 0 per
+  # 1 minute", wiping the whole TorBox result set (torrents + NZB) for that window.
+  # Confirmed 2026-06-14: 21 searches in 16s (S2E10-E17 preload) -> 27x 0/min, 0 results.
+  # 2 keeps the preload fan-out under TorBox's search limit. (was 10)
+  PRELOAD_STREAMS_CONCURRENCY: '2'
   PROXY_IP_CACHE_TTL: '900'
   PRUNE_INTERVAL: '86400'
   PRUNE_MAX_DAYS: '-1'
