@@ -133,6 +133,15 @@ spec:
           default: false
         exposedPort: 9100
         protocol: TCP
+    resources:
+      # Escape BestEffort QoS so the ingress SPOF is not first-evicted under node
+      # memory pressure. 7d peak working_set ~75Mi → request only (Burstable); NO
+      # limit on purpose (a tight limit on the ingress path is the ArgoCD self-OOM
+      # trap). Migrated off a conflicting host-file duplicate (traefik-ports.yaml,
+      # deleted 2026-06-14) that had been reverting this config.
+      requests:
+        cpu: 50m
+        memory: 128Mi
 ---
 # Dedicated ClusterIP service for Traefik metrics. Selects the Traefik pods and exposes
 # :9100 cluster-internally ONLY (no LoadBalancer), so the OTel TA can scrape it while the
