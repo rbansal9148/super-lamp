@@ -11,6 +11,10 @@ metadata:
     # skip the pre-sync dry-run so app-of-apps doesn't reject the whole sync.
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
+  # vm-operator applies a strict securityContext to all managed pods: runAsNonRoot,
+  # drop ALL caps, allowPrivilegeEscalation:false, seccompProfile RuntimeDefault, + fsGroup
+  # for the data PVC. Operator-blessed equivalent of the manual hardening on the otel CRs.
+  useStrictSecurity: true
   retentionPeriod: "3"                   # 3 months — ADR guardrail 1: retention cap from day one
   removePvcAfterDelete: false            # ADR guardrail 4: retain PVC when the CR is deleted.
                                          # NOTE: only covers CR-deletion. local-path's SC is

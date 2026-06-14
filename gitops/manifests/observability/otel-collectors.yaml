@@ -69,6 +69,12 @@ metadata:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   mode: statefulset
+  # baseline hardening (collector container already runs as image USER 10001/non-root)
+  securityContext:
+    runAsNonRoot: true
+    allowPrivilegeEscalation: false
+    capabilities: { drop: [ALL] }
+    seccompProfile: { type: RuntimeDefault }
   replicas: 1                            # ADR D7: scale via TA sharding when target count demands
   # Co-located host (24Gi shared with the live Docker stack). A cgroup memory limit
   # MUST be set: memory_limiter's limit_percentage (below) is computed against the
@@ -83,6 +89,11 @@ spec:
       cpu: 500m
   targetAllocator:
     enabled: true
+    securityContext:
+      runAsNonRoot: true
+      allowPrivilegeEscalation: false
+      capabilities: { drop: [ALL] }
+      seccompProfile: { type: RuntimeDefault }
     allocationStrategy: consistent-hashing
     resources:
       requests:
@@ -140,6 +151,13 @@ metadata:
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
   mode: daemonset
+  # baseline hardening: reads /var/log/pods (filelog) + kubeletstats as USER 10001 today;
+  # drop ALL is a no-op for a non-root container, no-esc + seccomp tighten it.
+  securityContext:
+    runAsNonRoot: true
+    allowPrivilegeEscalation: false
+    capabilities: { drop: [ALL] }
+    seccompProfile: { type: RuntimeDefault }
   # Runs on every node alongside the Docker stack — bound it for the same reason as
   # the scrape collector: limit_percentage needs this cgroup limit to be host-safe.
   resources:

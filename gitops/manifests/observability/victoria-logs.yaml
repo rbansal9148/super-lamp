@@ -14,6 +14,7 @@ metadata:
     # CRD (VLSingle) installed by vm-operator earlier in the sync — skip pre-sync dry-run.
     argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
 spec:
+  useStrictSecurity: true                # operator applies runAsNonRoot + drop-ALL caps + seccomp + fsGroup
   retentionPeriod: "1"                   # 1 month — required field; cap from day one (primer §5)
   # NOTE: VLSingle (v0.70.1) has NO removePvcAfterDelete field (unlike VMSingle) — setting
   # it is a silently-ignored no-op AND fails `kubeconform -strict`. The data PVC is
