@@ -46,6 +46,15 @@ data:
     access_control:
       default_policy: 'deny'
       rules:
+        # comet is the one bypassed host with a real admin surface (a Dashboard login at
+        # /admin). Require 2FA there — defense-in-depth over comet's own dashboard
+        # password — while its addon paths stay bypassed via the rule below. This MUST
+        # precede the bypass rule (first match wins). The comet IngressRoute routes
+        # /admin through the authelia forward-auth middleware so this rule is consulted.
+        - domain: 'comet.my-blue-car.work'
+          resources:
+            - '^/admin'
+          policy: 'two_factor'
         # Stremio addons: API/manifest URLs fetched by clients that can't 2FA -> bypass
         # (matches the Docker realm's TEMPLATE_STREMIO_ADDON_HOSTNAMES bypass list). Their
         # IngressRoutes also omit the forward-auth Middleware; this is belt-and-suspenders.
@@ -56,7 +65,7 @@ data:
         # leaving Stremio manifest/stream/proxy open. So its UI hits the two_factor
         # catch-all below while Stremio clients (which never traverse the middleware) work.
         - domain:
-            - 'mediafusion.my-blue-car.work'
+            - 'comet.my-blue-car.work'
             - 'stremthru.my-blue-car.work'
             - 'aiometadata.my-blue-car.work'
           policy: 'bypass'

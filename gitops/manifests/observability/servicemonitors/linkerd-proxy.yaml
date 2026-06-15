@@ -39,10 +39,10 @@ spec:
           - aiostreams-postgres
           - aiostreams-redis
           - bitmagnet-postgres
+          - comet-postgres
           - immich-postgres
           - immich-redis
           - libremdb-redis
-          - mediafusion-postgres
           - mediafusion-redis
           - prowlarr-postgres
           - searxng-redis
