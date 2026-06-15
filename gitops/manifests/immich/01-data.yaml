@@ -4,7 +4,7 @@
 # exact image; any other postgres image cannot read it. PGDATA is the volume root
 # (/var/lib/postgresql/data) — the Docker compose mapped the dir there directly, so
 # PG_VERSION/base/global live at the root; do NOT set a /pgdata subpath or PG won't
-# find the cluster. valkey replaces immich_redis (ephemeral cache).
+# find the cluster. redis (ephemeral cache) replaces immich_redis.
 apiVersion: apps/v1
 kind: Deployment
 metadata: { name: immich-postgres, namespace: apps, labels: { app: immich-postgres } }
@@ -59,9 +59,9 @@ spec:
       enableServiceLinks: false
       containers:
         - name: redis
-          image: docker.io/valkey/valkey:8-bookworm@sha256:fea8b3e67b15729d4bb70589eb03367bab9ad1ee89c876f54327fc7c6e618571
+          image: redis:8.8.0@sha256:0a972391db0b24ec336e35d1bc98b237237e26f82bf5120cf2f6b1688d1df973
           securityContext: { runAsNonRoot: true, runAsUser: 999, runAsGroup: 999, allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
-          args: ["valkey-server", "--save", "", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+          args: ["redis-server", "--save", "", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
           ports: [{ containerPort: 6379 }]
           resources: { requests: { memory: 32Mi, cpu: 10m }, limits: { memory: 320Mi, cpu: 300m } }
           readinessProbe: { exec: { command: ["redis-cli", "ping"] }, initialDelaySeconds: 5, periodSeconds: 10, timeoutSeconds: 3 }
