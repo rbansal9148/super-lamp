@@ -45,7 +45,12 @@ data:
   PROWLARR_FEED_SCRAPE_INTERVAL_HOUR: '2'
   PROWLARR_IMMEDIATE_MAX_PROCESS: '30'
   PROWLARR_IMMEDIATE_MAX_PROCESS_TIME: '8'
-  PROWLARR_LIVE_TITLE_SEARCH: 'false'
+  # true = live (on-demand) Prowlarr queries include a title search, not just hash lookups,
+  # so a user with "Live Search" enabled in their MediaFusion profile gets fresh results
+  # scraped at request time (in addition to the cached DB). Background crawls stay off
+  # (DISABLE_ALL_SCHEDULER=true) — live fan-out is synchronous at request time. Per-request
+  # cost capped by PROWLARR_IMMEDIATE_MAX_PROCESS=30 / _TIME=8s.
+  PROWLARR_LIVE_TITLE_SEARCH: 'true'
   PROWLARR_SEARCH_INTERVAL_HOUR: '24'
   PROWLARR_URL: http://prowlarr:9696
   REDIS_URL: redis://mediafusion-redis:6379
