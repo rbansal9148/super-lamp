@@ -22,7 +22,7 @@ spec:
       containers:
         - name: mediafusion
           # tag kept for readability; digest pins the bits (beta tags are mutable upstream)
-          image: mhdzumair/mediafusion:6.0.0-beta.21@sha256:c36409202c6edd4332fbb3d1ad2ca4d90127ead3021a29e39855cc999444e3c4
+          image: mhdzumair/mediafusion:6.0.0-beta.22@sha256:ade4fddc27b422095140ba56d73ae4665e26cdb8fdd9b1f591e9d073d6081a8c
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           envFrom: [{ configMapRef: { name: mediafusion-config } }, { secretRef: { name: mediafusion-secrets } }]
           ports: [{ containerPort: 8000, name: http }]

@@ -58,7 +58,7 @@ spec:
           securityContext: { runAsUser: 0, runAsGroup: 0 }
           containers:
             - name: restic
-              image: restic/restic:0.18.1@sha256:02c495b242672ce3229e2c63714036ce1df008a4bba39b6411455bda49b2259b
+              image: restic/restic:0.19.0@sha256:7f44e0057b82348597568ea209360762d0b38f8e1dbc8ad859661ac1055e45f2
               envFrom:
                 - configMapRef: { name: immich-backup-config }
                 - secretRef: { name: immich-backup-secrets }
