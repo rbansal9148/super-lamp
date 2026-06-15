@@ -51,7 +51,7 @@ spec:
             initialDelaySeconds: 20
             periodSeconds: 30
         - name: bitmagnet
-          image: ghcr.io/bitmagnet-io/bitmagnet@sha256:cf2c16fac5b51f1c18e630b4710175d35d7e44b83012cfd05a2b43712feec05e
+          image: ghcr.io/bitmagnet-io/bitmagnet:v0.10.1-beta.1@sha256:9673a7c74b8aaf3471e44425ee23a88eaad0b03892c06ace7210e8d33bab2117
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           command: ["bitmagnet","worker","run","--all"]
           env:
