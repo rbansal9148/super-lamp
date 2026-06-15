@@ -39,7 +39,6 @@ spec:
           - aiostreams-postgres
           - aiostreams-redis
           - bitmagnet-postgres
-          - comet-postgres
           - immich-postgres
           - immich-redis
           - libremdb-redis

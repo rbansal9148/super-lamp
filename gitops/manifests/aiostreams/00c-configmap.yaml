@@ -63,9 +63,7 @@ data:
   CATALOG_API_RATE_LIMIT_MAX_REQUESTS: '5'
   CATALOG_API_RATE_LIMIT_WINDOW: '5'
   CATALOG_CACHE_TTL: '1800'
-  COMET_URL: http://comet:2020
   CUSTOM_HTML: ''
-  DEFAULT_COMET_TIMEOUT: '12000'
   DEFAULT_JACKETTIO_STREMTHRU_URL: http://stremthru:8080
   DEFAULT_MAX_CACHE_SIZE: '100000'
   DEFAULT_MEDIAFUSION_TIMEOUT: '10000'
@@ -119,7 +117,7 @@ data:
   STREAM_API_RATE_LIMIT_MAX_REQUESTS: '10'
   STREAM_API_RATE_LIMIT_WINDOW: '5'
   STREAM_CACHE_TTL: '3600'
-  STREAM_URL_MAPPINGS: '{"http://stremthru:8080":"https://stremthru.my-blue-car.work","http://comet:2020":"https://comet.my-blue-car.work","http://mediafusion:8000":"https://mediafusion.my-blue-car.work"}'
+  STREAM_URL_MAPPINGS: '{"http://stremthru:8080":"https://stremthru.my-blue-car.work","http://mediafusion:8000":"https://mediafusion.my-blue-car.work"}'
   STREMIO_CATALOG_RATE_LIMIT_MAX_REQUESTS: '30'
   STREMIO_CATALOG_RATE_LIMIT_WINDOW: '5'
   STREMIO_MANIFEST_RATE_LIMIT_MAX_REQUESTS: '5'
