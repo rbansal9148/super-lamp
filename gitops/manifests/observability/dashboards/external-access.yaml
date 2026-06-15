@@ -8,7 +8,7 @@
 #   • Traefik JSON access logs in VictoriaLogs (victorialogs) — path-level detail:
 #     which RequestPaths are being hit on the open routes, and recent raw requests.
 # Open routes (no Authelia middleware): aiometadata, aiostreams, comet, immich,
-# mediafusion, stremthru. (zilean is now gated; immich self-auths.)
+# stremthru. (zilean is now gated; immich self-auths.)
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -43,7 +43,7 @@ data:
           "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
           "datasource": { "type": "prometheus", "uid": "victoriametrics" },
           "fieldConfig": { "defaults": { "unit": "reqps" }, "overrides": [] },
-          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum by (route)(label_replace(rate(traefik_router_requests_total{router=~\"apps-(aiometadata|aiostreams|comet|immich|mediafusion|stremthru)-[a-f0-9]+@kubernetescrd\"}[5m]), \"route\", \"$1\", \"router\", \"[^-]+-(.*?)-[a-f0-9]+@kubernetescrd\"))", "legendFormat": "{{route}}" } ]
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum by (route)(label_replace(rate(traefik_router_requests_total{router=~\"apps-(aiometadata|aiostreams|comet|immich|stremthru)-[a-f0-9]+@kubernetescrd\"}[5m]), \"route\", \"$1\", \"router\", \"[^-]+-(.*?)-[a-f0-9]+@kubernetescrd\"))", "legendFormat": "{{route}}" } ]
         },
         {
           "id": 3, "type": "timeseries", "title": "4xx / 5xx by route (req/s)",
@@ -64,14 +64,14 @@ data:
           "gridPos": { "h": 10, "w": 24, "x": 0, "y": 16 },
           "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
           "options": { "showHeader": true },
-          "targets": [ { "refId": "A", "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" }, "queryType": "stats", "expr": "{k8s.container.name=\"traefik\"} | unpack_json | RequestHost:~\"(aiometadata|aiostreams|comet|immich|mediafusion|stremthru)\" | stats by (RequestHost, RequestPath, DownstreamStatus) count() hits | sort by (hits desc) | limit 50" } ]
+          "targets": [ { "refId": "A", "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" }, "queryType": "stats", "expr": "{k8s.container.name=\"traefik\"} | unpack_json | RequestHost:~\"(aiometadata|aiostreams|comet|immich|stremthru)\" | stats by (RequestHost, RequestPath, DownstreamStatus) count() hits | sort by (hits desc) | limit 50" } ]
         },
         {
           "id": 6, "type": "logs", "title": "Recent requests to OPEN routes (host / path / status / client)",
           "gridPos": { "h": 12, "w": 24, "x": 0, "y": 26 },
           "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
           "options": { "showTime": true, "wrapLogMessage": true, "enableLogDetails": true, "sortOrder": "Descending" },
-          "targets": [ { "refId": "A", "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" }, "queryType": "instant", "expr": "{k8s.container.name=\"traefik\"} | unpack_json | RequestHost:~\"(aiometadata|aiostreams|comet|immich|mediafusion|stremthru)\" | fields _time, ClientHost, RequestHost, RequestMethod, RequestPath, DownstreamStatus" } ]
+          "targets": [ { "refId": "A", "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" }, "queryType": "instant", "expr": "{k8s.container.name=\"traefik\"} | unpack_json | RequestHost:~\"(aiometadata|aiostreams|comet|immich|stremthru)\" | fields _time, ClientHost, RequestHost, RequestMethod, RequestPath, DownstreamStatus" } ]
         },
         {
           "id": 7, "type": "table", "title": "Top exact URLs (24h, all hosts) — scheme://host/path",

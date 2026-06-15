@@ -43,7 +43,7 @@ Only the NON-reproducible data needs off-node backup; the scraper DBs re-scrape.
 | Calibre library | irreplaceable user data (books) | hostPath `/opt/docker/data/calibre-web-automated` |
 
 Reproducible (do NOT need backup — re-scrape on restore): zilean, comet,
-aiostreams, aiometadata, mediafusion, stremthru DBs and all redis (caches).
+aiostreams, aiometadata, stremthru DBs and all redis (caches).
 
 > A `pg_dump`/tar CronJob to off-box storage for the four rows above is a
 > recommended follow-up not yet implemented. Until then, snapshot the hostPath
