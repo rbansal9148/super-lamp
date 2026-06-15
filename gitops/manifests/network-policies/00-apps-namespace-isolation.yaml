@@ -64,7 +64,6 @@ spec:
           - comet-postgres
           - immich-postgres
           - immich-redis
-          - libremdb-redis
           - mediafusion-redis
           - prowlarr-postgres
           - searxng-redis
