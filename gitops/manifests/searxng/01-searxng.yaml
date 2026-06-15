@@ -1,4 +1,4 @@
-# searxng — metasearch. valkey cache (ephemeral) + settings.yml (sealed, has secret_key)
+# searxng — metasearch. redis cache (ephemeral) + settings.yml (sealed, has secret_key)
 # mounted via subPath. NOT VPN-coupled (network_mode was commented in compose).
 apiVersion: apps/v1
 kind: Deployment
@@ -11,13 +11,13 @@ spec:
     spec:
       enableServiceLinks: false
       containers:
-        - name: valkey
-          image: valkey/valkey:9.1.0@sha256:4963247afc4cd33c7d3b2d2816b9f7f8eeebab148d29056c2ca4d7cbc966f2d9
+        - name: redis
+          image: redis:8.8.0@sha256:0a972391db0b24ec336e35d1bc98b237237e26f82bf5120cf2f6b1688d1df973
           securityContext: { runAsNonRoot: true, runAsUser: 999, runAsGroup: 999, allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
-          args: ["valkey-server","--save","","--maxmemory","64mb","--maxmemory-policy","allkeys-lru"]
+          args: ["redis-server","--save","","--maxmemory","64mb","--maxmemory-policy","allkeys-lru"]
           ports: [{ containerPort: 6379 }]
           resources: { requests: { memory: 16Mi, cpu: 10m }, limits: { memory: 96Mi, cpu: 200m } }
-          readinessProbe: { exec: { command: ["valkey-cli","ping"] }, initialDelaySeconds: 5, periodSeconds: 10 }
+          readinessProbe: { exec: { command: ["redis-cli","ping"] }, initialDelaySeconds: 5, periodSeconds: 10 }
 ---
 apiVersion: v1
 kind: Service
