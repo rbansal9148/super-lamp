@@ -27,7 +27,7 @@ spec:
       enableServiceLinks: false
       containers:
         - name: gluetun
-          image: qmcgaw/gluetun@sha256:1a5bf4b4820a879cdf8d93d7ef0d2d963af56670c9ebff8981860b6804ebc8ab
+          image: qmcgaw/gluetun@sha256:0e999c910d8077458ffbd869acfd9faa2a49decbca02afec6370277854587b3e
           securityContext:
             capabilities:
               add: ["NET_ADMIN"]   # gluetun creates /dev/net/tun + manages the tunnel

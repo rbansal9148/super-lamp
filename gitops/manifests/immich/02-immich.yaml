@@ -16,7 +16,7 @@ spec:
       enableServiceLinks: false
       containers:
         - name: immich
-          image: ghcr.io/immich-app/immich-server:v2.7.5@sha256:b92af50506b1263a9a03c1aa5771476fce5c7eba4004b0262bba275e7f48719d  # arm64
+          image: ghcr.io/immich-app/immich-server:v2.7.5@sha256:c15bff75068effb03f4355997d03dc7e0fc58720c2b54ad6f7f10d1bc57efaa5  # arm64
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           envFrom:
             - configMapRef: { name: immich-config }
@@ -51,7 +51,7 @@ spec:
       enableServiceLinks: false
       containers:
         - name: immich-ml
-          image: ghcr.io/immich-app/immich-machine-learning:v2.7.5@sha256:d7057237a74a9219d890b0e00cb59434327720e65f991118c5e5c4f05092b694  # arm64
+          image: ghcr.io/immich-app/immich-machine-learning:v2.7.5@sha256:a2501141440f10516d329fdfba2c68082e19eb9ba6016c061ac80d23beadf7f3  # arm64
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           envFrom:
             - configMapRef: { name: immich-config }

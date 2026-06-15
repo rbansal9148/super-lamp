@@ -17,7 +17,7 @@ spec:
       enableServiceLinks: false
       containers:
         - name: postgres
-          image: postgres:18.4@sha256:8ff36f3c66371cba71d20ceedccfc3de9669a68737607888c4ef0af93abe8e39
+          image: postgres:18.4@sha256:29ee7bb30d804447dc9a91fd0d74322ae1dc3a4072cc6346f70a5ed6e783b565
           # baseline hardening: drop ALL caps, re-add only the postgres entrypoint's needs
           # (CHOWN/DAC_OVERRIDE/FOWNER for PGDATA setup; SETUID/SETGID for gosu drop).
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL], add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID] }, seccompProfile: { type: RuntimeDefault } }
@@ -63,7 +63,7 @@ spec:
         # prowlarr's FluentMigrator runs at boot and crashes if postgres isn't up yet
         # ("Failed to connect to ...:5432"). Gate start on the DB being reachable.
         - name: wait-for-postgres
-          image: busybox:1.37@sha256:9532d8c39891ca2ecde4d30d7710e01fb739c87a8b9299685c63704296b16028
+          image: busybox:1.38.0@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
           command: ['sh', '-c', 'until nc -z prowlarr-postgres 5432; do echo "waiting for postgres"; sleep 2; done']
           securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}, runAsNonRoot: true, runAsUser: 65534, seccompProfile: {type: RuntimeDefault}}
       containers:
@@ -133,7 +133,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: prune
-              image: postgres:18.4@sha256:8ff36f3c66371cba71d20ceedccfc3de9669a68737607888c4ef0af93abe8e39
+              image: postgres:18.4@sha256:29ee7bb30d804447dc9a91fd0d74322ae1dc3a4072cc6346f70a5ed6e783b565
               env:
                 - name: PGPASSWORD
                   valueFrom: {secretKeyRef: {name: prowlarr-db, key: POSTGRES_PASSWORD}}

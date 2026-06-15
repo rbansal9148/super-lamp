@@ -36,7 +36,7 @@ spec:
       enableServiceLinks: false
       containers:
         - name: searxng
-          image: searxng/searxng:latest@sha256:0c70d956ecc12b26579b73efa5b16ec94565de54674725c19eedeac8c23e7871
+          image: searxng/searxng:latest@sha256:37a8cc7769c4721b8f252ba935de8f01b7918e58d26b1be18dc87b5330fda65b
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           env:
             - { name: SEARXNG_BASE_URL, value: "https://searxng.my-blue-car.work/" }
