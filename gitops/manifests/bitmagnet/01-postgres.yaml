@@ -1,10 +1,11 @@
-# bitmagnet Postgres (PG16-alpine) — hostPath-REUSE of the 43GB Docker dir (zero copy).
+# bitmagnet Postgres (PG18.4) — hostPath dir. DB rebuilt FRESH 2026-06-16 (PG16 data nuked;
+# fresh initdb on debian 18.4 — no migration, no musl->glibc collation concern).
 # Separate pod (NOT in the VPN netns) so stremthru can also reach it (bitmagnet-postgres:5432).
 apiVersion: apps/v1
 kind: Deployment
 metadata: {name: bitmagnet-postgres, namespace: apps, labels: {app: bitmagnet-postgres}}
 spec:
-  replicas: 0   # TEMPORARY: down for destructive PG16->18.4 rebuild (data nuke). Restore to 1 with the 18.4 image.
+  replicas: 1
   strategy: {type: Recreate}
   selector: {matchLabels: {app: bitmagnet-postgres}}
   template:
@@ -13,7 +14,7 @@ spec:
       enableServiceLinks: false
       containers:
         - name: postgres
-          image: postgres:16-alpine@sha256:16bc17c64a573ef34162af9298258d1aec548232985b33ed7b1eac33ba35c229
+          image: postgres:18.4@sha256:29ee7bb30d804447dc9a91fd0d74322ae1dc3a4072cc6346f70a5ed6e783b565
           # baseline hardening: drop ALL caps, re-add only the postgres entrypoint's needs
           # (CHOWN/DAC_OVERRIDE/FOWNER for PGDATA setup; SETUID/SETGID for gosu drop).
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL], add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID] }, seccompProfile: { type: RuntimeDefault } }

@@ -8,7 +8,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata: { name: bitmagnet, namespace: apps, labels: { app: bitmagnet } }
 spec:
-  replicas: 0   # TEMPORARY: down during DB nuke/rebuild; restored to 1 once postgres-18.4 is up.
+  replicas: 1
   strategy: { type: Recreate }
   selector: { matchLabels: { app: bitmagnet } }
   template:
@@ -112,7 +112,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: prune
-              image: postgres:16-alpine@sha256:16bc17c64a573ef34162af9298258d1aec548232985b33ed7b1eac33ba35c229
+              image: postgres:18.4@sha256:29ee7bb30d804447dc9a91fd0d74322ae1dc3a4072cc6346f70a5ed6e783b565
               env:
                 - name: PGPASSWORD
                   valueFrom: { secretKeyRef: { name: bitmagnet-secrets, key: POSTGRES_PASSWORD } }
