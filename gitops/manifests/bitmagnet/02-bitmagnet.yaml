@@ -8,7 +8,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata: { name: bitmagnet, namespace: apps, labels: { app: bitmagnet } }
 spec:
-  replicas: 1
+  replicas: 0   # TEMPORARY: down during DB nuke/rebuild; restored to 1 once postgres-18.4 is up.
   strategy: { type: Recreate }
   selector: { matchLabels: { app: bitmagnet } }
   template:

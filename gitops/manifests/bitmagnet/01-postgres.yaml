@@ -4,7 +4,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata: {name: bitmagnet-postgres, namespace: apps, labels: {app: bitmagnet-postgres}}
 spec:
-  replicas: 1
+  replicas: 0   # TEMPORARY: down for destructive PG16->18.4 rebuild (data nuke). Restore to 1 with the 18.4 image.
   strategy: {type: Recreate}
   selector: {matchLabels: {app: bitmagnet-postgres}}
   template:
