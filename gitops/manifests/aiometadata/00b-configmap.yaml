@@ -8,8 +8,15 @@ metadata:
     app: aiometadata
 data:
   ANILIST_CLIENT_ID: '33586'
-  ANILIST_REDIRECT_URI: https://aiometadata.${DOMAIN}/anilist/callback
-  CACHE_WARMUP_MODE: comprehensive
+  # full literal URL: neither k8s envFrom nor the app expands ${DOMAIN} (app only prepends
+  # a scheme), so a placeholder here makes the OAuth callback 404.
+  ANILIST_REDIRECT_URI: https://aiometadata.my-blue-car.work/anilist/callback
+  # essential (project default) for this single-user instance: warms genres/studios/
+  # trending + caches every catalog on-demand. comprehensive pre-warmed all 26 catalogs
+  # x25 pages/12h, hammering TMDB into ~536 fetch-failures/day (TVDB only 12) and inflating
+  # heap/redis. essential cuts the TMDB volume with no functionality loss (catalogs still
+  # serve, just cache on first browse). Re-measure TMDB fetch-failures after this lands.
+  CACHE_WARMUP_MODE: essential
   CACHE_WARMUP_UUID: b5f78ce0-61b5-403b-97fc-b334069e6bea
   CACHE_WARM_INTERVAL_HOURS: '12'
   CATALOG_LIST_ITEMS_SIZE: '100'
@@ -20,10 +27,9 @@ data:
   LOG_LEVEL: info
   MAL_WARMUP_ENABLED: 'true'
   MAL_WARMUP_INTERVAL_HOURS: '6'
-  MAL_WARMUP_METADATA: 'true'
   NODE_OPTIONS: --dns-result-order=ipv4first
   PORT: '1337'
   REDIS_URL: redis://aiometadata-redis:6379
   TMDB_POPULAR_WARMING_ENABLED: 'true'
   TRAKT_CONCURRENCY: '4'
-  TRAKT_REDIRECT_URI: https://aiometadata.${DOMAIN}/api/auth/trakt/callback
+  TRAKT_REDIRECT_URI: https://aiometadata.my-blue-car.work/api/auth/trakt/callback
