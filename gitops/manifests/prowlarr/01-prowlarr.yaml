@@ -92,6 +92,14 @@ spec:
           resources: {requests: {memory: 128Mi, cpu: 25m}, limits: {memory: 1Gi, cpu: "2"}}   # rightsized: 8d peak <0.5Gi (was 6Gi)
           volumeMounts: [{name: config, mountPath: /config}]
           readinessProbe: {httpGet: {path: /ping, port: 9696}, initialDelaySeconds: 20, periodSeconds: 20, timeoutSeconds: 8}
+          # prowlarr's DB-init is NON-recoverable: if it loses the startup race against its
+          # postgres (Recreate), it logs "EPIC FAIL, waiting for user intervention" and the
+          # process stays alive (never binds :9696) -> Running-but-dead forever, no restart.
+          # startupProbe restarts it until :9696 comes up (postgres stabilises, it retries +
+          # wins); livenessProbe then catches any post-start hang. ~150s start grace (healthy
+          # start ~40s) so neither kills a legit slow migration boot.
+          startupProbe: {httpGet: {path: /ping, port: 9696}, periodSeconds: 5, timeoutSeconds: 5, failureThreshold: 30}
+          livenessProbe: {httpGet: {path: /ping, port: 9696}, periodSeconds: 30, timeoutSeconds: 8, failureThreshold: 3}
       volumes:
         - name: config
           hostPath: {path: /opt/docker/data/prowlarr, type: Directory}
