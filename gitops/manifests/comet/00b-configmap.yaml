@@ -78,7 +78,7 @@ data:
   SCRAPE_NYAA: both
   SCRAPE_PEERFLIX: 'False'
   SCRAPE_PROWLARR: 'False'
-  SCRAPE_STREMTHRU: 'False'   # temporarily disabled to A/B test results without it
+  SCRAPE_STREMTHRU: live
   SCRAPE_TORBOX: live   # live-only (no background): TorBox search API is tightly rate-limited and the key is shared with aiostreams
   SCRAPE_TORRENTIO: both
   SCRAPE_TORRENTSDB: both
