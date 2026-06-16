@@ -1,0 +1,14 @@
+# 'apps' namespace — home for every workload in this stack. Relocated here from the
+# it-tools manifest (it-tools removed 2026-06-16); network-policies is the natural owner
+# since its policies are namespaced to 'apps'. Prune=false so an accidental manifest
+# removal can never cascade-delete the namespace (and with it, every app inside).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: apps
+  # Phase 2: mesh every pod in the apps namespace by default (transparent mTLS).
+  # gluetun + bitmagnet opt out at the pod level (in-pod VPN; a sidecar's iptables
+  # would collide with the tunnel). New apps here auto-mesh on create.
+  annotations:
+    linkerd.io/inject: enabled
+    argocd.argoproj.io/sync-options: Prune=false

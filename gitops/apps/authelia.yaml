@@ -23,7 +23,7 @@ spec:
       prune: true
       selfHeal: true
     syncOptions:
-      - CreateNamespace=true         # 'apps' ns is owned by the it-tools app; just ensure it exists
+      - CreateNamespace=true         # 'apps' ns is owned by the network-policies app; just ensure it exists
       - ApplyOutOfSyncOnly=true
     retry:
       limit: 5
