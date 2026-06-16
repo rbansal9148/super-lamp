@@ -8,6 +8,12 @@
 #     delimited lines, so panels word-match _msg. The dominant signal is public-source
 #     429 rate-limiting (Torrentio/Nyaa/TorrentsDB/TorBox) — surfaced here instead of
 #     hand-grepping. Real (non-429) ERRORs run ~0 when healthy.
+# SPLIT (2026-06-17): comet is now two Deployments — comet (live, home-IP egress) and
+# comet-bg (background scraper, VPN egress). Both log under k8s.container.name="comet";
+# they're separated by k8s.pod.name (live = NOT "comet-bg"; bg = "comet-bg"). The top
+# section is LIVE serving + live-IP scrape health; the bottom row is BG scrape health on
+# the VPN IP. Linkerd has NO outbound series for either (scrape egress is external/proxied,
+# unmeshed), so the bg row is logs-only — verified 0 outbound series in VM before building.
 # All queries verified non-empty (VM 8429 / VLogs vlsingle-obs:9428) before commit.
 apiVersion: v1
 kind: ConfigMap
@@ -26,7 +32,7 @@ data:
       "tags": ["comet", "stremio", "gitops"],
       "timezone": "browser",
       "schemaVersion": 39,
-      "version": 1,
+      "version": 2,
       "refresh": "30s",
       "time": { "from": "now-6h", "to": "now" },
       "templating": { "list": [] },
@@ -49,18 +55,18 @@ data:
           "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } }
         },
         {
-          "id": 3, "type": "stat", "title": "Rate-limit (429) events (range)",
+          "id": 3, "type": "stat", "title": "429 events — live (range)",
           "gridPos": { "h": 5, "w": 6, "x": 12, "y": 0 },
           "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
-          "targets": [ { "refId": "A", "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" }, "queryType": "stats", "expr": "{k8s.container.name=\"comet\"} \"429\" | stats count() c" } ],
+          "targets": [ { "refId": "A", "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" }, "queryType": "stats", "expr": "{k8s.container.name=\"comet\"} -k8s.pod.name:\"comet-bg\" \"429\" | stats count() c" } ],
           "fieldConfig": { "defaults": { "unit": "short", "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 1 } ] } }, "overrides": [] },
           "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "/^c$/" } }
         },
         {
-          "id": 4, "type": "stat", "title": "Real errors (excl 429) (range)",
+          "id": 4, "type": "stat", "title": "Real errors — live (excl 429)",
           "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 },
           "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
-          "targets": [ { "refId": "A", "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" }, "queryType": "stats", "expr": "{k8s.container.name=\"comet\"} ERROR -\"429\" -\"Max retries\" | stats count() c" } ],
+          "targets": [ { "refId": "A", "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" }, "queryType": "stats", "expr": "{k8s.container.name=\"comet\"} -k8s.pod.name:\"comet-bg\" ERROR -\"429\" -\"Max retries\" | stats count() c" } ],
           "fieldConfig": { "defaults": { "unit": "short", "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } }, "overrides": [] },
           "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "/^c$/" } }
         },
@@ -83,26 +89,85 @@ data:
           "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } }
         },
         {
-          "id": 7, "type": "table", "title": "Rate-limited upstream sources (429, range)",
+          "id": 7, "type": "table", "title": "Rate-limited sources — live (429, range)",
           "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
           "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
-          "targets": [ { "refId": "A", "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" }, "queryType": "stats", "expr": "{k8s.container.name=\"comet\"} \"429\" | extract \"[<src>]\" | stats by (src) count() hits | sort by (hits desc) | limit 15" } ],
+          "targets": [ { "refId": "A", "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" }, "queryType": "stats", "expr": "{k8s.container.name=\"comet\"} -k8s.pod.name:\"comet-bg\" \"429\" | extract \"[<src>]\" | stats by (src) count() hits | sort by (hits desc) | limit 15" } ],
           "fieldConfig": { "defaults": { "custom": { "align": "auto" } }, "overrides": [] },
           "options": { "sortBy": [ { "displayName": "hits", "desc": true } ] }
         },
         {
-          "id": 8, "type": "table", "title": "Scraper activity — result lines by scraper (range)",
+          "id": 8, "type": "table", "title": "Scraper activity — live (result lines by scraper)",
           "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
           "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
-          "targets": [ { "refId": "A", "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" }, "queryType": "stats", "expr": "{k8s.container.name=\"comet\"} \"Scraper\" \"found\" | extract \"Scraper <scraper> found\" | stats by (scraper) count() lines | sort by (lines desc) | limit 15" } ],
+          "targets": [ { "refId": "A", "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" }, "queryType": "stats", "expr": "{k8s.container.name=\"comet\"} -k8s.pod.name:\"comet-bg\" \"Scraper\" \"found\" | extract \"Scraper <scraper> found\" | stats by (scraper) count() lines | sort by (lines desc) | limit 15" } ],
           "fieldConfig": { "defaults": { "custom": { "align": "auto" } }, "overrides": [] },
           "options": { "sortBy": [ { "displayName": "lines", "desc": true } ] }
         },
         {
-          "id": 9, "type": "logs", "title": "Recent ERROR / rate-limit / WARNING lines",
+          "id": 9, "type": "logs", "title": "Recent ERROR / 429 / WARNING — live",
           "gridPos": { "h": 9, "w": 24, "x": 0, "y": 21 },
           "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
-          "targets": [ { "refId": "A", "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" }, "queryType": "instant", "expr": "{k8s.container.name=\"comet\"} (ERROR OR \"429\" OR WARNING) | fields _time, _msg" } ],
+          "targets": [ { "refId": "A", "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" }, "queryType": "instant", "expr": "{k8s.container.name=\"comet\"} -k8s.pod.name:\"comet-bg\" (ERROR OR \"429\" OR WARNING) | fields _time, _msg" } ],
+          "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "dedupStrategy": "none" }
+        },
+        {
+          "id": 10, "type": "row", "title": "Background scraper (comet-bg) — VPN egress",
+          "gridPos": { "h": 1, "w": 24, "x": 0, "y": 30 }, "collapsed": false
+        },
+        {
+          "id": 11, "type": "stat", "title": "BG 429 events (range)",
+          "gridPos": { "h": 5, "w": 6, "x": 0, "y": 31 },
+          "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+          "targets": [ { "refId": "A", "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" }, "queryType": "stats", "expr": "{k8s.container.name=\"comet\"} k8s.pod.name:\"comet-bg\" \"429\" | stats count() c" } ],
+          "fieldConfig": { "defaults": { "unit": "short", "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 1 } ] } }, "overrides": [] },
+          "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "/^c$/" } }
+        },
+        {
+          "id": 12, "type": "stat", "title": "BG real errors (excl 429) (range)",
+          "gridPos": { "h": 5, "w": 6, "x": 6, "y": 31 },
+          "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+          "targets": [ { "refId": "A", "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" }, "queryType": "stats", "expr": "{k8s.container.name=\"comet\"} k8s.pod.name:\"comet-bg\" ERROR -\"429\" -\"Max retries\" | stats count() c" } ],
+          "fieldConfig": { "defaults": { "unit": "short", "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } }, "overrides": [] },
+          "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "/^c$/" } }
+        },
+        {
+          "id": 13, "type": "stat", "title": "BG scrape result lines (range)",
+          "gridPos": { "h": 5, "w": 6, "x": 12, "y": 31 },
+          "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+          "targets": [ { "refId": "A", "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" }, "queryType": "stats", "expr": "{k8s.container.name=\"comet\"} k8s.pod.name:\"comet-bg\" \"Scraper\" \"found\" | stats count() c" } ],
+          "fieldConfig": { "defaults": { "unit": "short", "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] } }, "overrides": [] },
+          "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "/^c$/" } }
+        },
+        {
+          "id": 14, "type": "stat", "title": "BG scraper cycles (range)",
+          "gridPos": { "h": 5, "w": 6, "x": 18, "y": 31 },
+          "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+          "targets": [ { "refId": "A", "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" }, "queryType": "stats", "expr": "{k8s.container.name=\"comet\"} k8s.pod.name:\"comet-bg\" \"_run_scraping_cycle\" | stats count() c" } ],
+          "fieldConfig": { "defaults": { "unit": "short", "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] } }, "overrides": [] },
+          "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "/^c$/" } }
+        },
+        {
+          "id": 15, "type": "table", "title": "BG rate-limited sources (429, range)",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 36 },
+          "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+          "targets": [ { "refId": "A", "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" }, "queryType": "stats", "expr": "{k8s.container.name=\"comet\"} k8s.pod.name:\"comet-bg\" \"429\" | extract \"[<src>]\" | stats by (src) count() hits | sort by (hits desc) | limit 15" } ],
+          "fieldConfig": { "defaults": { "custom": { "align": "auto" } }, "overrides": [] },
+          "options": { "sortBy": [ { "displayName": "hits", "desc": true } ] }
+        },
+        {
+          "id": 16, "type": "table", "title": "BG scraper activity (result lines by scraper)",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 36 },
+          "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+          "targets": [ { "refId": "A", "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" }, "queryType": "stats", "expr": "{k8s.container.name=\"comet\"} k8s.pod.name:\"comet-bg\" \"Scraper\" \"found\" | extract \"Scraper <scraper> found\" | stats by (scraper) count() lines | sort by (lines desc) | limit 15" } ],
+          "fieldConfig": { "defaults": { "custom": { "align": "auto" } }, "overrides": [] },
+          "options": { "sortBy": [ { "displayName": "lines", "desc": true } ] }
+        },
+        {
+          "id": 17, "type": "logs", "title": "BG background-scraper cycle + recent ERROR / 429",
+          "gridPos": { "h": 9, "w": 24, "x": 0, "y": 44 },
+          "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+          "targets": [ { "refId": "A", "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" }, "queryType": "instant", "expr": "{k8s.container.name=\"comet\"} k8s.pod.name:\"comet-bg\" (BACKGROUND_SCRAPER OR ERROR OR \"429\") | fields _time, _msg" } ],
           "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "dedupStrategy": "none" }
         }
       ]
