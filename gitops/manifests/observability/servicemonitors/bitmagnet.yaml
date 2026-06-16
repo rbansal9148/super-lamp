@@ -1,0 +1,33 @@
+# Scrape bitmagnet's app metrics (:3333/metrics) into VictoriaMetrics so crawl/index
+# health is queryable + alertable instead of curl-the-pod-by-hand. Useful series:
+#   bitmagnet_dht_crawler_persisted_total{entity="Torrent"} — index growth rate
+#   bitmagnet_dht_ktable_{nodes,hashes}_count               — DHT crawl health
+#   bitmagnet_queue_jobs_total{queue,status}                — processing backlog/failures
+#   bitmagnet_meta_info_requester_* / *_query_*             — fetch + DHT latency
+#
+# bitmagnet runs in the gluetun VPN netns; its UI/metrics port 3333 is reachable because
+# gluetun's FIREWALL_INPUT_PORTS=3333 admits cluster traffic, and the apps NetworkPolicy
+# (apps-allow-trusted-cross-ns) permits observability -> non-DB pods. The OTel Target
+# Allocator selects all ServiceMonitors (in: {}) and forwards to VictoriaMetrics.
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: bitmagnet
+  namespace: observability
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    # ServiceMonitor CRD ships with prometheus-operator-crds (earlier wave) — skip the
+    # pre-sync dry-run that would fail if the CRD weren't present yet.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  labels: { app.kubernetes.io/name: bitmagnet }
+spec:
+  namespaceSelector:
+    matchNames: [apps]
+  selector:
+    matchLabels:
+      app: bitmagnet
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 60s
