@@ -48,6 +48,7 @@ data:
   INDEXER_MANAGER_WAIT_TIMEOUT: '0'
   LIVE_TORRENT_CACHE_TTL: '604800'
   MAGNET_RESOLVE_TIMEOUT: '30'
+  MEDIAFUSION_URL: '["https://mediafusion.elfhosted.com"]'   # public ElfHosted instance (local mediafusion removed from stack)
   METADATA_CACHE_TTL: '2592000'
   METRICS_CACHE_TTL: '60'
   NYAA_ANIME_ONLY: 'False'
@@ -68,19 +69,19 @@ data:
   RTN_FILTER_DEBUG: 'False'
   SCRAPE_AIOSTREAMS: 'False'
   SCRAPE_BITMAGNET: 'False'
-  SCRAPE_COMET: live
+  SCRAPE_COMET: both
   SCRAPE_DEBRIDIO: 'False'
   SCRAPE_JACKETT: 'false'
   SCRAPE_JACKETTIO: 'False'
   SCRAPE_LOCK_TTL: '300'
-  SCRAPE_MEDIAFUSION: 'false'
-  SCRAPE_NYAA: live
+  SCRAPE_MEDIAFUSION: both
+  SCRAPE_NYAA: both
   SCRAPE_PEERFLIX: 'False'
   SCRAPE_PROWLARR: 'False'
   SCRAPE_STREMTHRU: live
-  SCRAPE_TORBOX: 'false'
-  SCRAPE_TORRENTIO: 'false'
-  SCRAPE_TORRENTSDB: live
+  SCRAPE_TORBOX: both   # needs TORBOX_API_KEY in comet-secrets to return results
+  SCRAPE_TORRENTIO: both
+  SCRAPE_TORRENTSDB: both
   SCRAPE_WAIT_TIMEOUT: '30'
   SCRAPE_ZILEAN: live
   STREMTHRU_SCRAPE_URL: https://stremthru.elfhosted.com   # public ElfHosted instance (local stremthru queried via aiostreams)
