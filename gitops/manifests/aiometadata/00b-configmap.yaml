@@ -24,6 +24,12 @@ data:
   DISABLE_METRICS: 'true'
   ENABLE_CACHE_WARMING: 'true'
   HOST_NAME: https://aiometadata.my-blue-car.work
+  # ISP does SNI-based TLS resets on api.themoviedb.org from the home IP (verified 2026-06-16:
+  # direct 0/12, via VPN 12/12; curl exit=35 — TCP connects then TLS RST instantly). TMDB backs
+  # movie search + metadata enrichment, so the resets surface as "fetch failed" / failed searches.
+  # App reads HTTPS_PROXY as the undici global dispatcher (addon/utils/httpClient.ts) -> route all
+  # non-Gemini egress via gluetun. Global (no TMDB-only env); TVDB/Trakt/MAL/etc. ride the VPN too.
+  HTTPS_PROXY: http://gluetun:8888
   LOG_LEVEL: info
   MAL_WARMUP_ENABLED: 'true'
   MAL_WARMUP_INTERVAL_HOURS: '6'
