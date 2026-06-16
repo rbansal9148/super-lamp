@@ -87,7 +87,7 @@ data:
   SCRAPE_PEERFLIX: 'False'
   SCRAPE_PROWLARR: 'False'
   SCRAPE_STREMTHRU: live
-  SCRAPE_TORBOX: live   # live-only (no background): TorBox search API is tightly rate-limited and the key is shared with aiostreams
+  SCRAPE_TORBOX: 'False'   # TEMP (2026-06-17 TorBox API outage): disabled so comet doesn't block 13-30s on the dead TorBox search API per request. REVERT to 'live' when TorBox recovers. (comet-bg overrides to False regardless.)
   SCRAPE_TORRENTIO: live
   SCRAPE_TORRENTSDB: live
   SCRAPE_WAIT_TIMEOUT: '8'
