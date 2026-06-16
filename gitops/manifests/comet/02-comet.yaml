@@ -4,7 +4,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata: { name: comet, namespace: apps, labels: { app: comet } }
 spec:
-  replicas: 2
+  replicas: 1
   selector: { matchLabels: { app: comet } }
   template:
     metadata: { labels: { app: comet } }

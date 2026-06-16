@@ -68,19 +68,19 @@ data:
   RTN_FILTER_DEBUG: 'False'
   SCRAPE_AIOSTREAMS: 'False'
   SCRAPE_BITMAGNET: 'False'
-  SCRAPE_COMET: background
+  SCRAPE_COMET: live
   SCRAPE_DEBRIDIO: 'False'
   SCRAPE_JACKETT: 'false'
   SCRAPE_JACKETTIO: 'False'
   SCRAPE_LOCK_TTL: '300'
   SCRAPE_MEDIAFUSION: 'false'
-  SCRAPE_NYAA: background
+  SCRAPE_NYAA: live
   SCRAPE_PEERFLIX: 'False'
   SCRAPE_PROWLARR: 'False'
   SCRAPE_STREMTHRU: live
   SCRAPE_TORBOX: 'false'
   SCRAPE_TORRENTIO: 'false'
-  SCRAPE_TORRENTSDB: background
+  SCRAPE_TORRENTSDB: live
   SCRAPE_WAIT_TIMEOUT: '30'
   SCRAPE_ZILEAN: live
   STREMTHRU_SCRAPE_URL: https://stremthru.elfhosted.com   # public ElfHosted instance (local stremthru queried via aiostreams)
