@@ -1,0 +1,126 @@
+# Wave 2 — bitmagnet DHT-crawler alert rules (Grafana-provisioned, metric-based).
+# Loaded by the same Grafana alerting sidecar (label grafana_alert) and routed to the
+# same ntfy contact point as platform-alerts.yaml (same severity labels + folder).
+# Metrics come from bitmagnet:3333/metrics via its ServiceMonitor -> OTel TA -> VM.
+# These are Prometheus-style UNDERSCORE names (bitmagnet_*), unlike the OTLP dotted
+# kubeletstats metrics — standard PromQL applies. All exprs verified against VM
+# (vmsingle-obs:8429) before commit.
+#
+# Thresholds grounded on observed values (2026-06-17): nodes_count ~840 healthy / 0 when
+# the gluetun tunnel comes up "silent" (today's incident); queue pending ~4 (drains fast
+# at PROCESSOR_CONCURRENCY=20); failed/processed are CUMULATIVE gauges so we use delta(),
+# not increase(). Metainfo fetch error rate runs ~95% by design (most DHT peers don't
+# answer) — deliberately NOT alerted, it would page constantly.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-bitmagnet-alerts
+  namespace: observability
+  labels:
+    grafana_alert: "1"
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+data:
+  bitmagnet-alerts.yaml: |
+    apiVersion: 1
+    groups:
+      - orgId: 1
+        name: bitmagnet
+        folder: platform
+        interval: 1m
+        rules:
+          # ── DHT crawler down: routing table <50 nodes for 10m ──
+          # Healthy steady-state is ~840 nodes (SCALING_FACTOR=2). It collapses to 0 when
+          # the in-pod gluetun WireGuard tunnel handshakes but silently stops passing UDP
+          # (the 2026-06-16 incident) — TCP egress still works so scrape-target-down does
+          # NOT catch it. <50 is unambiguously dead vs the ~840 baseline. Remedy: bounce
+          # the bitmagnet pod until the tunnel data-plane catches. noDataState=OK: if the
+          # pod is gone entirely, scrape-target-down (platform-alerts) already covers it.
+          - uid: bitmagnet-dht-down
+            title: Bitmagnet DHT crawler down
+            condition: C
+            for: 10m
+            noDataState: OK
+            execErrState: OK
+            data:
+              - refId: A
+                relativeTimeRange: { from: 600, to: 0 }
+                datasourceUid: victoriametrics
+                model:
+                  refId: A
+                  instant: true
+                  expr: max(bitmagnet_dht_ktable_nodes_count)
+              - refId: C
+                datasourceUid: __expr__
+                model:
+                  refId: C
+                  type: threshold
+                  expression: A
+                  conditions:
+                    - evaluator: { type: lt, params: [50] }
+            labels: { severity: critical }
+            annotations:
+              summary: 'Bitmagnet DHT routing table <50 nodes for 10m — crawler is down (likely gluetun silent-tunnel; bounce the bitmagnet pod)'
+
+          # ── process_torrent backlog stuck: >1000 pending for 30m ──
+          # pending drains to single digits normally (concurrency 20). A sustained backlog
+          # in the thousands means the processor is stalled — DB unreachable, classifier
+          # wedged, or TMDB enrichment blocking. 1000 is ~250x the observed baseline (4),
+          # so bursts won't trip it; for:30m rides out discovery spikes. noDataState=OK.
+          - uid: bitmagnet-process-backlog
+            title: Bitmagnet process_torrent backlog stuck
+            condition: C
+            for: 30m
+            noDataState: OK
+            execErrState: OK
+            data:
+              - refId: A
+                relativeTimeRange: { from: 600, to: 0 }
+                datasourceUid: victoriametrics
+                model:
+                  refId: A
+                  instant: true
+                  expr: max(bitmagnet_queue_jobs_total{status="pending"})
+              - refId: C
+                datasourceUid: __expr__
+                model:
+                  refId: C
+                  type: threshold
+                  expression: A
+                  conditions:
+                    - evaluator: { type: gt, params: [1000] }
+            labels: { severity: warning }
+            annotations:
+              summary: 'Bitmagnet has >1000 pending process_torrent jobs for 30m — processor stalled (check DB / classifier / TMDB)'
+
+          # ── Job failures climbing: >200 new failures in 30m ──
+          # queue_jobs_total{status="failed"} is a CUMULATIVE gauge (delta over a window =
+          # new failures in that window). Baseline growth is ~0/30m. >200 new failures in
+          # 30m is a clear processing-pipeline fault (not the steady trickle of malformed
+          # torrents). delta() tolerates the counter reset on pod restart (goes negative →
+          # no fire). for:5m de-bounces a single bad batch. noDataState=OK.
+          - uid: bitmagnet-failures-climbing
+            title: Bitmagnet job failures climbing
+            condition: C
+            for: 5m
+            noDataState: OK
+            execErrState: OK
+            data:
+              - refId: A
+                relativeTimeRange: { from: 2100, to: 0 }
+                datasourceUid: victoriametrics
+                model:
+                  refId: A
+                  instant: true
+                  expr: max(delta(bitmagnet_queue_jobs_total{status="failed"}[30m]))
+              - refId: C
+                datasourceUid: __expr__
+                model:
+                  refId: C
+                  type: threshold
+                  expression: A
+                  conditions:
+                    - evaluator: { type: gt, params: [200] }
+            labels: { severity: warning }
+            annotations:
+              summary: 'Bitmagnet job failures grew >200 in 30m — processing-pipeline fault (check bitmagnet logs)'
