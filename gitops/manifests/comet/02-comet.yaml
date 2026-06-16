@@ -58,7 +58,7 @@ spec:
             - { name: SCRAPE_NYAA,         value: background }
             - { name: SCRAPE_TORRENTIO,    value: background }
             - { name: SCRAPE_TORRENTSDB,   value: background }
-            - { name: SCRAPE_MEDIAFUSION,  value: background }
+            - { name: SCRAPE_MEDIAFUSION,  value: "False" }   # dead: public mediafusion 0 results (auth/ratelimit). Off in bg too.
             - { name: SCRAPE_STREMTHRU,    value: "False" }
             - { name: SCRAPE_ZILEAN,       value: "False" }
             - { name: SCRAPE_TORBOX,       value: "False" }

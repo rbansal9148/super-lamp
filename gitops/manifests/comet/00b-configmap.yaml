@@ -83,7 +83,7 @@ data:
   SCRAPE_JACKETT: 'false'
   SCRAPE_JACKETTIO: 'False'
   SCRAPE_LOCK_TTL: '300'
-  SCRAPE_MEDIAFUSION: live
+  SCRAPE_MEDIAFUSION: 'False'   # public mediafusion.elfhosted.com is UP but comet's scrape returns 0 (API password mismatch / ratelimit "Connector is closed"). Dead source like public zilean/stremthru. comet-bg also flipped to False in 02-comet.yaml.
   SCRAPE_NYAA: live
   SCRAPE_PEERFLIX: 'False'
   SCRAPE_PROWLARR: 'False'
