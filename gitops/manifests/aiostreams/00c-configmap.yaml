@@ -65,7 +65,7 @@ data:
   CATALOG_CACHE_TTL: '1800'
   COMET_URL: http://comet:2020
   CUSTOM_HTML: ''
-  DEFAULT_COMET_TIMEOUT: '12000'
+  DEFAULT_COMET_TIMEOUT: '20000'   # was 12000 — give comet room on heavy titles (capped by MAX_TIMEOUT below)
   DEFAULT_JACKETTIO_STREMTHRU_URL: http://stremthru:8080
   DEFAULT_MAX_CACHE_SIZE: '100000'
   DEFAULT_TIMEOUT: '8000'
@@ -91,7 +91,7 @@ data:
   MAX_SEL_LENGTH: '30000'
   MAX_STREAM_EXPRESSIONS: '300'
   MAX_STREAM_EXPRESSIONS_TOTAL_CHARACTERS: '300000'
-  MAX_TIMEOUT: '15000'
+  MAX_TIMEOUT: '20000'   # was 15000 — raised so DEFAULT_COMET_TIMEOUT=20000 isn't capped (this 15000 cap is what comet fetches were hitting)
   META_CACHE_TTL: '3600'
   MIN_TIMEOUT: '1000'
   ORION_STREMIO_ADDON_URL: https://5a0d1888fa64-orion.baby-beamup.club/

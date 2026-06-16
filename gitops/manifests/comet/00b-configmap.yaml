@@ -14,7 +14,7 @@ data:
   ANIME_MAPPING_SOURCE: database
   BACKGROUND_SCRAPER_CONCURRENT_WORKERS: '2'
   BACKGROUND_SCRAPER_ENABLED: 'True'
-  BACKGROUND_SCRAPER_INTERVAL: '1800'
+  BACKGROUND_SCRAPER_INTERVAL: '3600'
   BACKGROUND_SCRAPER_MAX_MOVIES_PER_RUN: '50'
   BACKGROUND_SCRAPER_MAX_SERIES_PER_RUN: '50'
   BITMAGNET_MAX_CONCURRENT_PAGES: '5'
@@ -82,7 +82,7 @@ data:
   SCRAPE_TORBOX: live   # live-only (no background): TorBox search API is tightly rate-limited and the key is shared with aiostreams
   SCRAPE_TORRENTIO: both
   SCRAPE_TORRENTSDB: both
-  SCRAPE_WAIT_TIMEOUT: '12'
+  SCRAPE_WAIT_TIMEOUT: '8'
   SCRAPE_ZILEAN: live
   STREMTHRU_SCRAPE_URL: https://stremthru.elfhosted.com   # public ElfHosted instance (local stremthru queried via aiostreams)
   STREMTHRU_URL: https://stremthru.elfhosted.com
