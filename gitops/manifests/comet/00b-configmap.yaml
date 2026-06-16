@@ -87,12 +87,12 @@ data:
   SCRAPE_NYAA: live
   SCRAPE_PEERFLIX: 'False'
   SCRAPE_PROWLARR: 'False'
-  SCRAPE_STREMTHRU: live
+  SCRAPE_STREMTHRU: 'False'   # public stremthru.elfhosted.com scrape is rate-limited (non-JSON, 0 torrents); no local torrent-index equivalent (local stremthru is a store proxy, not an indexer). Dropped. (STREMTHRU_URL below stays — it's the debrid-account-scrape store backend, different use.)
   SCRAPE_TORBOX: 'False'   # OFF on both pods: TorBox search API (search-api.torbox.app) shares one key with aiostreams' "TorBox Search" builtin; 3 consumers triggered a 24h search cooldown ("0 per 1 minute"). aiostreams TorBox Search is the single search consumer now; comet stays out. (comet-bg also has inline False.)
   SCRAPE_TORRENTIO: live
   SCRAPE_TORRENTSDB: live
   SCRAPE_WAIT_TIMEOUT: '8'
-  SCRAPE_ZILEAN: live
+  SCRAPE_ZILEAN: 'False'   # public zilean.elfhosted.com /dmm/filtered returns 404 (dead). NOT repointed to local zilean: aiostreams already queries local zilean (~117k req/24h) and comet gets DMM via the working public Comet source — so dropped to avoid the dead source + per-request latency (and not pile comet onto the local zilean).
   STREMTHRU_SCRAPE_URL: https://stremthru.elfhosted.com   # torrent SEARCH source (SCRAPE_STREMTHRU) — public elfhosted is fine for read-only search
   STREMTHRU_URL: http://stremthru:8080   # debrid STORE backend for debrid-account-scrape (list_magnets). MUST be local: public elfhosted 403s store/account ops (decode-mimetype 403 on /v0/store/magnets).
   TORRENTIO_URL: https://torrentio.strem.fun
