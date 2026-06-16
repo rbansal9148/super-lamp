@@ -1,0 +1,109 @@
+# Comet (Stremio debrid addon) dashboard. Provisioned by the Grafana sidecar.
+# Comet exposes NO Prometheus /metrics endpoint, so this is built from the two
+# signals that DO exist for it:
+#   - Linkerd proxy golden signals in VM (it's meshed): inbound request rate +
+#     success rate, keyed by linkerd_io_proxy_deployment="comet". No latency panel —
+#     the linkerd latency histogram (response_latency_ms_bucket) is not scraped into VM.
+#   - VictoriaLogs (datasource uid victorialogs): comet logs are plain-text pipe-
+#     delimited lines, so panels word-match _msg. The dominant signal is public-source
+#     429 rate-limiting (Torrentio/Nyaa/TorrentsDB/TorBox) — surfaced here instead of
+#     hand-grepping. Real (non-429) ERRORs run ~0 when healthy.
+# All queries verified non-empty (VM 8429 / VLogs vlsingle-obs:9428) before commit.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-comet
+  namespace: observability
+  labels:
+    grafana_dashboard: "1"
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+data:
+  comet.json: |
+    {
+      "uid": "comet",
+      "title": "Comet — Stremio Addon",
+      "tags": ["comet", "stremio", "gitops"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "30s",
+      "time": { "from": "now-6h", "to": "now" },
+      "templating": { "list": [] },
+      "annotations": { "list": [] },
+      "panels": [
+        {
+          "id": 1, "type": "stat", "title": "Inbound success rate",
+          "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "100 * sum(rate(response_total{linkerd_io_proxy_deployment=\"comet\",direction=\"inbound\",classification=\"success\"}[5m])) / sum(rate(response_total{linkerd_io_proxy_deployment=\"comet\",direction=\"inbound\"}[5m]))", "legendFormat": "success" } ],
+          "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "yellow", "value": 90 }, { "color": "green", "value": 99 } ] } }, "overrides": [] },
+          "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } }
+        },
+        {
+          "id": 2, "type": "stat", "title": "Inbound request rate",
+          "gridPos": { "h": 5, "w": 6, "x": 6, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum(rate(request_total{linkerd_io_proxy_deployment=\"comet\",direction=\"inbound\"}[5m]))", "legendFormat": "req/s" } ],
+          "fieldConfig": { "defaults": { "unit": "reqps", "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] } }, "overrides": [] },
+          "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } }
+        },
+        {
+          "id": 3, "type": "stat", "title": "Rate-limit (429) events (range)",
+          "gridPos": { "h": 5, "w": 6, "x": 12, "y": 0 },
+          "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+          "targets": [ { "refId": "A", "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" }, "queryType": "stats", "expr": "{k8s.container.name=\"comet\"} \"429\" | stats count() c" } ],
+          "fieldConfig": { "defaults": { "unit": "short", "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 1 } ] } }, "overrides": [] },
+          "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "/^c$/" } }
+        },
+        {
+          "id": 4, "type": "stat", "title": "Real errors (excl 429) (range)",
+          "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 },
+          "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+          "targets": [ { "refId": "A", "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" }, "queryType": "stats", "expr": "{k8s.container.name=\"comet\"} ERROR -\"429\" -\"Max retries\" | stats count() c" } ],
+          "fieldConfig": { "defaults": { "unit": "short", "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "red", "value": 1 } ] } }, "overrides": [] },
+          "options": { "colorMode": "value", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"], "fields": "/^c$/" } }
+        },
+        {
+          "id": 5, "type": "timeseries", "title": "Inbound request rate (/s)",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 5 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [
+            { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum by (classification) (rate(response_total{linkerd_io_proxy_deployment=\"comet\",direction=\"inbound\"}[5m]))", "legendFormat": "{{classification}}" }
+          ],
+          "fieldConfig": { "defaults": { "unit": "reqps", "custom": { "drawStyle": "line", "fillOpacity": 15, "stacking": { "mode": "normal" }, "showPoints": "never" } }, "overrides": [ { "matcher": { "id": "byName", "options": "failure" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } } ] } ] },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+        },
+        {
+          "id": 6, "type": "timeseries", "title": "Inbound success rate %",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 5 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "100 * sum(rate(response_total{linkerd_io_proxy_deployment=\"comet\",direction=\"inbound\",classification=\"success\"}[5m])) / sum(rate(response_total{linkerd_io_proxy_deployment=\"comet\",direction=\"inbound\"}[5m]))", "legendFormat": "success %" } ],
+          "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never", "thresholdsStyle": { "mode": "line" } }, "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 99 } ] } }, "overrides": [] },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } }
+        },
+        {
+          "id": 7, "type": "table", "title": "Rate-limited upstream sources (429, range)",
+          "gridPos": { "h": 8, "w": 12, "x": 0, "y": 13 },
+          "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+          "targets": [ { "refId": "A", "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" }, "queryType": "stats", "expr": "{k8s.container.name=\"comet\"} \"429\" | extract \"[<src>]\" | stats by (src) count() hits | sort by (hits desc) | limit 15" } ],
+          "fieldConfig": { "defaults": { "custom": { "align": "auto" } }, "overrides": [] },
+          "options": { "sortBy": [ { "displayName": "hits", "desc": true } ] }
+        },
+        {
+          "id": 8, "type": "table", "title": "Scraper activity — result lines by scraper (range)",
+          "gridPos": { "h": 8, "w": 12, "x": 12, "y": 13 },
+          "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+          "targets": [ { "refId": "A", "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" }, "queryType": "stats", "expr": "{k8s.container.name=\"comet\"} \"Scraper\" \"found\" | extract \"Scraper <scraper> found\" | stats by (scraper) count() lines | sort by (lines desc) | limit 15" } ],
+          "fieldConfig": { "defaults": { "custom": { "align": "auto" } }, "overrides": [] },
+          "options": { "sortBy": [ { "displayName": "lines", "desc": true } ] }
+        },
+        {
+          "id": 9, "type": "logs", "title": "Recent ERROR / rate-limit / WARNING lines",
+          "gridPos": { "h": 9, "w": 24, "x": 0, "y": 21 },
+          "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" },
+          "targets": [ { "refId": "A", "datasource": { "type": "victoriametrics-logs-datasource", "uid": "victorialogs" }, "queryType": "instant", "expr": "{k8s.container.name=\"comet\"} (ERROR OR \"429\" OR WARNING) | fields _time, _msg" } ],
+          "options": { "showTime": true, "wrapLogMessage": true, "sortOrder": "Descending", "dedupStrategy": "none" }
+        }
+      ]
+    }

@@ -1,0 +1,60 @@
+# Wave 2 — comet serving-health alert (Grafana-provisioned, metric-based via Linkerd).
+# Comet has no Prometheus /metrics, but it's meshed, so Linkerd proxy metrics in VM give
+# its inbound success rate (classification=success vs failure=5xx), keyed by
+# linkerd_io_proxy_deployment="comet". Same sidecar/contact-point/folder as platform-alerts.
+#
+# WHY: comet's readiness probe is a shallow GET /health that returns ok even when the
+# request handlers 5xx (DB down, internal fault). pod-not-ready/crashloop (platform-alerts)
+# only catch the pod being DOWN — a Ready-but-erroring comet serves nothing to aiostreams
+# yet pages nothing. This closes that gap.
+#
+# Threshold grounded (2026-06-16): inbound success = 100% at rest. <80% sustained 15m = a
+# real serving fault, not a blip. noDataState=OK: comet is low-traffic (~0.2 rps); when it
+# gets no requests the ratio is no-data and must NOT page (pod-down is covered elsewhere).
+# 429s from upstream scrapers do NOT affect this — they're comet's OUTBOUND calls, not the
+# inbound responses comet returns to its clients.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-comet-alerts
+  namespace: observability
+  labels:
+    grafana_alert: "1"
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+data:
+  comet-alerts.yaml: |
+    apiVersion: 1
+    groups:
+      - orgId: 1
+        name: comet
+        folder: platform
+        interval: 1m
+        rules:
+          - uid: comet-serving-errors
+            title: Comet serving errors (5xx)
+            condition: C
+            for: 15m
+            noDataState: OK
+            execErrState: OK
+            data:
+              - refId: A
+                relativeTimeRange: { from: 600, to: 0 }
+                datasourceUid: victoriametrics
+                model:
+                  refId: A
+                  instant: true
+                  expr: |-
+                    100 * sum(rate(response_total{linkerd_io_proxy_deployment="comet",direction="inbound",classification="success"}[10m]))
+                    / sum(rate(response_total{linkerd_io_proxy_deployment="comet",direction="inbound"}[10m]))
+              - refId: C
+                datasourceUid: __expr__
+                model:
+                  refId: C
+                  type: threshold
+                  expression: A
+                  conditions:
+                    - evaluator: { type: lt, params: [80] }
+            labels: { severity: warning }
+            annotations:
+              summary: 'Comet inbound success rate <80% for 15m — pod is Ready but serving 5xx (check comet logs / comet-postgres)'
