@@ -39,7 +39,7 @@ data:
           - uid: bitmagnet-dht-down
             title: Bitmagnet DHT crawler down
             condition: C
-            for: 10m
+            for: 0m   # TEST: temporarily 0m (was 10m) to fire fast — REVERT
             noDataState: OK
             execErrState: OK
             data:
@@ -57,7 +57,7 @@ data:
                   type: threshold
                   expression: A
                   conditions:
-                    - evaluator: { type: lt, params: [50] }
+                    - evaluator: { type: lt, params: [10000] }   # TEST: temporarily 10000 (was 50) to trip on healthy ~845 — REVERT
             labels: { severity: critical }
             annotations:
               summary: 'Bitmagnet DHT routing table <50 nodes for 10m — crawler is down (likely gluetun silent-tunnel; bounce the bitmagnet pod)'
