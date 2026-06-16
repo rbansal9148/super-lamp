@@ -1,0 +1,176 @@
+# bitmagnet DHT crawler dashboard. Provisioned by the Grafana sidecar (watches
+# ConfigMaps labelled grafana_dashboard in this namespace). Metrics scraped from
+# bitmagnet:3333/metrics via the bitmagnet ServiceMonitor -> OTel Target Allocator -> VM.
+# GitOps-managed — do NOT click-build in the UI (UI dashboards vanish on redeploy).
+# All panel queries verified non-empty against VM before commit (vmsingle-obs:8429).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-bitmagnet
+  namespace: observability
+  labels:
+    grafana_dashboard: "1"
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+data:
+  bitmagnet.json: |
+    {
+      "uid": "bitmagnet",
+      "title": "Bitmagnet — DHT Crawler",
+      "tags": ["bitmagnet", "dht", "gitops"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "30s",
+      "time": { "from": "now-6h", "to": "now" },
+      "templating": { "list": [] },
+      "annotations": { "list": [] },
+      "panels": [
+        {
+          "id": 1, "type": "stat", "title": "DHT nodes (routing table)",
+          "gridPos": { "h": 5, "w": 6, "x": 0, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "bitmagnet_dht_ktable_nodes_count", "legendFormat": "nodes" } ],
+          "fieldConfig": { "defaults": { "unit": "short", "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "yellow", "value": 50 }, { "color": "green", "value": 300 } ] } }, "overrides": [] },
+          "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } }
+        },
+        {
+          "id": 2, "type": "stat", "title": "Infohashes in ktable",
+          "gridPos": { "h": 5, "w": 6, "x": 6, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "bitmagnet_dht_ktable_hashes_count", "legendFormat": "hashes" } ],
+          "fieldConfig": { "defaults": { "unit": "short", "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] } }, "overrides": [] },
+          "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } }
+        },
+        {
+          "id": 3, "type": "stat", "title": "Torrents persisted (this run)",
+          "gridPos": { "h": 5, "w": 6, "x": 12, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "bitmagnet_dht_crawler_persisted_total{entity=\"Torrent\"}", "legendFormat": "torrents" } ],
+          "fieldConfig": { "defaults": { "unit": "short", "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] } }, "overrides": [] },
+          "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } }
+        },
+        {
+          "id": 4, "type": "stat", "title": "Resident memory",
+          "gridPos": { "h": 5, "w": 6, "x": 18, "y": 0 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "bitmagnet_process_resident_memory_bytes", "legendFormat": "rss" } ],
+          "fieldConfig": { "defaults": { "unit": "decbytes", "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 1610612736 }, { "color": "red", "value": 1932735283 } ] } }, "overrides": [] },
+          "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } }
+        },
+        {
+          "id": 5, "type": "timeseries", "title": "DHT node churn (/s)",
+          "gridPos": { "h": 8, "w": 8, "x": 0, "y": 5 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [
+            { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "rate(bitmagnet_dht_ktable_nodes_added[5m])", "legendFormat": "added" },
+            { "refId": "B", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "rate(bitmagnet_dht_ktable_nodes_dropped[5m])", "legendFormat": "dropped" }
+          ],
+          "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+        },
+        {
+          "id": 6, "type": "timeseries", "title": "Infohash discovery (/s)",
+          "gridPos": { "h": 8, "w": 8, "x": 8, "y": 5 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [
+            { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "rate(bitmagnet_dht_ktable_hashes_added[5m])", "legendFormat": "discovered" },
+            { "refId": "B", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "rate(bitmagnet_dht_ktable_hashes_dropped[5m])", "legendFormat": "dropped" }
+          ],
+          "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+        },
+        {
+          "id": 7, "type": "timeseries", "title": "Index persist rate by entity (/s)",
+          "gridPos": { "h": 8, "w": 8, "x": 16, "y": 5 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum by (entity) (rate(bitmagnet_dht_crawler_persisted_total[5m]))", "legendFormat": "{{entity}}" } ],
+          "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+        },
+        {
+          "id": 8, "type": "timeseries", "title": "process_torrent queue by status",
+          "gridPos": { "h": 8, "w": 8, "x": 0, "y": 13 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum by (status) (bitmagnet_queue_jobs_total)", "legendFormat": "{{status}}" } ],
+          "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [ { "matcher": { "id": "byName", "options": "failed" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } } ] }, { "matcher": { "id": "byName", "options": "pending" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "yellow" } } ] } ] },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+        },
+        {
+          "id": 9, "type": "timeseries", "title": "Metainfo fetch (/s)",
+          "gridPos": { "h": 8, "w": 8, "x": 8, "y": 13 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [
+            { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "rate(bitmagnet_meta_info_requester_success_total[5m])", "legendFormat": "success" },
+            { "refId": "B", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "rate(bitmagnet_meta_info_requester_error_total[5m])", "legendFormat": "error" }
+          ],
+          "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [ { "matcher": { "id": "byName", "options": "error" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } } ] } ] },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+        },
+        {
+          "id": 10, "type": "timeseries", "title": "Metainfo fetch latency",
+          "gridPos": { "h": 8, "w": 8, "x": 16, "y": 13 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [
+            { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "histogram_quantile(0.5, sum by (le) (rate(bitmagnet_meta_info_requester_duration_seconds_bucket[5m])))", "legendFormat": "p50" },
+            { "refId": "B", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "histogram_quantile(0.95, sum by (le) (rate(bitmagnet_meta_info_requester_duration_seconds_bucket[5m])))", "legendFormat": "p95" }
+          ],
+          "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+        },
+        {
+          "id": 11, "type": "timeseries", "title": "DHT query rate by type (/s)",
+          "gridPos": { "h": 8, "w": 8, "x": 0, "y": 21 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum by (query) (rate(bitmagnet_dht_server_query_success_total[5m]))", "legendFormat": "{{query}}" } ],
+          "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+        },
+        {
+          "id": 12, "type": "timeseries", "title": "DHT query errors by type (/s)",
+          "gridPos": { "h": 8, "w": 8, "x": 8, "y": 21 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum by (query) (rate(bitmagnet_dht_server_query_error_total[5m]))", "legendFormat": "{{query}}" } ],
+          "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+        },
+        {
+          "id": 13, "type": "timeseries", "title": "DHT query p95 latency by type",
+          "gridPos": { "h": 8, "w": 8, "x": 16, "y": 21 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "histogram_quantile(0.95, sum by (le,query) (rate(bitmagnet_dht_server_query_duration_seconds_bucket[5m])))", "legendFormat": "{{query}}" } ],
+          "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+        },
+        {
+          "id": 14, "type": "timeseries", "title": "CPU (cores)",
+          "gridPos": { "h": 6, "w": 8, "x": 0, "y": 29 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "rate(bitmagnet_process_cpu_seconds_total[5m])", "legendFormat": "cpu" } ],
+          "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } }
+        },
+        {
+          "id": 15, "type": "timeseries", "title": "Network (/s)",
+          "gridPos": { "h": 6, "w": 8, "x": 8, "y": 29 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [
+            { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "rate(bitmagnet_process_network_receive_bytes_total[5m])", "legendFormat": "rx" },
+            { "refId": "B", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "rate(bitmagnet_process_network_transmit_bytes_total[5m])", "legendFormat": "tx" }
+          ],
+          "fieldConfig": { "defaults": { "unit": "Bps", "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [] },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+        },
+        {
+          "id": 16, "type": "timeseries", "title": "Open file descriptors",
+          "gridPos": { "h": 6, "w": 8, "x": 16, "y": 29 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [
+            { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "bitmagnet_process_open_fds", "legendFormat": "open" },
+            { "refId": "B", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "bitmagnet_process_max_fds", "legendFormat": "max" }
+          ],
+          "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 0, "showPoints": "never" } }, "overrides": [] },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+        }
+      ]
+    }
