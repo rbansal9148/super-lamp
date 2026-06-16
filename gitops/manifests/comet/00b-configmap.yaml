@@ -34,7 +34,7 @@ data:
   DATABASE_BATCH_SIZE: '20000'
   DATABASE_STARTUP_CLEANUP_INTERVAL: '3600'
   DATABASE_TYPE: postgresql
-  DEBRIDIO_PROVIDER: realdebrid
+  DEBRIDIO_PROVIDER: torbox
   DEBRID_CACHE_CHECK_RATIO: '0'
   DEBRID_CACHE_TTL: '86400'
   DIGITAL_RELEASE_FILTER: 'False'
@@ -65,7 +65,7 @@ data:
   PROWLARR_INDEXERS: '[]'
   PROWLARR_URL: http://prowlarr:9696
   PROXY_DEBRID_STREAM: 'False'
-  PROXY_DEBRID_STREAM_DEBRID_DEFAULT_SERVICE: realdebrid
+  PROXY_DEBRID_STREAM_DEBRID_DEFAULT_SERVICE: torbox
   PROXY_DEBRID_STREAM_INACTIVITY_THRESHOLD: '300'
   PROXY_DEBRID_STREAM_MAX_CONNECTIONS: '-1'
   PROXY_ETHOS: on_failure
@@ -92,8 +92,8 @@ data:
   SCRAPE_TORRENTSDB: live
   SCRAPE_WAIT_TIMEOUT: '8'
   SCRAPE_ZILEAN: live
-  STREMTHRU_SCRAPE_URL: https://stremthru.elfhosted.com   # public ElfHosted instance (local stremthru queried via aiostreams)
-  STREMTHRU_URL: https://stremthru.elfhosted.com
+  STREMTHRU_SCRAPE_URL: https://stremthru.elfhosted.com   # torrent SEARCH source (SCRAPE_STREMTHRU) — public elfhosted is fine for read-only search
+  STREMTHRU_URL: http://stremthru:8080   # debrid STORE backend for debrid-account-scrape (list_magnets). MUST be local: public elfhosted 403s store/account ops (decode-mimetype 403 on /v0/store/magnets).
   TORRENTIO_URL: https://torrentio.strem.fun
   TORRENT_CACHE_TTL: '2592000'
   TORRENT_DISABLED_STREAM_DESCRIPTION: Direct torrent playback is disabled on this server. Please configure a debrid provider.
