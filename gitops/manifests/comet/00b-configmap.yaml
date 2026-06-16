@@ -7,13 +7,21 @@ metadata:
   labels:
     app: comet
 data:
+  # SPLIT DEPLOYMENT (2026-06-17): this ConfigMap is the LIVE baseline, consumed verbatim
+  # by the `comet` (live) Deployment — on-demand serving, egress on the home IP (no proxy,
+  # proxy URLs removed from comet-secrets). The `comet-bg` Deployment envFroms this same
+  # ConfigMap and OVERRIDES the per-mode keys inline (SCRAPE_* -> background/False,
+  # BACKGROUND_SCRAPER_ENABLED=True, FASTAPI_WORKERS=1) + sets the gluetun proxy URLs so
+  # background scraping egresses via VPN. Both share comet-postgres, so live serves bg's
+  # cached torrents. Keep per-mode keys defined HERE at their live values; change bg's view
+  # in 02-comet.yaml, not here.
   ADDON_ID: stremio.comet.fast
   ADDON_NAME: Comet
   ANIME_MAPPING_ENABLED: 'True'
   ANIME_MAPPING_REFRESH_INTERVAL: '432000'
   ANIME_MAPPING_SOURCE: database
   BACKGROUND_SCRAPER_CONCURRENT_WORKERS: '2'
-  BACKGROUND_SCRAPER_ENABLED: 'True'
+  BACKGROUND_SCRAPER_ENABLED: 'False'   # live baseline = OFF; comet-bg overrides to True
   BACKGROUND_SCRAPER_INTERVAL: '3600'
   BACKGROUND_SCRAPER_MAX_MOVIES_PER_RUN: '50'
   BACKGROUND_SCRAPER_MAX_SERIES_PER_RUN: '50'
@@ -69,19 +77,19 @@ data:
   RTN_FILTER_DEBUG: 'False'
   SCRAPE_AIOSTREAMS: 'False'
   SCRAPE_BITMAGNET: 'False'
-  SCRAPE_COMET: both
+  SCRAPE_COMET: live
   SCRAPE_DEBRIDIO: 'False'
   SCRAPE_JACKETT: 'false'
   SCRAPE_JACKETTIO: 'False'
   SCRAPE_LOCK_TTL: '300'
-  SCRAPE_MEDIAFUSION: both
-  SCRAPE_NYAA: both
+  SCRAPE_MEDIAFUSION: live
+  SCRAPE_NYAA: live
   SCRAPE_PEERFLIX: 'False'
   SCRAPE_PROWLARR: 'False'
   SCRAPE_STREMTHRU: live
   SCRAPE_TORBOX: live   # live-only (no background): TorBox search API is tightly rate-limited and the key is shared with aiostreams
-  SCRAPE_TORRENTIO: both
-  SCRAPE_TORRENTSDB: both
+  SCRAPE_TORRENTIO: live
+  SCRAPE_TORRENTSDB: live
   SCRAPE_WAIT_TIMEOUT: '8'
   SCRAPE_ZILEAN: live
   STREMTHRU_SCRAPE_URL: https://stremthru.elfhosted.com   # public ElfHosted instance (local stremthru queried via aiostreams)

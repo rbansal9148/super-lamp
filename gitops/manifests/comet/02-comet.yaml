@@ -1,5 +1,11 @@
-# comet app — stremio debrid addon / scraper. Config+secrets from sealed comet-secrets.
-# Mesh peers resolved same-namespace; egress via gluetun:8888. comet.k8s.* behind Authelia.
+# comet — SPLIT into two Deployments sharing comet-postgres (2026-06-17):
+#   • comet (live): on-demand serving. NO proxy env -> scrapes egress on the home IP.
+#     Owns the Service + IngressRoute (Authelia /admin). Linkerd name "comet" (dashboards
+#     /alerts key on this). BACKGROUND_SCRAPER off (configmap baseline).
+#   • comet-bg: background scraper only. Sets the gluetun proxy URLs inline -> scrapes
+#     egress via VPN. No Service, no ingress. Flips SCRAPE_* to background/False.
+# Both envFrom comet-config + comet-secrets; both write the same torrent cache in
+# comet-postgres, so live serves bg's pre-cached results. SCRAPE_LOCK_TTL dedupes overlap.
 apiVersion: apps/v1
 kind: Deployment
 metadata: { name: comet, namespace: apps, labels: { app: comet } }
@@ -18,6 +24,55 @@ spec:
           envFrom: [{ configMapRef: { name: comet-config } }, { secretRef: { name: comet-secrets } }]
           ports: [{ containerPort: 2020, name: http }]
           resources: { requests: { memory: 768Mi, cpu: 25m }, limits: { memory: 1536Mi, cpu: "2" } }   # req→768Mi: 30d workload-peak 962Mi (was 512Mi); limit 1536Mi for burst headroom
+          volumeMounts: [{ name: data, mountPath: /app/data }]
+          readinessProbe: { httpGet: { path: /health, port: 2020 }, initialDelaySeconds: 20, periodSeconds: 20, timeoutSeconds: 8 }
+      volumes: [{ name: data, emptyDir: {} }]
+---
+# comet-bg — background-scraper-only instance. Egress via the shared gluetun VPN proxy
+# (proxy URLs set inline here, NOT in comet-secrets, so they apply ONLY to this pod).
+# No Service / IngressRoute: nothing routes user traffic here. Shares comet-postgres with
+# the live pod, which serves whatever this pod caches. Linkerd deployment="comet-bg" so its
+# outbound 429s stay off the live "comet" inbound dashboards/alerts.
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: comet-bg, namespace: apps, labels: { app: comet-bg } }
+spec:
+  replicas: 1
+  selector: { matchLabels: { app: comet-bg } }
+  template:
+    metadata: { labels: { app: comet-bg } }
+    spec:
+      enableServiceLinks: false
+      automountServiceAccountToken: false
+      containers:
+        - name: comet
+          image: g0ldyy/comet:dev@sha256:2725968b372b8efcfdcd13c6a9277b334a84152a312429975d7057768024de62
+          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
+          envFrom: [{ configMapRef: { name: comet-config } }, { secretRef: { name: comet-secrets } }]
+          # Per-mode overrides on top of comet-config (the live baseline):
+          env:
+            # background scraper ON; serving sources flipped to background (the ones that
+            # were "both" pre-split). Live-only sources have no bg component -> False.
+            - { name: BACKGROUND_SCRAPER_ENABLED, value: "True" }
+            - { name: SCRAPE_COMET,        value: background }
+            - { name: SCRAPE_NYAA,         value: background }
+            - { name: SCRAPE_TORRENTIO,    value: background }
+            - { name: SCRAPE_TORRENTSDB,   value: background }
+            - { name: SCRAPE_MEDIAFUSION,  value: background }
+            - { name: SCRAPE_STREMTHRU,    value: "False" }
+            - { name: SCRAPE_ZILEAN,       value: "False" }
+            - { name: SCRAPE_TORBOX,       value: "False" }
+            # single worker: with gunicorn preload a multi-worker pod would start the bg
+            # scraper per worker (DB SCRAPE_LOCK dedupes, but 1 worker avoids the churn).
+            - { name: FASTAPI_WORKERS, value: "1" }
+            # egress via VPN: these apply ONLY to this Deployment (live has no proxy).
+            - { name: COMET_PROXY_URL,      value: "http://gluetun:8888" }
+            - { name: NYAA_PROXY_URL,       value: "http://gluetun:8888" }
+            - { name: TMDB_PROXY_URL,       value: "http://gluetun:8888" }
+            - { name: TORRENTIO_PROXY_URL,  value: "http://gluetun:8888" }
+            - { name: TORRENTSDB_PROXY_URL, value: "http://gluetun:8888" }
+          ports: [{ containerPort: 2020, name: http }]
+          resources: { requests: { memory: 512Mi, cpu: 25m }, limits: { memory: 1536Mi, cpu: "2" } }
           volumeMounts: [{ name: data, mountPath: /app/data }]
           readinessProbe: { httpGet: { path: /health, port: 2020 }, initialDelaySeconds: 20, periodSeconds: 20, timeoutSeconds: 8 }
       volumes: [{ name: data, emptyDir: {} }]
