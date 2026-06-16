@@ -67,7 +67,7 @@ data:
   REMOVE_ADULT_CONTENT: 'False'
   RTN_FILTER_DEBUG: 'False'
   SCRAPE_AIOSTREAMS: 'False'
-  SCRAPE_BITMAGNET: live
+  SCRAPE_BITMAGNET: 'False'
   SCRAPE_COMET: background
   SCRAPE_DEBRIDIO: 'False'
   SCRAPE_JACKETT: 'false'
@@ -76,19 +76,19 @@ data:
   SCRAPE_MEDIAFUSION: 'false'
   SCRAPE_NYAA: background
   SCRAPE_PEERFLIX: 'False'
-  SCRAPE_PROWLARR: live
+  SCRAPE_PROWLARR: 'False'
   SCRAPE_STREMTHRU: live
   SCRAPE_TORBOX: 'false'
   SCRAPE_TORRENTIO: 'false'
   SCRAPE_TORRENTSDB: background
   SCRAPE_WAIT_TIMEOUT: '30'
   SCRAPE_ZILEAN: live
-  STREMTHRU_SCRAPE_URL: http://stremthru:8080
-  STREMTHRU_URL: http://stremthru:8080
+  STREMTHRU_SCRAPE_URL: https://stremthru.elfhosted.com   # public ElfHosted instance (local stremthru queried via aiostreams)
+  STREMTHRU_URL: https://stremthru.elfhosted.com
   TORRENTIO_URL: https://torrentio.strem.fun
   TORRENT_CACHE_TTL: '2592000'
   TORRENT_DISABLED_STREAM_DESCRIPTION: Direct torrent playback is disabled on this server. Please configure a debrid provider.
   TORRENT_DISABLED_STREAM_NAME: '[INFO] Comet'
   TORRENT_DISABLED_STREAM_URL: https://comet.fast
   USE_GUNICORN: 'True'
-  ZILEAN_URL: '["http://zilean:8181"]'
+  ZILEAN_URL: '["https://zilean.elfhosted.com"]'   # public ElfHosted DMM instance (local zilean queried via aiostreams)
