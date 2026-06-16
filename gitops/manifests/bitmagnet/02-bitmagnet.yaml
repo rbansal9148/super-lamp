@@ -63,13 +63,13 @@ spec:
             - { name: TMDB_ENABLED, value: "true" }
             - name: TMDB_API_KEY
               valueFrom: { secretKeyRef: { name: bitmagnet-secrets, key: TMDB_API_KEY } }
-            - { name: "DHT_CRAWLER.SCALING_FACTOR", value: "1" }   # was 2 — halve DHT crawl/growth rate (single-node disk at 86%)
+            - { name: "DHT_CRAWLER.SCALING_FACTOR", value: "2" }   # restored to 2 (full crawl rate); disk back to 49%/99G free after PG18.4 nuke
             - { name: CLASSIFIER_DELETE_XXX, value: "true" }       # auto-delete adult content on classify; default workflow honors this flag (≈29% of the index was xxx)
-            - { name: PROCESSOR_CONCURRENCY, value: "10" }
+            - { name: PROCESSOR_CONCURRENCY, value: "20" }
             - { name: BM_FILTER_CATEGORIES, value: "2000,5000" }
             - { name: LOG_FILE_ROTATOR_ENABLED, value: "false" }
           ports: [{ containerPort: 3333, name: http }]
-          resources: { requests: { memory: 448Mi, cpu: 100m }, limits: { memory: 1Gi, cpu: "2" } }   # req rightsized: 7d peak ~530Mi (was 128Mi)
+          resources: { requests: { memory: 768Mi, cpu: 250m }, limits: { memory: 2Gi, cpu: "2" } }   # scaled up for SCALING_FACTOR=2 + PROCESSOR_CONCURRENCY=20 (was 448Mi/1Gi; 7d peak ~530Mi at factor 1)
           readinessProbe:
             httpGet: { path: /, port: 3333 }
             initialDelaySeconds: 30
