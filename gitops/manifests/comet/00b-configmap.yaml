@@ -20,11 +20,12 @@ data:
   ANIME_MAPPING_ENABLED: 'True'
   ANIME_MAPPING_REFRESH_INTERVAL: '432000'
   ANIME_MAPPING_SOURCE: database
-  BACKGROUND_SCRAPER_CONCURRENT_WORKERS: '2'
+  BACKGROUND_SCRAPER_CONCURRENT_WORKERS: '4'   # bg-only (live has bg off). 2->4: more parallel title scrapes per cycle. Safe post-split — bg has its own VPN IP, doesn't affect live serving.
   BACKGROUND_SCRAPER_ENABLED: 'False'   # live baseline = OFF; comet-bg overrides to True
   BACKGROUND_SCRAPER_INTERVAL: '3600'
-  BACKGROUND_SCRAPER_MAX_MOVIES_PER_RUN: '50'
-  BACKGROUND_SCRAPER_MAX_SERIES_PER_RUN: '50'
+  BACKGROUND_SCRAPER_MAX_MOVIES_PER_RUN: '100'
+  BACKGROUND_SCRAPER_MAX_SERIES_PER_RUN: '100'
+  BACKGROUND_SCRAPER_RUN_TIME_BUDGET: '2700'   # was default 1800; cycle was hitting the budget at 73/100. 2700 < INTERVAL 3600 keeps a 900s gap (no runaway-loop overlap).
   BITMAGNET_MAX_CONCURRENT_PAGES: '5'
   BITMAGNET_MAX_OFFSET: '15000'
   BITMAGNET_URL: '["http://bitmagnet:3333:both"]'
