@@ -67,3 +67,38 @@ data:
             labels: { severity: warning, scope: upstream }
             annotations:
               summary: "stremthru is logging debrid-store upstream errors (>=5 in 10m) — likely an UPSTREAM store outage (TorBox/RD/etc.), not the cluster. Check the store's status page; the local stack is probably fine."
+          # ── aiometadata upstream metadata-API failures (>5 "fetch failed" / 10m) ──
+          # aiometadata routes ALL egress via gluetun because the ISP SNI-resets TLS to
+          # api.themoviedb.org on the home IP (see aiometadata/00b-configmap HTTPS_PROXY;
+          # verified 2026-06-17 direct 0/12 vs via-VPN 12/12). If that egress path breaks —
+          # gluetun down, VPN IP blocked/rate-limited by an upstream, or the SNI filtering
+          # follows onto the tunnel — TMDB/TVDB/etc. fetches fail and the app logs
+          # "fetch failed", so search + metadata stop resolving in Stremio.
+          # Threshold grounded (2026-06-17 via VLogs stats_query): healthy = 0 over 3h
+          # post-cutover; the pre-cutover failure window logged 60 in 24h. Same RATE shape
+          # as the stremthru rule (>5 in 10m, sustained 5m) so a single transient CDN reset
+          # (possible even via VPN) self-resolves without paging. queryType MUST be 'stats'.
+          - uid: aiometadata-upstream-fetch-failed
+            title: aiometadata upstream metadata-API fetch failures
+            condition: C
+            for: 5m
+            data:
+              - refId: A
+                relativeTimeRange: { from: 600, to: 0 }
+                datasourceUid: victorialogs
+                model:
+                  refId: A
+                  datasource: { type: victoriametrics-logs-datasource, uid: victorialogs }
+                  expr: 'k8s.container.name:aiometadata AND "fetch failed" | stats count() as hits'
+                  queryType: stats
+              - refId: C
+                datasourceUid: __expr__
+                model:
+                  refId: C
+                  type: threshold
+                  expression: A
+                  conditions:
+                    - evaluator: { type: gt, params: [5] }
+            labels: { severity: warning, scope: upstream }
+            annotations:
+              summary: "aiometadata is logging upstream 'fetch failed' (>5 in 10m) — TMDB/TVDB/etc. unreachable, so search + metadata stop resolving. Egress routes via gluetun; check the VPN (gluetun up? IP blocked/rate-limited?) and TMDB reachability. Likely an egress/upstream problem, not the cluster."
