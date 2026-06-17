@@ -29,7 +29,14 @@ for ns in $OWNED; do
   kubectl get pods -n "$ns" -o json 2>/dev/null > "$TMPD/$ns.json"
 done
 
-NS_LIST="$OWNED" TMPD="$TMPD" python3 - <<'PY'
+# Pass the allowlist + dangerous-cap set INLINE: they're set with `:=` above (bash-local,
+# NOT exported), so the python child wouldn't otherwise inherit them — allow_caps/danger
+# would silently fall back to empty, dead-lettering both the caps-add allowlist and the
+# baseline-tally exemption. (Same export-trap as the thresholds.sh fix.)
+NS_LIST="$OWNED" TMPD="$TMPD" \
+  SECCTX_ADDED_CAPS_ALLOW="$SECCTX_ADDED_CAPS_ALLOW" \
+  SECCTX_DANGEROUS_CAPS="$SECCTX_DANGEROUS_CAPS" \
+  python3 - <<'PY'
 import json, os
 
 allow_caps = set((os.environ.get("SECCTX_ADDED_CAPS_ALLOW") or "").split())
@@ -79,6 +86,16 @@ for ns in (os.environ.get("NS_LIST") or "").split():
                 print(f"MED|security/caps-add|{ns}/{name} container {cn} adds escape-grade capabilit{'ies' if len(bad_added)>1 else 'y'} {sorted(bad_added)}|drop these unless required (allowlist via SECCTX_ADDED_CAPS_ALLOW)")
 
             # ── baseline tallies (aggregated below) ──
+            # A container ALLOWLISTED for special privileges (SECCTX_ADDED_CAPS_ALLOW, e.g.
+            # gluetun: a VPN gateway that CANNOT drop caps / run non-root without breaking its
+            # /dev/net/tun device — documented in its manifest) is a known exception, not a
+            # baseline gap. Counting it emits a PERMANENT false-positive LOW every run, which
+            # trains the operator to ignore the line. Exclude it from the three baseline nags —
+            # it is still subject to the per-container HIGH checks above (priv/root/dangerous
+            # caps), and a DIFFERENT container regressing is still counted (unlike a blanket
+            # .audit-ignore on the aggregate line, which would mask that regression).
+            if cn in allow_caps:
+                continue
             if not (nonroot is True or (isinstance(run_as, int) and run_as != 0)):
                 no_nonroot += 1
             if "ALL" not in dropped:
