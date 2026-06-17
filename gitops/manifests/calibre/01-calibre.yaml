@@ -66,7 +66,10 @@ spec:
     metadata: { labels: { app: shelfmark } }
     spec:
       enableServiceLinks: false
-      securityContext: { runAsNonRoot: true, runAsUser: 1001, runAsGroup: 1001 }   # entrypoint detects non-root start (CURRENT_UID!=0) and skips chown/useradd/gosu; /config+/books hostPaths already 1001:1001
+      # DEFER runAsNonRoot: entrypoint skips chown on non-root start but then needs
+      # /tmp/shelfmark + /var/log/shelfmark, which are root-owned on the container ROOTFS
+      # (not the hostPath vols) → uid 1001 can't write them → crashloop. Would need emptyDir
+      # mounts at both paths w/ fsGroup; deferred until that's tested. (Reverted 2026-06-17.)
       containers:
         - name: shelfmark
           image: ghcr.io/calibrain/shelfmark:latest@sha256:e891eda444b261da48a839db652034bce4e20ac09c167f14adf939dedf96b572
