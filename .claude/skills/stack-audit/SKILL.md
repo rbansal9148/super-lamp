@@ -60,6 +60,15 @@ Reproducibility mechanics (`audit.sh` / `thresholds.sh`):
 - **Bounded completion** — every check wrapped in `timeout CHECK_TIMEOUT_SECS` (default 20,
   60 in `--deep`). A check that exceeds it is killed and replaced by a visible
   `LOW|audit/<check>|...` marker, so a hung api-server can't wedge the run.
+- **No false-clean** — every cluster-reading check probes `/healthz`
+  (`kubectl get --raw='/healthz' --request-timeout=5s`) before iterating; an unreachable
+  cluster or absent `kubectl` yields an explicit `LOW|audit/<check>|… INCONCLUSIVE (not
+  clean)` marker instead of an empty pipe that renders identical to a healthy result.
+  Likewise 07 emits a per-probe `… UNKNOWN` marker on each individual curl/DNS failure
+  (not just when *all* probes fail). So an empty severity bucket provably means "checked
+  and clean," never "couldn't check" — the output no longer flips green with cluster/network
+  reachability. (Before Jun 2026: 02/03/04/05 swallowed unreachable-cluster errors with
+  `2>/dev/null` → zero findings → byte-identical to healthy. Found by the 10-lens analysis.)
 
 Each check in `checks/` is independent and emits:
 

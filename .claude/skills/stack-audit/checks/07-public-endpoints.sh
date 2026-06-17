@@ -28,8 +28,12 @@ while IFS= read -r line; do
   [ -z "$line" ] && continue
   host="${line%% *}"; path="${line#* }"
   url="https://${host}${path}"
-  hdr=$(curl -sS -o /dev/null -D - --max-time "$TMO" "$url" 2>/dev/null) || { continue; }
-  [ -z "$hdr" ] && continue
+  # A transient curl/DNS failure on ONE probe must NOT silently vanish: the all-failed
+  # marker below only fires when reachable==0, so a 1-of-N partial run would otherwise emit
+  # neither this probe's verdict nor any marker — the auth-gating verdict would flicker with
+  # network weather. Emit a per-probe inconclusive LOW instead of a silent drop.
+  hdr=$(curl -sS -o /dev/null -D - --max-time "$TMO" "$url" 2>/dev/null) || { echo "LOW|audit/07-public-endpoints|probe ${host}${path} unreachable this run — auth-gating verdict UNKNOWN (not a pass)|re-run from a host that can resolve the public hostnames"; continue; }
+  [ -z "$hdr" ] && { echo "LOW|audit/07-public-endpoints|probe ${host}${path} returned no headers this run — auth-gating verdict UNKNOWN (not a pass)|re-run from a host that can resolve the public hostnames"; continue; }
   reachable=$((reachable+1))
   loc=$(printf '%s' "$hdr" | grep -i '^location:' | head -1)
   if printf '%s' "$loc" | grep -qi "$PORTAL"; then

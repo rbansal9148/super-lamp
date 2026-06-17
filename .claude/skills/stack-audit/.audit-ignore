@@ -8,7 +8,9 @@
 # victoria-metrics-operator), NOT our manifests. Chart VERSIONS are pinned in
 # gitops/README.md; per-image @sha256 pinning would mean overriding chart values every
 # release for low supply-chain gain. Our own apps/* images are digest-pinned per convention.
-image/pin.*grafana/grafana:
+# anchored on the org boundary: matches '[<registry>/]grafana/grafana:' but NOT the
+# 'notgrafana/grafana:' / 'myorg/notgrafana/grafana:' decoys the bare .* used to swallow.
+image/pin.*image '([^'/]+/)?grafana/grafana:
 image/pin.*kiwigrid/k8s-sidecar:
 image/pin.*opentelemetry-collector-contrib:
 image/pin.*open-telemetry/opentelemetry-operator/

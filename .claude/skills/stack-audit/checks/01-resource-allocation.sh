@@ -144,11 +144,14 @@ for pod in pods:
     for c in pod.get("spec", {}).get("containers", []):
         sum_limit_mi += parse_mem((c.get("resources", {}).get("limits") or {}).get("memory")) or 0.0
 if alloc_mi > 0 and sum_limit_mi > 0:
-    pct = sum_limit_mi / alloc_mi * 100
+    # Round ONCE, then compare AND display the same rounded value — otherwise a pct in
+    # [249.5,250) fails the CRIT test (HIGH fires) yet renders "250%", a HIGH finding showing
+    # the CRIT boundary number. Same at the 200 edge. Rounded compare keeps text↔severity honest.
+    pct = round(sum_limit_mi / alloc_mi * 100)
     if pct >= OVERCOMMIT_CRIT:
-        print(f"CRIT|resource/overcommit|memory limits sum to {pct:.0f}% of node allocatable ({fmt(sum_limit_mi)} / {fmt(alloc_mi)}) on a single swapless node — concurrent bursts OOM the node|kubectl top node; trim oversized limits below")
+        print(f"CRIT|resource/overcommit|memory limits sum to {pct}% of node allocatable ({fmt(sum_limit_mi)} / {fmt(alloc_mi)}) on a single swapless node — concurrent bursts OOM the node|kubectl top node; trim oversized limits below")
     elif pct >= OVERCOMMIT_WARN:
-        print(f"HIGH|resource/overcommit|memory limits sum to {pct:.0f}% of node allocatable ({fmt(sum_limit_mi)} / {fmt(alloc_mi)}) — no swap safety net|kubectl top node; trim oversized limits below")
+        print(f"HIGH|resource/overcommit|memory limits sum to {pct}% of node allocatable ({fmt(sum_limit_mi)} / {fmt(alloc_mi)}) — no swap safety net|kubectl top node; trim oversized limits below")
 
 # ── 2/3/4. per-pod sizing, owned namespaces only ──
 seen_wl = set()   # findings 2/3 are workload-scoped (peak aggregates all replicas) → emit once

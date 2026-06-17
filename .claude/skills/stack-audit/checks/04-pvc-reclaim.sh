@@ -9,9 +9,11 @@
 # SC name) and flags Delete, plus any PVC stuck unbound. Static, no metric → audit-only.
 set -u
 . "$(dirname "${BASH_SOURCE[0]}")/../thresholds.sh"
-command -v kubectl >/dev/null 2>&1 || exit 0
+command -v kubectl >/dev/null 2>&1 || { echo "LOW|audit/04-pvc-reclaim|kubectl not on PATH — PVC durability audit skipped|install kubectl / check KUBECONFIG"; exit 0; }
 
-PVC_JSON=$(kubectl get pvc -A -o json 2>/dev/null) || exit 0
+# Reachability gate: an unreachable cluster otherwise makes `kubectl get pvc` fail → exit 0
+# with zero findings, indistinguishable from "all PVCs healthy + Retain". Mark inconclusive.
+PVC_JSON=$(kubectl get pvc -A -o json 2>/dev/null) || { echo "LOW|audit/04-pvc-reclaim|cannot reach cluster — PVC durability check skipped, result is INCONCLUSIVE (not clean)|check KUBECONFIG / cluster reachability"; exit 0; }
 # map: pv-name -> reclaimPolicy
 declare -A RECLAIM
 while IFS=$'\t' read -r pv pol; do RECLAIM["$pv"]="$pol"; done < <(

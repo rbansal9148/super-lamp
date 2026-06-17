@@ -8,7 +8,10 @@
 # check. Scoped to owned app workloads; LOW because some trivial sidecars don't need one.
 set -u
 . "$(dirname "${BASH_SOURCE[0]}")/../thresholds.sh"
-command -v kubectl >/dev/null 2>&1 || exit 0
+command -v kubectl >/dev/null 2>&1 || { echo "LOW|audit/03-probes|kubectl not on PATH — readinessProbe audit skipped|install kubectl / check KUBECONFIG"; exit 0; }
+# Reachability gate: an unreachable cluster otherwise yields an empty pipe → zero findings,
+# indistinguishable from "every pod has a probe". Emit an inconclusive marker (mirrors 01).
+kubectl get --raw='/healthz' --request-timeout=5s >/dev/null 2>&1 || { echo "LOW|audit/03-probes|cannot reach cluster — readinessProbe check skipped, result is INCONCLUSIVE (not clean)|check KUBECONFIG / cluster reachability"; exit 0; }
 OWNED="${RESOURCE_OWNED_NAMESPACES:-apps observability}"
 
 for ns in $OWNED; do

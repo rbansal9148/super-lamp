@@ -12,7 +12,10 @@
 # which is why it's LOW, not a per-container MED nag. Scoped to owned namespaces.
 set -u
 . "$(dirname "${BASH_SOURCE[0]}")/../thresholds.sh"
-command -v kubectl >/dev/null 2>&1 || exit 0
+command -v kubectl >/dev/null 2>&1 || { echo "LOW|audit/05-securitycontext|kubectl not on PATH — securityContext audit skipped|install kubectl / check KUBECONFIG"; exit 0; }
+# Reachability gate: an unreachable cluster otherwise writes empty per-ns JSON → python
+# hits except:continue → zero findings, indistinguishable from a fully-hardened stack.
+kubectl get --raw='/healthz' --request-timeout=5s >/dev/null 2>&1 || { echo "LOW|audit/05-securitycontext|cannot reach cluster — securityContext check skipped, result is INCONCLUSIVE (not clean)|check KUBECONFIG / cluster reachability"; exit 0; }
 
 # Containers permitted to add caps / run privileged (real need). gluetun runs the VPN
 # tunnel and legitimately needs NET_ADMIN (+ a tun device).
