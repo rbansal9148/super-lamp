@@ -37,7 +37,8 @@ spec:
       containers:
         - name: searxng
           image: searxng/searxng:latest@sha256:37a8cc7769c4721b8f252ba935de8f01b7918e58d26b1be18dc87b5330fda65b
-          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
+          # image ships user searxng 977:977 (app+data COPY --chown=977); entrypoint gates chown/ca-update on id==0 else warns+continues. proven: already runs root w/ drop:[ALL] healthy, doesn't write cache
+          securityContext: { runAsNonRoot: true, runAsUser: 977, runAsGroup: 977, allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           env:
             - { name: SEARXNG_BASE_URL, value: "https://searxng.my-blue-car.work/" }
             - { name: UWSGI_WORKERS, value: "2" }

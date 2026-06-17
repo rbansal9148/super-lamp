@@ -17,11 +17,13 @@ spec:
     spec:
       enableServiceLinks: false
       automountServiceAccountToken: false   # app never calls the k8s API; drop the token mount
+      securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532, fsGroup: 65532 }   # entrypoint has no chown/gosu; /app/data is emptyDir (fsGroup-chowned). needs HOME=/tmp (below)
       containers:
         - name: comet
           image: g0ldyy/comet:dev@sha256:2725968b372b8efcfdcd13c6a9277b334a84152a312429975d7057768024de62
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           envFrom: [{ configMapRef: { name: comet-config } }, { secretRef: { name: comet-secrets } }]
+          env: [{ name: HOME, value: /tmp }]   # uv cache writes to $HOME; default /root is 0700 root-owned → unwritable by uid 65532, entrypoint hard-fails without this
           ports: [{ containerPort: 2020, name: http }]
           resources: { requests: { memory: 768Mi, cpu: 25m }, limits: { memory: 1536Mi, cpu: "2" } }   # req→768Mi: 30d workload-peak 962Mi (was 512Mi); limit 1536Mi for burst headroom
           volumeMounts: [{ name: data, mountPath: /app/data }]
@@ -44,6 +46,7 @@ spec:
     spec:
       enableServiceLinks: false
       automountServiceAccountToken: false
+      securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532, fsGroup: 65532 }   # see comet live: no chown/gosu, emptyDir data, needs HOME=/tmp
       containers:
         - name: comet
           image: g0ldyy/comet:dev@sha256:2725968b372b8efcfdcd13c6a9277b334a84152a312429975d7057768024de62
@@ -71,6 +74,7 @@ spec:
             - { name: TMDB_PROXY_URL,       value: "http://gluetun:8888" }
             - { name: TORRENTIO_PROXY_URL,  value: "http://gluetun:8888" }
             - { name: TORRENTSDB_PROXY_URL, value: "http://gluetun:8888" }
+            - { name: HOME, value: /tmp }   # see comet live: uv cache needs a writable $HOME under non-root
           ports: [{ containerPort: 2020, name: http }]
           resources: { requests: { memory: 512Mi, cpu: 25m }, limits: { memory: 1536Mi, cpu: "2" } }
           volumeMounts: [{ name: data, mountPath: /app/data }]

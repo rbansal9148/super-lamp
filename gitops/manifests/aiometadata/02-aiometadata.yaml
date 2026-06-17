@@ -11,6 +11,7 @@ spec:
     spec:
       enableServiceLinks: false
       automountServiceAccountToken: false   # app never calls the k8s API; drop the token mount
+      securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000, fsGroup: 1000 }   # node:24-alpine node user 1000; direct `node` entrypoint, no chown; /app/addon/data is emptyDir
       containers:
         - name: aiometadata
           image: ghcr.io/cedya77/aiometadata:latest@sha256:52e8106b56e74c5d2a04b7099597208e685fb578ac9cc4481a2b130876ac011e

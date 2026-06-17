@@ -20,7 +20,9 @@ spec:
       containers:
         - name: syncio
           image: ghcr.io/iamneur0/syncio:public@sha256:bffe1ce0113f516d8de034d2caa2a3ddf2c68f596ba8880b5673ab7a37e902bb
-          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
+          # CONTAINER-level runAsNonRoot only — image already runs as uid 1001 (appuser); a
+          # pod-level assertion would crashloop linkerd-init (uid 65534). No volumes.
+          securityContext: { runAsNonRoot: true, runAsUser: 1001, allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           envFrom:
             - secretRef: { name: syncio-secrets }
           env:
