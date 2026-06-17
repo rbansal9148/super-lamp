@@ -66,26 +66,31 @@ spec:
     metadata: { labels: { app: shelfmark } }
     spec:
       enableServiceLinks: false
-      # DEFER runAsNonRoot: entrypoint skips chown on non-root start but then needs
-      # /tmp/shelfmark + /var/log/shelfmark, which are root-owned on the container ROOTFS
-      # (not the hostPath vols) → uid 1001 can't write them → crashloop. Would need emptyDir
-      # mounts at both paths w/ fsGroup; deferred until that's tested. (Reverted 2026-06-17.)
+      # non-root: entrypoint skips chown on non-root start; the two rootfs temp dirs it writes
+      # (/tmp/shelfmark, /var/log/shelfmark) are root-owned, so emptyDir+fsGroup makes them
+      # writable by 1001. Verified out-of-band (shelfmark-sctest 2026-06-17): /tmp test passes,
+      # gunicorn up, /api/health=ok, 0 restarts.
+      securityContext: { runAsNonRoot: true, runAsUser: 1001, runAsGroup: 1001, fsGroup: 1001 }
       containers:
         - name: shelfmark
           image: ghcr.io/calibrain/shelfmark:latest@sha256:e891eda444b261da48a839db652034bce4e20ac09c167f14adf939dedf96b572
-          # entrypoint defaults PUID=1001 and runs groupadd/useradd + chown then drops user,
-          # so it needs the same cap set as calibre (groupadd writes /etc/gshadow → DAC_OVERRIDE).
-          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL], add: [CHOWN, DAC_OVERRIDE, FOWNER, FSETID, KILL, SETGID, SETUID, SETPCAP] }, seccompProfile: { type: RuntimeDefault } }
+          # forced non-root (pod-level uid 1001) → entrypoint skips the groupadd/useradd/chown
+          # path, so the cap set it needed as root is dropped.
+          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           envFrom: [{ configMapRef: { name: shelfmark-config } }, { secretRef: { name: shelfmark-secrets } }]
           ports: [{ containerPort: 8084, name: http }]
           resources: { requests: { memory: 128Mi, cpu: 25m }, limits: { memory: 512Mi, cpu: "1" } }   # rightsized: peak ~107Mi (was 1Gi)
           volumeMounts:
             - { name: book-ingest, mountPath: /books }
             - { name: config, mountPath: /config }
+            - { name: tmp, mountPath: /tmp/shelfmark }        # root-owned rootfs temp dir → emptyDir+fsGroup for uid 1001
+            - { name: varlog, mountPath: /var/log/shelfmark }  # ditto (entrypoint log)
           readinessProbe: { httpGet: { path: /api/health, port: 8084 }, initialDelaySeconds: 20, periodSeconds: 30, timeoutSeconds: 10 }
       volumes:
         - { name: config, hostPath: { path: /opt/docker/data/calibre-web-automated/config, type: Directory } }
         - { name: book-ingest, hostPath: { path: /opt/docker/data/calibre-web-automated/book-ingest, type: Directory } }
+        - { name: tmp, emptyDir: {} }
+        - { name: varlog, emptyDir: {} }
 ---
 apiVersion: v1
 kind: Service
