@@ -31,7 +31,7 @@ spec:
   source:
     repoURL: https://argoproj.github.io/argo-helm
     chart: argo-cd
-    targetRevision: 9.5.20
+    targetRevision: 9.5.22               # ArgoCD app v3.4.4 (latest stable as of 2026-06-19)
     helm:
       releaseName: argocd
       values: |

@@ -15,7 +15,7 @@ spec:
   source:
     repoURL: https://victoriametrics.github.io/helm-charts/
     chart: victoria-metrics-operator
-    targetRevision: 0.63.1               # operator app v0.70.1 (latest stable as of 2026-05-31)
+    targetRevision: 0.65.1               # operator app v0.72.0 (latest stable as of 2026-06-19)
     helm:
       values: |
         # bound the operator pod (was unlimited)
