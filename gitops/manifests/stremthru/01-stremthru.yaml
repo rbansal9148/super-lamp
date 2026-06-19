@@ -82,6 +82,7 @@ spec:
     spec:
       enableServiceLinks: false
       automountServiceAccountToken: false   # no k8s API use; drop the token mount
+      securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000, fsGroup: 1000 }   # non-root; /app/data hostPath chowned 1000:1000 on-host (see RESTORE.md)
       initContainers:
         # stremthru tunnels all egress via gluetun (STREMTHRU_TUNNEL=*:true) and PANICS
         # at boot if the proxy isn't up ("Failed to resolve Tunnel IP Map"). Gate start
