@@ -65,6 +65,9 @@ aiostreams, aiometadata, stremthru DBs and all redis (caches).
    >   stremthru / syncio / immich) → `chown -R 999:999`; zilean-postgres is alpine → `70:70`
    > - `authelia-data` PVC → `chown -R 1000:1000` (else `open /data/...: permission
    >   denied` at startup — fsGroup does NOT remediate pre-existing files on local-path)
+   > - app hostPath data (non-DB): immich library `/opt/docker/data/immich/library`
+   >   and stremthru `/opt/docker/data/stremthru` → `chown -R 1000:1000` (apps run as
+   >   uid 1000). zilean + immich-ml write only emptyDirs → nothing to restore.
 2. **Install ArgoCD** into the `argocd` namespace.
 3. **Restore the SealedSecrets controller key** from step 0 BEFORE the controller
    first generates a fresh one:
