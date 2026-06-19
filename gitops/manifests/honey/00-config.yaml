@@ -51,7 +51,7 @@ spec:
     metadata: { labels: { app: honey } }
     spec:
       enableServiceLinks: false
-      securityContext: { runAsUser: 1001, runAsGroup: 1001 }
+      securityContext: { runAsNonRoot: true, runAsUser: 1001, runAsGroup: 1001 }
       containers:
         - name: honey
           image: ghcr.io/dani3l0/honey:latest@sha256:fe6ce43acf93a211ab63cf247e4ce573cb63a41608092f0bffb1b3bf72527ac5
