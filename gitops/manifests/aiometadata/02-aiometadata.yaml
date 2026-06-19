@@ -14,7 +14,7 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000, fsGroup: 1000 }   # node:24-alpine node user 1000; direct `node` entrypoint, no chown; /app/addon/data is emptyDir
       containers:
         - name: aiometadata
-          image: ghcr.io/cedya77/aiometadata:latest@sha256:52e8106b56e74c5d2a04b7099597208e685fb578ac9cc4481a2b130876ac011e
+          image: ghcr.io/cedya77/aiometadata:latest@sha256:73db14d164a57c46b4882d135e71f91bdb6e90401514a9a5585b9b3b860dbcd9
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           envFrom: [{ configMapRef: { name: aiometadata-config } }, { secretRef: { name: aiometadata-secrets } }]
           ports: [{ containerPort: 1337, name: http }]
