@@ -7,7 +7,7 @@ spec:
   source:
     repoURL: https://helm.linkerd.io/edge
     chart: linkerd-crds
-    targetRevision: 2026.6.1
+    targetRevision: 2026.6.3            # linkerd edge channel (latest as of 2026-06-19)
     helm: { releaseName: linkerd-crds }
   destination: { server: https://kubernetes.default.svc, namespace: linkerd }
   syncPolicy:
