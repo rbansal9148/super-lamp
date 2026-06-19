@@ -13,7 +13,7 @@ spec:
   source:
     repoURL: https://prometheus-community.github.io/helm-charts
     chart: prometheus-operator-crds
-    targetRevision: 29.0.0                # CRDs v0.91.0 (latest stable as of 2026-05-31)
+    targetRevision: 30.0.0                # CRDs v0.92.0 (latest stable as of 2026-06-19)
   destination:
     server: https://kubernetes.default.svc
     namespace: observability
