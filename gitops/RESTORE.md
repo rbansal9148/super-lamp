@@ -57,6 +57,14 @@ aiostreams, aiometadata, stremthru DBs and all redis (caches).
    `/opt/docker/data/*` hostPath dirs from backup BEFORE starting workloads —
    the postgres/calibre/prowlarr/stremthru/bitmagnet pods mount `type: Directory`
    and won't start if the dir is missing.
+   > **Non-root data ownership (since 2026-06): postgres, authelia, honey and the
+   > bitmagnet app now run `runAsNonRoot`.** Restored data must be owned by the
+   > pod's runtime uid or the container crashloops on first write. After restoring,
+   > chown each datadir:
+   > - postgres datadirs (comet / aiometadata / aiostreams / bitmagnet / prowlarr /
+   >   stremthru / syncio / immich) → `chown -R 999:999`; zilean-postgres is alpine → `70:70`
+   > - `authelia-data` PVC → `chown -R 1000:1000` (else `open /data/...: permission
+   >   denied` at startup — fsGroup does NOT remediate pre-existing files on local-path)
 2. **Install ArgoCD** into the `argocd` namespace.
 3. **Restore the SealedSecrets controller key** from step 0 BEFORE the controller
    first generates a fresh one:

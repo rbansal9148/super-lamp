@@ -134,7 +134,9 @@ spec:
       enableServiceLinks: false
       securityContext:
         fsGroup: 1000
-        fsGroupChangePolicy: Always   # remediate the pre-existing root-owned /data so uid 1000 can write db.sqlite3
+        fsGroupChangePolicy: Always   # for files authelia creates as 1000; the pre-existing root-owned
+                                      # /data was chowned 1000:1000 once on-host (fsGroup does NOT remediate
+                                      # existing files on local-path) — see RESTORE.md non-root ownership note
       containers:
         - name: authelia
           image: authelia/authelia:4.39.20@sha256:1b363e9279e742397966333f364e0876ae02bf5c876de73e83af6d48c57ff51b
