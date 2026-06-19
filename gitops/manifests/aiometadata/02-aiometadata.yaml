@@ -57,6 +57,7 @@ spec:
           containers:
             - name: vacuum
               image: postgres:18.4@sha256:29ee7bb30d804447dc9a91fd0d74322ae1dc3a4072cc6346f70a5ed6e783b565
+              securityContext: { runAsNonRoot: true, runAsUser: 999, runAsGroup: 999, allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
               env:
                 - name: PGPASSWORD
                   valueFrom: { secretKeyRef: { name: aiometadata-secrets, key: POSTGRES_PASSWORD } }

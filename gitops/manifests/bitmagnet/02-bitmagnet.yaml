@@ -52,7 +52,7 @@ spec:
             periodSeconds: 30
         - name: bitmagnet
           image: ghcr.io/bitmagnet-io/bitmagnet:v0.10.1-beta.1@sha256:9673a7c74b8aaf3471e44425ee23a88eaad0b03892c06ace7210e8d33bab2117
-          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
+          securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532, allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           command: ["bitmagnet","worker","run","--all"]
           env:
             - { name: POSTGRES_HOST, value: "bitmagnet-postgres" }
@@ -113,6 +113,7 @@ spec:
           containers:
             - name: prune
               image: postgres:18.4@sha256:29ee7bb30d804447dc9a91fd0d74322ae1dc3a4072cc6346f70a5ed6e783b565
+              securityContext: { runAsNonRoot: true, runAsUser: 999, runAsGroup: 999, allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
               env:
                 - name: PGPASSWORD
                   valueFrom: { secretKeyRef: { name: bitmagnet-secrets, key: POSTGRES_PASSWORD } }
