@@ -45,8 +45,8 @@ spec:
           ports:
             - { containerPort: 8181, name: http }
           resources:
-            requests: { memory: 768Mi, cpu: 50m }   # req→768Mi: 30d workload-peak 800Mi (was 256Mi — a prior pod's import burst the per-pod view missed)
-            limits: { memory: 2Gi, cpu: "2" }      # 30d workload-peak ~800Mi w/ scrape spikes (was 4Gi); 2Gi headroom for import bursts
+            requests: { memory: 1792Mi, cpu: 50m }   # req→1792Mi (1.75Gi): 30d workload-peak grew to 1.6Gi (was 768Mi, undercounted)
+            limits: { memory: 2Gi, cpu: "2" }      # 30d workload-peak ~1.6Gi w/ import bursts; 2Gi cap leaves ~256Mi headroom over request
           volumeMounts:
             - { name: tmp, mountPath: /tmp }
           readinessProbe:
