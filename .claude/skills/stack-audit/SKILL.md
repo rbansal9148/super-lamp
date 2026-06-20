@@ -195,6 +195,22 @@ manifest itself requests this check. Derives DB pods by `app` label
 any uncovered DB pod **HIGH**. A pure **drift detector** — ships green when every DB pod is
 excluded (the healthy steady state).
 
+### 10-cpu-allocation.sh — CPU sizing (companion to 01)
+01 is memory-only because memory is the non-compressible scarce resource. CPU is
+**compressible** — over-limit means CFS throttling (latency), not an OOM kill — and the
+throttle metric isn't scraped, so "limit set too low vs sustained 30d-peak demand" is a
+sizing-at-rest fact that lands in neither the audit nor an alarm. Uses the **same VM peak
+path as 01** but on `k8s.pod.cpu.usage` (an OTLP utilization gauge in **cores** →
+`max_over_time` directly, no `rate()`). Reports: node-wide CPU-limit overcommit (LOW-info,
+only above `CPU_LIMIT_OVERCOMMIT_PCT_INFO`=1500% — a high ratio is normal for compressible
+CPU); **under-limited** workloads two-tier by what the 30d-MAX gauge proves — a reading
+**≥100%** of limit means throttling demonstrably occurred at peak (**MED**), **90–100%** is
+riding close and may throttle on an unsampled burst (**LOW**); and missing CPU
+request/limit (LOW). No HIGH — the worst case is latency, never an outage. Falls back to
+overcommit+missing only if VM is unreachable (an instantaneous core reading is meaningless
+for sizing, so there's no `kubectl top` fallback). *Shipped from the evolve run's CPU
+experiment: 2 MED + 4 LOW on the live cluster — actionable, not noise.*
+
 ### 01/05 extensions (Jun 2026)
 - **01** now emits a per-namespace **QoS line** (`resource/qos`, LOW): every owned pod is
   `Burstable`, so under the memory overcommit the kernel OOM-ranks them by
@@ -226,6 +242,9 @@ excluded (the healthy steady state).
 | `HOSTPATH_CRITICAL` | prowlarr/bitmagnet/immich/calibre/stremthru | 08 RESTORE.md drift set (HIGH if unmounted) |
 | `NETPOL_DB_NAME` | `apps-allow-trusted-cross-ns` | 09 policy whose NotIn list is checked |
 | `NETPOL_DB_LABEL_PATTERN` | `postgres\|redis\|valkey\|…` | 09 DB-pod `app`-label matcher |
+| `CPU_LIMIT_OVERCOMMIT_PCT_INFO` | 1500 | 10 CPU-overcommit LOW-info gate |
+| `CPU_UNDERLIMIT_PEAK_RATIO` | 0.9 | 10 under-limit trigger (peak ≥ ratio×limit) |
+| `CPU_UNDERLIMIT_MAX_LIMIT_M` | 2000 | 10 only flag limits below this (millicores) |
 
 Override any of them inline: `MEM_LIMIT_OVERCOMMIT_PCT_WARN=120 bash audit.sh`.
 

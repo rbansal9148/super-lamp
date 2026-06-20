@@ -102,6 +102,19 @@ EOF
 EOF
 )}"
 
+# --- CPU allocation (10-cpu-allocation.sh) -----------------------------------
+# CPU is COMPRESSIBLE: over-limit means CFS throttling (latency), not an OOM kill, so
+# severities are deliberately gentler than memory. The CFS throttle metric
+# (container_cpu_cfs_throttled_periods_total) is NOT scraped here, so "limit set too low
+# vs sustained 30d peak demand" — a config-sizing-at-rest fact — is the one CPU signal
+# that falls in NEITHER the audit nor an alarm. Sourced from the same VM peak path as 01.
+# k8s.pod.cpu.usage is an OTLP utilization GAUGE in CORES → max_over_time directly (no rate()).
+: "${CPU_VM_METRIC:=k8s.pod.cpu.usage}"
+: "${CPU_LIMIT_OVERCOMMIT_PCT_INFO:=1500}"  # sum(cpu limits)/allocatable — LOW-info only above this
+                                            # (compressible: throttles, doesn't OOM; high ratio is normal)
+: "${CPU_UNDERLIMIT_PEAK_RATIO:=0.9}"       # 30d-peak ≥ ratio×limit → riding the limit, likely throttling
+: "${CPU_UNDERLIMIT_MAX_LIMIT_M:=2000}"     # …and limit < this many millicores (big-limit pods self-absorb)
+
 # --- NetworkPolicy DB coverage (09-netpol-db-coverage.sh) --------------------
 # The apps cross-ns policy excludes DB pods via a hand-maintained NotIn list that FAILS
 # OPEN — a new *-postgres/*-redis not added to it is silently reachable. Drift detector.
@@ -123,4 +136,5 @@ export RESOURCE_OWNED_NAMESPACES \
        IMAGE_PIN_SKIP_CONTAINERS GITOPS_DIR \
        AUTH_PORTAL_HOST PUBLIC_ENDPOINT_PROBES PUBLIC_ENDPOINT_PROBE_TIMEOUT \
        HOSTPATH_ALLOW HOSTPATH_CRITICAL \
-       NETPOL_DB_NS NETPOL_DB_NAME NETPOL_DB_LABEL_PATTERN
+       NETPOL_DB_NS NETPOL_DB_NAME NETPOL_DB_LABEL_PATTERN \
+       CPU_VM_METRIC CPU_LIMIT_OVERCOMMIT_PCT_INFO CPU_UNDERLIMIT_PEAK_RATIO CPU_UNDERLIMIT_MAX_LIMIT_M
