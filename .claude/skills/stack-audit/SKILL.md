@@ -96,7 +96,7 @@ SEVERITY|DOMAIN|FINDING|FIX_COMMAND      # SEVERITY ∈ {CRIT,HIGH,MED,LOW,OK}
 Single **swapless** k3s node, so memory is the scarce, non-compressible resource: if pods
 burst toward their limits at once the node OOMs. Reports the sizing problems that are NOT
 alarm-shaped (over-provisioning never "fires"; the OOM consequence is already alarmed):
-- **memory-limit overcommit** — `sum(limits) / node allocatable`. HIGH ≥150%, CRIT ≥250%.
+- **memory-limit overcommit** — `sum(limits) / node allocatable`. HIGH ≥200%, CRIT ≥250%.
   (Node-wide: every namespace contributes to OOM risk.)
 - **oversized limits** — limit ≥ `MEM_LIMIT_OVERSIZE_RATIO`× live usage and ≥ floor →
   reclaimable headroom that's inflating the overcommit number.
@@ -175,12 +175,42 @@ aiostreams `/api/v1/debrid/playback` got gated → players received the login pa
 this prefix?) without a valid signed URL; a redirect to `$AUTH_PORTAL_HOST` is flagged
 **HIGH**. Could graduate to a blackbox-exporter alarm once one exists.
 
+### 08-hostpath-durability.sh — the data-loss gap 04 can't see
+04 is PVC-scoped, but the *largest irreplaceable data* on this stack lives on raw
+**hostPath** dirs (immich library, prowlarr/bitmagnet/calibre/stremthru DBs) — no PV
+lifecycle, no reclaim policy, no StorageClass guard. An ArgoCD prune or a renamed path
+orphans the bytes silently and nothing PVC-shaped notices. Lists each distinct hostPath
+dir backing a Running owned workload (**MED** — "confirm it's in the off-node backup set"),
+skipping system mounts via `HOSTPATH_ALLOW` (the node collector's read-only `/var/log/pods`
+etc. are not data). Cross-checks `HOSTPATH_CRITICAL` (the RESTORE.md set): a critical path
+**not** mounted by any Running pod is the silent-orphan case → **HIGH**. Ships with the MED
+inventory always present (the hostPath dirs are real) and no HIGH while nothing has drifted.
+
+### 09-netpol-db-coverage.sh — fail-open NetworkPolicy drift
+`apps-allow-trusted-cross-ns` lets observability/kube-system reach apps pods *except* a
+hand-maintained `NotIn` list of DB pods. That list **fails open**: a new `*-postgres` /
+`*-redis` added without editing the policy is silently reachable cross-namespace. The
+manifest itself requests this check. Derives DB pods by `app` label
+(`NETPOL_DB_LABEL_PATTERN`), compares against the policy's live `NotIn` values, and flags
+any uncovered DB pod **HIGH**. A pure **drift detector** — ships green when every DB pod is
+excluded (the healthy steady state).
+
+### 01/05 extensions (Jun 2026)
+- **01** now emits a per-namespace **QoS line** (`resource/qos`, LOW): every owned pod is
+  `Burstable`, so under the memory overcommit the kernel OOM-ranks them by
+  usage-over-request — which makes finding 3 ("raise request") concretely about OOM
+  survival rank, not abstract sizing.
+- **05** gained two aggregate-LOW baselines matching the existing `runAsNonRoot`/`drop-ALL`
+  pattern: **`seccompProfile`** (RuntimeDefault, container- or pod-level) and
+  **`readOnlyRootFilesystem`**. These turn 05 into a same-run drift detector for the two
+  restricted-PSS controls it previously ignored.
+
 ## Thresholds (`thresholds.sh`)
 
 | Threshold | Default | Used by |
 |---|---|---|
 | `RESOURCE_OWNED_NAMESPACES` | `apps observability` | sizing/probe/image scope |
-| `MEM_LIMIT_OVERCOMMIT_PCT_WARN` | 150 | overcommit HIGH |
+| `MEM_LIMIT_OVERCOMMIT_PCT_WARN` | 200 | overcommit HIGH (raised 150→200 Jun 2026; see thresholds.sh) |
 | `MEM_LIMIT_OVERCOMMIT_PCT_CRIT` | 250 | overcommit CRIT |
 | `MEM_LIMIT_OVERSIZE_RATIO` | 8 | oversized limit |
 | `MEM_LIMIT_OVERSIZE_FLOOR_MI` | 1024 | oversized limit floor |
@@ -192,6 +222,10 @@ this prefix?) without a valid signed URL; a redirect to `$AUTH_PORTAL_HOST` is f
 | `AUTH_PORTAL_HOST` | `auth.my-blue-car.work` | 07 gating discriminator |
 | `PUBLIC_ENDPOINT_PROBES` | aiostreams playback, comet manifest | 07 must-be-public probe list |
 | `PUBLIC_ENDPOINT_PROBE_TIMEOUT` | 10 | 07 per-probe curl timeout (s) |
+| `HOSTPATH_ALLOW` | `^/var/(log\|lib)/\|^/run/\|…` | 08 system-mount skip regex (not data) |
+| `HOSTPATH_CRITICAL` | prowlarr/bitmagnet/immich/calibre/stremthru | 08 RESTORE.md drift set (HIGH if unmounted) |
+| `NETPOL_DB_NAME` | `apps-allow-trusted-cross-ns` | 09 policy whose NotIn list is checked |
+| `NETPOL_DB_LABEL_PATTERN` | `postgres\|redis\|valkey\|…` | 09 DB-pod `app`-label matcher |
 
 Override any of them inline: `MEM_LIMIT_OVERCOMMIT_PCT_WARN=120 bash audit.sh`.
 

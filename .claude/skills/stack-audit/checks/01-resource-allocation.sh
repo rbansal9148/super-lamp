@@ -153,6 +153,27 @@ if alloc_mi > 0 and sum_limit_mi > 0:
     elif pct >= OVERCOMMIT_WARN:
         print(f"HIGH|resource/overcommit|memory limits sum to {pct}% of node allocatable ({fmt(sum_limit_mi)} / {fmt(alloc_mi)}) — no swap safety net|kubectl top node; trim oversized limits below")
 
+# ── 1b. QoS class posture (owned namespaces) ──
+# Under the memory overcommit above, WHICH pods the kernel reaps first is decided by QoS:
+# Guaranteed (request==limit, all resources) is reaped last; Burstable pods are oom_score_adj
+# ranked by memory usage-over-request — i.e. the under-request cohort (finding 3) dies first.
+# Surfacing the split makes finding 3 actionable ("raise request" == "raise OOM survival rank").
+# Pure spec inspection (.status.qosClass), deterministic; sorted by namespace.
+qos = {}   # ns -> {class: count}
+for pod in pods:
+    ns = pod.get("metadata", {}).get("namespace", "")
+    if ns not in OWNED_NS: continue
+    if pod.get("status", {}).get("phase") != "Running": continue
+    q = pod.get("status", {}).get("qosClass", "?")
+    qos.setdefault(ns, {})[q] = qos.setdefault(ns, {}).get(q, 0) + 1
+for ns in sorted(qos):
+    counts = qos[ns]
+    guaranteed = counts.get("Guaranteed", 0)
+    total_q = sum(counts.values())
+    if guaranteed < total_q:
+        mix = ", ".join(f"{k}={counts[k]}" for k in sorted(counts))
+        print(f"LOW|resource/qos|{ns}: {guaranteed}/{total_q} pods Guaranteed ({mix}) — under memory pressure Burstable pods are OOM-ranked by usage-over-request (the under-request cohort dies first)|raise requests toward usage (finding 3) to improve OOM survival; request==limit for the few critical workloads makes them Guaranteed")
+
 # ── 2/3/4. per-pod sizing, owned namespaces only ──
 seen_wl = set()   # findings 2/3 are workload-scoped (peak aggregates all replicas) → emit once
 for pod in pods:

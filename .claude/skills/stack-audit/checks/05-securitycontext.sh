@@ -52,6 +52,8 @@ for ns in (os.environ.get("NS_LIST") or "").split():
     no_nonroot = 0
     no_dropall = 0
     no_ape = 0
+    no_seccomp = 0   # seccompProfile.type not RuntimeDefault/Localhost → unconfined syscall surface
+    no_rofs = 0      # readOnlyRootFilesystem not True → writable container root
     for pod in items:
         if pod.get("status", {}).get("phase") != "Running":
             continue
@@ -102,6 +104,16 @@ for ns in (os.environ.get("NS_LIST") or "").split():
                 no_dropall += 1
             if ape is not False:
                 no_ape += 1
+            # seccompProfile: a RuntimeDefault/Localhost profile confines the syscall surface.
+            # Honour either the container OR the pod-level securityContext (pod-level applies
+            # to all containers that don't override it).
+            sec_type = ((sc.get("seccompProfile") or {}).get("type")
+                        or (psc.get("seccompProfile") or {}).get("type"))
+            if sec_type not in ("RuntimeDefault", "Localhost"):
+                no_seccomp += 1
+            # readOnlyRootFilesystem: a writable container root is a tampering/persistence surface.
+            if sc.get("readOnlyRootFilesystem") is not True:
+                no_rofs += 1
 
     if total:
         if no_nonroot:
@@ -110,4 +122,8 @@ for ns in (os.environ.get("NS_LIST") or "").split():
             print(f"LOW|security/caps|{ns}: {no_dropall}/{total} containers don't drop ALL capabilities|add securityContext.capabilities.drop: [ALL] where the image allows")
         if no_ape:
             print(f"LOW|security/escalation|{ns}: {no_ape}/{total} containers allow privilege escalation|set allowPrivilegeEscalation: false where the image allows")
+        if no_seccomp:
+            print(f"LOW|security/seccomp|{ns}: {no_seccomp}/{total} containers don't set a seccompProfile (RuntimeDefault) — syscall surface unconfined|set securityContext.seccompProfile.type: RuntimeDefault where the image allows")
+        if no_rofs:
+            print(f"LOW|security/readonly-root|{ns}: {no_rofs}/{total} containers have a writable root filesystem|set securityContext.readOnlyRootFilesystem: true (+ emptyDir/volume for writable paths) where the image allows")
 PY

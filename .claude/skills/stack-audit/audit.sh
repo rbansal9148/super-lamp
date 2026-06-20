@@ -125,7 +125,13 @@ fi
 # Render
 case "$OUTPUT" in
   json)
-    awk -F'|' 'BEGIN{print "["} NR>1{print ","} {gsub(/"/,"\\\"",$3); gsub(/"/,"\\\"",$4); printf "{\"severity\":\"%s\",\"domain\":\"%s\",\"finding\":\"%s\",\"fix\":\"%s\"}",$1,$2,$3,$4} END{print "]"}' "$TMP"
+    # jq owns ALL string escaping (backslash, quote, control chars, unicode) by construction.
+    # The old hand-rolled awk escaped only `"` — correct for every finding emitted today
+    # (verified: 04's `… '{"spec":…}'` Retain fix round-trips valid), but it would silently
+    # emit invalid JSON the day a fix command carries a literal backslash. jq removes that
+    # latent footgun; `.[3:]|join("|")` also re-joins any literal `|` in the fix command
+    # instead of truncating at the 4th field (awk's $4 dropped the tail).
+    jq -Rn '[inputs | split("|") | {severity:.[0], domain:.[1], finding:.[2], fix:(.[3:]|join("|"))}]' "$TMP"
     ;;
   md|*)
     echo "# Stack Audit ($(date -u +%FT%TZ))"

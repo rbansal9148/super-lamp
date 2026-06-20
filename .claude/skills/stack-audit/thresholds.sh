@@ -86,6 +86,29 @@ EOF
 )}"
 : "${PUBLIC_ENDPOINT_PROBE_TIMEOUT:=10}"
 
+# --- hostPath durability (08-hostpath-durability.sh) -------------------------
+# The largest irreplaceable data lives on raw hostPath (no PV/reclaim guard), invisible
+# to the PVC-scoped check 04. HOSTPATH_ALLOW skips system mounts that are NOT data — the
+# node collector's read-only /var/log/pods etc — so they aren't permanent-noise findings.
+# HOSTPATH_CRITICAL is the RESTORE.md set: a critical path that drifts out of the live
+# cluster (renamed/unmounted) is the silent-orphan case → HIGH.
+: "${HOSTPATH_ALLOW:=^/var/(log|lib)/|^/run/|^/sys/|^/proc/|^/dev/|^/etc/}"
+: "${HOSTPATH_CRITICAL:=$(cat <<'EOF'
+/opt/docker/data/prowlarr/db
+/opt/docker/data/bitmagnet/db
+/opt/docker/data/immich/library
+/opt/docker/data/calibre-web-automated/calibre-library
+/opt/docker/data/stremthru/db
+EOF
+)}"
+
+# --- NetworkPolicy DB coverage (09-netpol-db-coverage.sh) --------------------
+# The apps cross-ns policy excludes DB pods via a hand-maintained NotIn list that FAILS
+# OPEN — a new *-postgres/*-redis not added to it is silently reachable. Drift detector.
+: "${NETPOL_DB_NS:=apps}"
+: "${NETPOL_DB_NAME:=apps-allow-trusted-cross-ns}"
+: "${NETPOL_DB_LABEL_PATTERN:=postgres|redis|valkey|mariadb|mysql|mongo}"
+
 # Export everything: bash checks see these via sourcing, but child processes
 # (the Python check 01-resource-allocation.sh, and any future awk/python check)
 # only inherit EXPORTED vars. Without this, `:=` set the shell var but not the
@@ -98,4 +121,6 @@ export RESOURCE_OWNED_NAMESPACES \
        CHECK_TIMEOUT_SECS CHECK_TIMEOUT_SECS_DEEP \
        USE_VM_PEAK VM_PEAK_METRIC VM_PEAK_WINDOW VM_NAMESPACE VM_SERVICE VM_PORT \
        IMAGE_PIN_SKIP_CONTAINERS GITOPS_DIR \
-       AUTH_PORTAL_HOST PUBLIC_ENDPOINT_PROBES PUBLIC_ENDPOINT_PROBE_TIMEOUT
+       AUTH_PORTAL_HOST PUBLIC_ENDPOINT_PROBES PUBLIC_ENDPOINT_PROBE_TIMEOUT \
+       HOSTPATH_ALLOW HOSTPATH_CRITICAL \
+       NETPOL_DB_NS NETPOL_DB_NAME NETPOL_DB_LABEL_PATTERN
