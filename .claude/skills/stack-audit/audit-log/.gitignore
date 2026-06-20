@@ -1,0 +1,5 @@
+# Machine-generated audit snapshots — runtime state for the --diff feedback loop,
+# not source. `--persist` writes latest.json (the --diff baseline) + <UTC-date>.json here.
+# To deliberately checkpoint a baseline into git (e.g. a release reference for PR diffing):
+#   git add -f audit-log/<UTC-date>.json
+*.json

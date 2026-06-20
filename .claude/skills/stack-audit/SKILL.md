@@ -47,8 +47,24 @@ bash /opt/docker/.claude/skills/stack-audit/audit.sh --deep     # larger per-che
 bash /opt/docker/.claude/skills/stack-audit/audit.sh --json     # machine-readable (no posture section)
 bash /opt/docker/.claude/skills/stack-audit/audit.sh --summary  # one-line severity counts
 bash /opt/docker/.claude/skills/stack-audit/audit.sh --no-alerts # suppress posture (pure deterministic, CI)
+bash /opt/docker/.claude/skills/stack-audit/audit.sh --persist   # write findings snapshot (seeds the --diff baseline)
+bash /opt/docker/.claude/skills/stack-audit/audit.sh --diff      # append NEW/CLEARED/SEVERITY-CHANGED vs last --persist
+bash /opt/docker/.claude/skills/stack-audit/audit.sh --diff --persist  # diff-then-advance the baseline in one run
 bash /opt/docker/.claude/skills/stack-audit/audit.sh --only=01-resource-allocation
 ```
+
+### History & the run-to-run diff (`--persist` / `--diff`)
+The byte-stable sort was built so "a diff surfaces only substantive changes" — but each run's
+findings died with the temp file. `--persist` writes the findings to
+`audit-log/latest.json` (the diff baseline) plus a `audit-log/<UTC-date>.json` snapshot;
+`--diff` classifies the current run against `latest.json` into **🆕 New / 🔀 Severity-changed
+/ ✅ Cleared**, appended between the punch list and the live posture. The match key is a
+**volatility-stripped stable identity** (`audit-diff.py`): rolled-over pod-name hashes and
+drifted counts (`2/34`→`5/34`) are masked, so they read as *unchanged* (or, on a real
+severity move, *changed*) — never as a spurious New+Cleared churn. Snapshots are
+git-ignored runtime state by default (`audit-log/.gitignore`); `git add -f` a dated snapshot
+to checkpoint a baseline for PR diffing. A plain run (no flags) is byte-identical to before —
+the diff is strictly additive and opt-in.
 
 **The deterministic punch list is the report; present it as-is.** If a finding looks
 wrong, **fix the check script** so the next run is right — don't override it case-by-case

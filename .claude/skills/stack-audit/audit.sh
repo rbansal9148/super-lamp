@@ -24,6 +24,8 @@ OUTPUT="md"
 ONLY=""
 SUMMARY=0
 ALERTS=1
+PERSIST=0
+DIFF=0
 for a in "$@"; do
   case "$a" in
     --deep) MODE="deep" ;;
@@ -32,6 +34,8 @@ for a in "$@"; do
     --summary) SUMMARY=1 ;;
     --alerts) ALERTS=1 ;;
     --no-alerts) ALERTS=0 ;;
+    --persist) PERSIST=1 ;;
+    --diff) DIFF=1 ;;
     --only=*) ONLY="${a#--only=}" ;;
     -h|--help)
       cat <<EOF
@@ -53,6 +57,14 @@ Live data:
                graceful-skips with a note if the token/Grafana is unreachable.
   --no-alerts  suppress that section — pure deterministic, credential-free output
                (use for CI / scripted diffing).
+
+History / feedback loop:
+  --diff       append a "Change vs last persisted run" section (NEW / CLEARED /
+               SEVERITY-CHANGED) comparing this run to audit-log/latest.json by a
+               volatility-stripped stable identity. Read-only — does not write.
+  --persist    write the current findings to audit-log/latest.json (the --diff
+               baseline) + a git-trackable audit-log/<UTC-date>.json snapshot.
+               Combine with --diff to diff-then-advance the baseline in one run.
 
 Filtering:
   --only=NAME[,NAME]   only run these check scripts (by filename stem)
@@ -112,6 +124,40 @@ fi
 # Severity grouping in the renderer is unaffected — it re-buckets via grep.
 LC_ALL=C sort -o "$TMP" "$TMP"
 
+# ── result persistence + run-to-run diff (opt-in; --persist / --diff) ─────────
+# The byte-stable sort above was engineered so "a diff surfaces only substantive changes",
+# but every run's findings die with $TMP (mktemp+trap). Persistence turns the audit from
+# fire-and-forget into a feedback loop: --persist writes a git-trackable JSON snapshot;
+# --diff classifies this run against the last one (NEW / CLEARED / SEVERITY-CHANGED) by a
+# volatility-stripped stable identity (see audit-diff.py), so a rolled-over pod name or a
+# drifted count reads as CHANGED, not churn. Computed here (pre-render) so it works under
+# --json/--summary too; when BOTH flags are set we diff against the OLD baseline FIRST, then
+# advance it. The core deterministic punch list above is untouched — a plain run is unchanged.
+PERSIST_DIR="$SKILL_DIR/audit-log"
+DIFF_SECTION=""
+if [ "$DIFF" = "1" ] || [ "$PERSIST" = "1" ]; then
+  CUR_JSON=$(mktemp)
+  jq -Rn '[inputs | split("|") | {severity:.[0], domain:.[1], finding:.[2], fix:(.[3:]|join("|"))}]' "$TMP" > "$CUR_JSON" 2>/dev/null
+  if [ "$DIFF" = "1" ]; then
+    if [ -f "$PERSIST_DIR/latest.json" ]; then
+      _d=$(python3 "$SKILL_DIR/audit-diff.py" "$PERSIST_DIR/latest.json" "$CUR_JSON" 2>/dev/null)
+      case "$_d" in
+        __NO_BASELINE__|"") DIFF_SECTION=$'## 🔁 Change vs last persisted run\nBaseline unreadable — re-seed with `--persist`.' ;;
+        _NOCHANGE_)         DIFF_SECTION=$'## 🔁 Change vs last persisted run\nNo change since the last persisted run.' ;;
+        *)                  DIFF_SECTION="$_d" ;;
+      esac
+    else
+      DIFF_SECTION=$'## 🔁 Change vs last persisted run\nNo baseline yet at `audit-log/latest.json` — run `--persist` once to seed it.'
+    fi
+  fi
+  if [ "$PERSIST" = "1" ]; then
+    mkdir -p "$PERSIST_DIR"
+    cp "$CUR_JSON" "$PERSIST_DIR/latest.json"
+    cp "$CUR_JSON" "$PERSIST_DIR/$(date -u +%F).json"
+  fi
+  rm -f "$CUR_JSON"
+fi
+
 # Summary mode — single line
 if [ "$SUMMARY" = "1" ]; then
   crit=$(grep -c "^CRIT|" "$TMP" 2>/dev/null | head -1); crit=${crit:-0}
@@ -155,6 +201,11 @@ case "$OUTPUT" in
         [ -n "$fix" ] && echo "  - fix: \`$fix\`"
       done
     done
+    # Opt-in run-to-run diff, between the punch list and the live posture.
+    if [ -n "$DIFF_SECTION" ]; then
+      echo ""
+      printf '%s\n' "$DIFF_SECTION"
+    fi
     # Opt-in LIVE alert-posture snapshot, appended AFTER the deterministic punch
     # list so it never affects the reproducible/diffable section above.
     if [ "$ALERTS" = "1" ]; then
