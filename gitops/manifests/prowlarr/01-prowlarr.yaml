@@ -68,7 +68,7 @@ spec:
           securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}, runAsNonRoot: true, runAsUser: 65534, seccompProfile: {type: RuntimeDefault}}
       containers:
         - name: prowlarr
-          image: ghcr.io/hotio/prowlarr:nightly@sha256:f2aa89a3df4e074ca920dfaa94b026108b242b5072a44645270344dec8a8dd44
+          image: ghcr.io/hotio/prowlarr:nightly@sha256:8c7ff0820b3bb6ee20b2e2dae16c5b7404a3229f549bc3dc95afcfbc7d38d4e8
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL], add: [CHOWN, DAC_OVERRIDE, FOWNER, FSETID, KILL, SETGID, SETUID, SETPCAP] }, seccompProfile: { type: RuntimeDefault } }
           env:
             - {name: PUID, value: "1001"}
