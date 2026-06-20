@@ -23,12 +23,14 @@ MODE="quick"
 OUTPUT="md"
 ONLY=""
 SUMMARY=0
+ALERTS=0
 for a in "$@"; do
   case "$a" in
     --deep) MODE="deep" ;;
     --quick) MODE="quick" ;;
     --json) OUTPUT="json" ;;
     --summary) SUMMARY=1 ;;
+    --alerts) ALERTS=1 ;;
     --only=*) ONLY="${a#--only=}" ;;
     -h|--help)
       cat <<EOF
@@ -42,6 +44,12 @@ Output:
   --json     machine-readable
   --summary  just severity counts, one line
   (default)  markdown punch list
+
+Live data (opt-in):
+  --alerts   append a LIVE Grafana alert-posture snapshot (firing now + fired in
+             last N days) after the deterministic punch list. Read-only; needs the
+             SealedSecret observability/stack-audit-grafana-token. Default run stays
+             credential-free and byte-reproducible.
 
 Filtering:
   --only=NAME[,NAME]   only run these check scripts (by filename stem)
@@ -138,5 +146,11 @@ case "$OUTPUT" in
         [ -n "$fix" ] && echo "  - fix: \`$fix\`"
       done
     done
+    # Opt-in LIVE alert-posture snapshot, appended AFTER the deterministic punch
+    # list so it never affects the reproducible/diffable section above.
+    if [ "$ALERTS" = "1" ]; then
+      echo ""
+      bash "$SKILL_DIR/alert-posture.sh"
+    fi
     ;;
 esac
