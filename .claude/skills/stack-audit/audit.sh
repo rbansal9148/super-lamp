@@ -23,7 +23,7 @@ MODE="quick"
 OUTPUT="md"
 ONLY=""
 SUMMARY=0
-ALERTS=0
+ALERTS=1
 for a in "$@"; do
   case "$a" in
     --deep) MODE="deep" ;;
@@ -31,6 +31,7 @@ for a in "$@"; do
     --json) OUTPUT="json" ;;
     --summary) SUMMARY=1 ;;
     --alerts) ALERTS=1 ;;
+    --no-alerts) ALERTS=0 ;;
     --only=*) ONLY="${a#--only=}" ;;
     -h|--help)
       cat <<EOF
@@ -45,11 +46,13 @@ Output:
   --summary  just severity counts, one line
   (default)  markdown punch list
 
-Live data (opt-in):
-  --alerts   append a LIVE Grafana alert-posture snapshot (firing now + fired in
-             last N days) after the deterministic punch list. Read-only; needs the
-             SealedSecret observability/stack-audit-grafana-token. Default run stays
-             credential-free and byte-reproducible.
+Live data:
+  (default)    a LIVE Grafana alert-posture snapshot (firing now + fired in last N
+               days) is appended AFTER the deterministic punch list. Read-only; uses
+               the SealedSecret observability/stack-audit-grafana-token, and
+               graceful-skips with a note if the token/Grafana is unreachable.
+  --no-alerts  suppress that section — pure deterministic, credential-free output
+               (use for CI / scripted diffing).
 
 Filtering:
   --only=NAME[,NAME]   only run these check scripts (by filename stem)

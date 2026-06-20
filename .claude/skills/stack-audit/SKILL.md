@@ -42,21 +42,35 @@ check here, add an alarm instead — and if the metric isn't scraped, add a Serv
 ## How to invoke
 
 ```bash
-bash /opt/docker/.claude/skills/stack-audit/audit.sh            # quick (default)
+bash /opt/docker/.claude/skills/stack-audit/audit.sh            # quick (default) + live alert posture
 bash /opt/docker/.claude/skills/stack-audit/audit.sh --deep     # larger per-check timeout
-bash /opt/docker/.claude/skills/stack-audit/audit.sh --json     # machine-readable
+bash /opt/docker/.claude/skills/stack-audit/audit.sh --json     # machine-readable (no posture section)
 bash /opt/docker/.claude/skills/stack-audit/audit.sh --summary  # one-line severity counts
+bash /opt/docker/.claude/skills/stack-audit/audit.sh --no-alerts # suppress posture (pure deterministic, CI)
 bash /opt/docker/.claude/skills/stack-audit/audit.sh --only=01-resource-allocation
 ```
 
-**Default path is purely deterministic.** Run `bash audit.sh`, present the output as-is.
-If a finding looks wrong, **fix the check script** so the next run is right — don't
-override it case-by-case in your response.
+**The deterministic punch list is the report; present it as-is.** If a finding looks
+wrong, **fix the check script** so the next run is right — don't override it case-by-case
+in your response.
+
+**The default run also appends a live `## 📟 Runtime alert posture` section** below the
+punch list (Grafana firing-now + fired-in-last-7d). This part is deliberately LIVE, not
+deterministic — it reports the existing alarms' state (it does NOT re-evaluate runtime
+conditions, which would duplicate the alarms). The high-value half is the firing history:
+ntfy.sh's free tier retains none, so auto-resolved firings are otherwise invisible. It is
+read-only via a least-privilege Grafana Viewer token (SealedSecret
+`observability/stack-audit-grafana-token`) over an in-cluster port-forward (Grafana sits
+behind Authelia 2FA at the edge), and graceful-skips with a note if unreachable. Pass
+`--no-alerts` for byte-reproducible, credential-free output (CI / diffing). The punch list
+itself is unaffected by this section either way — see below.
 
 Reproducibility mechanics (`audit.sh` / `thresholds.sh`):
 - **Stable ordering** — findings `LC_ALL=C sort`ed before render; `kubectl` output order
-  (pods reshuffle on recreate) never reorders the punch list. Two audits of an unchanged
-  cluster diff to nothing but the timestamp header.
+  (pods reshuffle on recreate) never reorders the punch list. Two `--no-alerts` audits of an
+  unchanged cluster diff to nothing but the timestamp header. (The default run's appended
+  alert-posture section is live and intentionally varies; it sits below the punch list and
+  changes nothing above it.)
 - **Bounded completion** — every check wrapped in `timeout CHECK_TIMEOUT_SECS` (default 20,
   60 in `--deep`). A check that exceeds it is killed and replaced by a visible
   `LOW|audit/<check>|...` marker, so a hung api-server can't wedge the run.
