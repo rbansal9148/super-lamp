@@ -136,8 +136,8 @@ fn main() {
                         &o.pinned[..19.min(o.pinned.len())],
                         &cur[..19.min(cur.len())]
                     );
-                    changed_repos.push(health_repo(&o.repo));
                     if cli.apply {
+                        changed_repos.push(health_repo(&o.repo));
                         for f in &o.files {
                             if apply_digest(f, &o.pinned, cur) {
                                 changed_files.push(f.clone());

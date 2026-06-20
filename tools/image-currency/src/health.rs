@@ -45,6 +45,22 @@ pub fn run(owned_ns: &[String], target_repos: &[String], rollout_timeout: u32, p
         if ns.is_empty() || name.is_empty() || kind.is_empty() {
             continue;
         }
+        // Derive the pod selector from the workload's OWN matchLabels rather than
+        // assuming `app=<name>` — Helm charts (observability/*) label with
+        // app.kubernetes.io/name, so the hardcoded selector silently matched nothing
+        // and the restart check returned "?" (never failing the gate). serde_json's
+        // Map iterates in a stable order, so the joined selector is deterministic.
+        let selector = it
+            .pointer("/spec/selector/matchLabels")
+            .and_then(|m| m.as_object())
+            .filter(|m| !m.is_empty())
+            .map(|m| {
+                m.iter()
+                    .map(|(k, v)| format!("{k}={}", v.as_str().unwrap_or("")))
+                    .collect::<Vec<_>>()
+                    .join(",")
+            })
+            .unwrap_or_else(|| format!("app={name}"));
         if !owned_ns.iter().any(|o| o == ns) {
             continue;
         }
@@ -68,7 +84,7 @@ pub fn run(owned_ns: &[String], target_repos: &[String], rollout_timeout: u32, p
         }
 
         // 2) restart count across this workload's pods
-        let restarts = pod_restarts(ns, name);
+        let restarts = pod_restarts(ns, &selector);
         if restarts.map(|n| n > 0).unwrap_or(false) {
             failed = true;
         }
@@ -102,9 +118,9 @@ pub fn run(owned_ns: &[String], target_repos: &[String], rollout_timeout: u32, p
     Report { failed }
 }
 
-fn pod_restarts(ns: &str, name: &str) -> Option<i64> {
+fn pod_restarts(ns: &str, selector: &str) -> Option<i64> {
     let out = Command::new("kubectl")
-        .args(["-n", ns, "get", "pods", "-l", &format!("app={name}"), "-o", "json"])
+        .args(["-n", ns, "get", "pods", "-l", selector, "-o", "json"])
         .output()
         .ok()?;
     if !out.status.success() {
