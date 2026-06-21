@@ -33,22 +33,26 @@ missing after node loss.
 
 ## 1. Data backups (scoped — see below)
 
-Only the NON-reproducible data needs off-node backup; the scraper DBs re-scrape.
+**Operator decision (2026-06): the only data backed up off-node is the immich
+photo/video library + its DB.** Everything else is **accepted-loss** — the
+operator has judged the photos/videos to be the sole irreplaceable value here;
+the rest is either re-derivable or not worth the backup. The table records the
+risk so the decision is explicit, not accidental.
 
-| Data | Why back up | Location |
+| Data | Non-reproducible? why it matters | Off-node backup |
 |---|---|---|
-| Authelia DB (users, TOTP enrolments) | TOTP secrets cannot be re-derived | PVC `authelia-data` (local-path-retain) |
-| Prowlarr config + DB | hours of hand-configured indexers + API keys | hostPath `/opt/docker/data/prowlarr` |
-| bitmagnet DB | ~weeks of DHT crawl, slow to rebuild | hostPath `/opt/docker/data/bitmagnet/db` (~6.8G) |
-| Calibre library | irreplaceable user data (books) | hostPath `/opt/docker/data/calibre-web-automated` |
-| Immich library + DB | irreplaceable user data (photos/videos); the DB holds their albums/metadata/face-ML data — without it the library files are orphaned | hostPath `/opt/docker/data/immich` (library ~11G + db; back up together) |
+| **Immich library + DB** | irreplaceable photos/videos; the DB holds albums/metadata/face-ML — files are orphaned without it | **YES** — restic → B2 EU-Central, nightly (`manifests/immich/03-backup.yaml`); originals only (`/library/upload`) + `pg_dump` |
+| Authelia DB | TOTP secrets cannot be re-derived (every user must re-enrol 2FA) | **no — accepted loss** |
+| Calibre library | irreplaceable user data (books) | **no — accepted loss** |
+| Prowlarr config + DB | hours of hand-configured indexers + API keys | **no — accepted loss** |
+| bitmagnet DB (~6.8G) | ~weeks of DHT crawl, slow to rebuild | **no — accepted loss** |
 
-Reproducible (do NOT need backup — re-scrape on restore): zilean, comet,
+Reproducible (never needed backup — re-scrape on restore): zilean, comet,
 aiostreams, aiometadata, stremthru DBs and all redis (caches).
 
-> A `pg_dump`/tar CronJob to off-box storage for the five rows above is a
-> recommended follow-up. Until it covers a given row, snapshot that hostPath
-> dir + the retain PVCs manually before any risky change.
+> Only immich is backed up. For the accepted-loss rows there is **no automated
+> backup by design** — if you ever want a one-off safety net before a risky
+> change, snapshot that hostPath dir / retain-PVC manually at that moment.
 
 ### Backup design (target architecture)
 
@@ -84,8 +88,9 @@ The off-node backup uses **restic** to **Backblaze B2, region EU-Central
 - **The repo password is itself a must-keep-off-cluster secret** (alongside the
   SealedSecrets key in §0): losing it makes every backup unrecoverable.
 
-> Status: **immich row is the first to be implemented** (see the backup CronJob +
-> SealedSecret once committed). The other four rows follow the same pattern.
+> Status: **immich is implemented and is the ONLY backed-up row** (live nightly —
+> `manifests/immich/03-backup.yaml`). The other rows are accepted-loss by decision
+> (see the table above); this design is recorded for reference, not as a backlog.
 
 ---
 
