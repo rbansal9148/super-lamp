@@ -61,18 +61,6 @@
   },
   {
     "severity": "MED",
-    "domain": "resource/cpu-under-limit",
-    "finding": "apps/aiometadata 30d workload-peak 1.02 cores vs CPU limit 1.00 cores (102%) — throttled at peak (gauge read at/over the cap)",
-    "fix": "raise limits.cpu (or remove it) in its manifest"
-  },
-  {
-    "severity": "MED",
-    "domain": "resource/cpu-under-limit",
-    "finding": "apps/comet-postgres 30d workload-peak 502m vs CPU limit 500m (101%) — throttled at peak (gauge read at/over the cap)",
-    "fix": "raise limits.cpu (or remove it) in its manifest"
-  },
-  {
-    "severity": "MED",
     "domain": "storage/hostpath",
     "finding": "/opt/docker/data/bitmagnet/db — node-local hostPath (apps/bitmagnet-postgres-c966c5cd7-7vsgn), no PV lifecycle/reclaim guard; an ArgoCD prune or path rename orphans the data",
     "fix": "confirm /opt/docker/data/bitmagnet/db is in the off-node backup set (see gitops/RESTORE.md); consider migrating to a local-path-retain PVC"
