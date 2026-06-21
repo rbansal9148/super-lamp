@@ -47,8 +47,45 @@ Reproducible (do NOT need backup — re-scrape on restore): zilean, comet,
 aiostreams, aiometadata, stremthru DBs and all redis (caches).
 
 > A `pg_dump`/tar CronJob to off-box storage for the five rows above is a
-> recommended follow-up not yet implemented. Until then, snapshot the hostPath
-> dirs + the retain PVCs manually before any risky change.
+> recommended follow-up. Until it covers a given row, snapshot that hostPath
+> dir + the retain PVCs manually before any risky change.
+
+### Backup design (target architecture)
+
+The off-node backup uses **restic** to **Backblaze B2, region EU-Central
+(Amsterdam)**. Rationale (see also the region analysis in session notes):
+
+- **Provider/region.** B2 has no Asia-Pacific region; from this Mumbai VPS all
+  regions are cross-continent, but the job is a *nightly incremental* (restic
+  uploads only changed blocks) so RTT is immaterial. EU-Central is chosen for the
+  GDPR jurisdiction — the strongest data-protection regime among B2's options
+  (US-West, US-East, EU-Central, Canada-East).
+- **Privacy is client-side, not region-side.** restic encrypts with **AES-256
+  before upload**, so B2 only ever stores ciphertext — it cannot read the
+  photos/DBs regardless of region. Caveat for the threat model: Backblaze is a
+  US company (CLOUD-Act reachable wherever the bytes sit); the client-side
+  encryption is what actually defends content. If a hard **Indian data-residency
+  (DPDP)** requirement ever applies, B2 cannot satisfy it — an India-region S3
+  (e.g. AWS `ap-south-1`) would be required instead, at higher cost.
+- **Retention (two layers).**
+  1. restic policy: `forget --keep-daily 7 --keep-weekly 8 --keep-monthly 12
+     --keep-yearly 3` then `prune`.
+  2. B2 **Object Lock** (WORM immutability) on the bucket for ransomware /
+     accidental-delete protection. **Object Lock conflicts with `prune`** (which
+     deletes): the CronJob backup uses an **append-only** restic key; prune runs
+     out-of-band with a separate privileged key. Object Lock must be enabled at
+     **bucket-creation time** on B2 — it cannot be added afterward.
+- **Cost.** Non-reproducible set ≈ 20G (immich 11G, bitmagnet 6.8G, calibre
+  1.8G, prowlarr 0.4G) → B2 at ~$0.006/GB/mo ≈ **~$0.12–0.15/month**.
+- **What restic stores per row.** Postgres rows are logically dumped
+  (`pg_dump`, consistent) rather than copying the live data dir; file rows
+  (immich library, calibre, prowlarr) are backed up as file trees. All into one
+  encrypted repo; restic dedups across snapshots.
+- **The repo password is itself a must-keep-off-cluster secret** (alongside the
+  SealedSecrets key in §0): losing it makes every backup unrecoverable.
+
+> Status: **immich row is the first to be implemented** (see the backup CronJob +
+> SealedSecret once committed). The other four rows follow the same pattern.
 
 ---
 
