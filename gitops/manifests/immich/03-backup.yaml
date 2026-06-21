@@ -76,7 +76,15 @@ spec:
                 - -c
                 - |
                   set -eu
-                  restic snapshots > /dev/null 2>&1 || restic init           # idempotent: init the repo on first ever run
+                  # Init ONLY when the repo is genuinely absent. restic `cat config` returns
+                  # exit 10 = "repository does not exist" (restic >=0.17, scripting docs); any
+                  # OTHER non-zero (transient network, B2 5xx, linkerd egress cold-start) is a
+                  # real error we must surface, NOT escalate to `init`. The old
+                  # `snapshots || init` masked transients as a fatal "already initialized" and
+                  # broke every nightly run once the repo was populated.
+                  restic cat config >/dev/null 2>&1 || rc=$?; rc=${rc:-0}
+                  [ "$rc" = 10 ] && restic init
+                  [ "$rc" != 0 ] && [ "$rc" != 10 ] && { echo "repo check failed rc=$rc"; exit "$rc"; }
                   # Back up ONLY the originals (/library/upload = the photos/videos) + the DB dump.
                   # Excludes the rest of the library by scoping the path: thumbs/ (immich regenerates),
                   # backups/ (immich's own *.sql.gz — redundant with our pg_dump, and gzipped so it
