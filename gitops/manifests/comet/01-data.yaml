@@ -33,7 +33,7 @@ spec:
             - name: POSTGRES_PASSWORD
               valueFrom: {secretKeyRef: {name: comet-secrets, key: POSTGRES_PASSWORD}}
           ports: [{containerPort: 5432, name: postgres}]
-          resources: {requests: {memory: 384Mi, cpu: 25m}, limits: {memory: 512Mi, cpu: 500m}}   # req covers 30d VM peak 317Mi (index/vacuum burst; instantaneous top read ~65Mi and under-set the request)
+          resources: {requests: {memory: 384Mi, cpu: 25m}, limits: {memory: 512Mi, cpu: 750m}}   # req covers 30d VM peak 317Mi (index/vacuum burst; instantaneous top read ~65Mi and under-set the request); cpu limit 500m→750m: 30d-peak 502m hit the old 500m cap (CFS-throttled), 750m leaves peak at ~67%
           volumeMounts:
             - {name: data, mountPath: /var/lib/postgresql/data}
             - {name: dshm, mountPath: /dev/shm}
