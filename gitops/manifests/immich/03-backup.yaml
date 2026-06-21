@@ -1,0 +1,89 @@
+# immich off-node backup — restic → Backblaze B2 (EU-Central). The FIRST of the five
+# RESTORE.md §1 rows to gain an automated off-box backup (the gap: none existed at all).
+#
+# Shape — a nightly Job with two stages:
+#   initContainer pg-dump : immich's documented logical dump (pg_dump --clean --if-exists)
+#     → /dump/immich.sql.gz (shared emptyDir). NB the *restore* needs a search_path
+#     sed-rewrite for the pgvecto.rs/vectorchord extension — see RESTORE.md §2.
+#   container restic      : restic backup of /dump + the immich library hostPath
+#     (read-only) into the B2 repo, then forget+prune per the retention policy, then a
+#     structural `restic check`.
+#
+# Secrets (repo URL, restic password, B2 key) come from SealedSecret
+# `immich-backup-secrets` — NOT in git; produced by gitops/scripts/seal-immich-backup-secret.sh
+# so plaintext never enters git or chat. Until that secret exists the Job errors on the
+# restic step (expected); the deterministic punch list and the alarms are unaffected.
+#
+# Object Lock note (honest tradeoff): this v1 runs forget+prune with a full-access B2 key —
+# the standard, battle-tested restic pattern that WORKS today. Enabling B2 Object Lock (WORM)
+# changes it: prune cannot delete locked objects, so that hardening must move forget/prune to
+# a separate privileged job and keep this nightly one append-only (backup-only). Ship the
+# working backup first; layer immutability as a deliberate second step (see RESTORE.md design).
+apiVersion: batch/v1
+kind: CronJob
+metadata: { name: immich-backup, namespace: apps }
+spec:
+  # Ships SUSPENDED: until `immich-backup-secrets` exists the restic step can't start, and
+  # an unsuspended job would fail nightly (and could blip the pod-not-ready alarm). After
+  # sealing the secret (gitops/scripts/seal-immich-backup-secret.sh) and committing it, flip
+  # this to false — or run a one-off: kubectl -n apps create job --from=cronjob/immich-backup immich-backup-manual
+  suspend: true
+  schedule: "0 22 * * *"   # 22:00 UTC = 03:30 IST
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 7200   # 2h ceiling; first run uploads the full ~20G, later runs are incremental
+      template:
+        spec:
+          enableServiceLinks: false
+          restartPolicy: Never
+          # uid 1000 matches the immich pod: the library hostPath is chowned 1000:1000 on-host,
+          # so restic can read it; fsGroup 1000 makes the emptyDirs group-writable.
+          securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000, fsGroup: 1000, seccompProfile: { type: RuntimeDefault } }
+          initContainers:
+            - name: pg-dump
+              image: postgres:18.4@sha256:29ee7bb30d804447dc9a91fd0d74322ae1dc3a4072cc6346f70a5ed6e783b565   # pg_dump 18 dumps the PG14 server fine
+              securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] } }
+              env:
+                - name: PGPASSWORD
+                  valueFrom: { secretKeyRef: { name: immich-secrets, key: DB_PASSWORD } }
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -eu
+                  pg_dump --clean --if-exists -h immich-postgres -U postgres -d immich | gzip > /dump/immich.sql.gz
+                  echo "pg_dump ok: $(stat -c%s /dump/immich.sql.gz) bytes gzipped"
+              volumeMounts:
+                - { name: dump, mountPath: /dump }
+              resources: { requests: { memory: 128Mi, cpu: 50m }, limits: { memory: 512Mi, cpu: 500m } }
+          containers:
+            - name: restic
+              image: restic/restic:0.19.0@sha256:7f44e0057b82348597568ea209360762d0b38f8e1dbc8ad859661ac1055e45f2
+              securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] } }
+              env:
+                - { name: RESTIC_CACHE_DIR, value: /cache }   # writable emptyDir; uid 1000 has no $HOME for the default cache
+              envFrom:
+                - secretRef: { name: immich-backup-secrets }   # RESTIC_REPOSITORY, RESTIC_PASSWORD, AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+              command:
+                - /bin/sh
+                - -c
+                - |
+                  set -eu
+                  restic snapshots > /dev/null 2>&1 || restic init           # idempotent: init the repo on first ever run
+                  restic backup --host immich --tag immich /dump/immich.sql.gz /library
+                  restic forget --host immich --tag immich \
+                    --keep-daily 7 --keep-weekly 8 --keep-monthly 12 --keep-yearly 3 --prune
+                  restic check                                               # structural integrity (no data download → no egress)
+              volumeMounts:
+                - { name: dump, mountPath: /dump, readOnly: true }
+                - { name: library, mountPath: /library, readOnly: true }
+                - { name: cache, mountPath: /cache }
+              resources: { requests: { memory: 256Mi, cpu: 100m }, limits: { memory: 1Gi, cpu: "1" } }
+          volumes:
+            - { name: dump, emptyDir: {} }
+            - { name: cache, emptyDir: {} }
+            - { name: library, hostPath: { path: /opt/docker/data/immich/library, type: Directory } }

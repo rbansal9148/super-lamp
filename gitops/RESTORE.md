@@ -131,6 +131,33 @@ The off-node backup uses **restic** to **Backblaze B2, region EU-Central
    external-dns repopulates Cloudflare DNS, the apps come up against their
    restored data.
 
+### Restoring immich from the restic / B2 backup
+
+Needs the **restic repo password** (saved off-cluster per §0/§1) plus the B2 key.
+Export `RESTIC_REPOSITORY=s3:https://<endpoint>/<bucket>`, `RESTIC_PASSWORD`,
+`AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, then:
+
+```sh
+restic snapshots                                  # find the snapshot to restore
+restic restore latest --target /restore           # recovers /dump/immich.sql.gz + /library
+```
+
+1. **Library (files):** copy back and fix ownership (immich runs as uid 1000):
+   ```sh
+   cp -a /restore/library/. /opt/docker/data/immich/library/
+   chown -R 1000:1000 /opt/docker/data/immich/library
+   ```
+2. **Database:** start an EMPTY `immich-postgres`, then load the dump. The `sed`
+   rewrite is **required** — without it the pgvecto.rs/vectorchord `search_path`
+   is wrong and the typed columns fail to restore (immich's documented method):
+   ```sh
+   gunzip -c /restore/dump/immich.sql.gz \
+     | sed "s/SELECT pg_catalog.set_config('search_path', '', false);/SELECT pg_catalog.set_config('search_path', 'public, pg_catalog', true);/g" \
+     | kubectl -n apps exec -i deploy/immich-postgres -- \
+         psql --dbname=immich --username=postgres --single-transaction --set ON_ERROR_STOP=on
+   ```
+   Then restart `immich` so it reconnects to the restored DB.
+
 ---
 
 ## 3. Bootstrap prerequisites (out-of-band, not in git)
