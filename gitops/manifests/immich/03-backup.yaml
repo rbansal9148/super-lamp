@@ -3,7 +3,7 @@
 #
 # Shape — a nightly Job with two stages:
 #   initContainer pg-dump : immich's documented logical dump (pg_dump --clean --if-exists)
-#     → /dump/immich.sql.gz (shared emptyDir). NB the *restore* needs a search_path
+#     → /dump/immich.sql (raw, shared emptyDir — restic compresses+dedups it). NB the *restore* needs a search_path
 #     sed-rewrite for the pgvecto.rs/vectorchord extension — see RESTORE.md §2.
 #   container restic      : restic backup of /dump + the immich library hostPath
 #     (read-only) into the B2 repo, then forget+prune per the retention policy, then a
@@ -54,8 +54,11 @@ spec:
                 - -c
                 - |
                   set -eu
-                  pg_dump --clean --if-exists -h immich-postgres -U postgres -d immich | gzip > /dump/immich.sql.gz
-                  echo "pg_dump ok: $(stat -c%s /dump/immich.sql.gz) bytes gzipped"
+                  # RAW SQL (deliberately NOT pre-gzipped): a gzip stream is incompressible to
+                  # restic AND re-stores in full every night; raw SQL lets restic both compress
+                  # (zstd) and DEDUP it across nightly snapshots. See --compression max below.
+                  pg_dump --clean --if-exists -h immich-postgres -U postgres -d immich > /dump/immich.sql
+                  echo "pg_dump ok: $(stat -c%s /dump/immich.sql) bytes raw SQL (restic compresses + dedups)"
               volumeMounts:
                 - { name: dump, mountPath: /dump }
               resources: { requests: { memory: 128Mi, cpu: 50m }, limits: { memory: 512Mi, cpu: 500m } }
@@ -73,7 +76,10 @@ spec:
                 - |
                   set -eu
                   restic snapshots > /dev/null 2>&1 || restic init           # idempotent: init the repo on first ever run
-                  restic backup --host immich --tag immich /dump/immich.sql.gz /library
+                  # --compression max: helps the raw SQL dump; the library is already-compressed
+                  # media (measured 1.00x) so restic detects that per-blob and stores it as-is —
+                  # no benefit there, but no harm (CPU only, and it runs at 03:30).
+                  restic backup --host immich --tag immich --compression max /dump/immich.sql /library
                   restic forget --host immich --tag immich \
                     --keep-daily 7 --keep-weekly 8 --keep-monthly 12 --keep-yearly 3 --prune
                   restic check                                               # structural integrity (no data download → no egress)

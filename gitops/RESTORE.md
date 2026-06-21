@@ -151,8 +151,7 @@ restic restore latest --target /restore           # recovers /dump/immich.sql.gz
    rewrite is **required** — without it the pgvecto.rs/vectorchord `search_path`
    is wrong and the typed columns fail to restore (immich's documented method):
    ```sh
-   gunzip -c /restore/dump/immich.sql.gz \
-     | sed "s/SELECT pg_catalog.set_config('search_path', '', false);/SELECT pg_catalog.set_config('search_path', 'public, pg_catalog', true);/g" \
+   sed "s/SELECT pg_catalog.set_config('search_path', '', false);/SELECT pg_catalog.set_config('search_path', 'public, pg_catalog', true);/g" /restore/dump/immich.sql \
      | kubectl -n apps exec -i deploy/immich-postgres -- \
          psql --dbname=immich --username=postgres --single-transaction --set ON_ERROR_STOP=on
    ```
