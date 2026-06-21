@@ -39,7 +39,7 @@ Only the NON-reproducible data needs off-node backup; the scraper DBs re-scrape.
 |---|---|---|
 | Authelia DB (users, TOTP enrolments) | TOTP secrets cannot be re-derived | PVC `authelia-data` (local-path-retain) |
 | Prowlarr config + DB | hours of hand-configured indexers + API keys | hostPath `/opt/docker/data/prowlarr` |
-| bitmagnet DB | ~weeks of DHT crawl, slow to rebuild | hostPath `/opt/docker/data/bitmagnet/db` (43GB) |
+| bitmagnet DB | ~weeks of DHT crawl, slow to rebuild | hostPath `/opt/docker/data/bitmagnet/db` (~6.8G) |
 | Calibre library | irreplaceable user data (books) | hostPath `/opt/docker/data/calibre-web-automated` |
 | Immich library + DB | irreplaceable user data (photos/videos); the DB holds their albums/metadata/face-ML data — without it the library files are orphaned | hostPath `/opt/docker/data/immich` (library ~11G + db; back up together) |
 
