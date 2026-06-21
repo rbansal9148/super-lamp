@@ -1,0 +1,140 @@
+[
+  {
+    "severity": "LOW",
+    "domain": "resource/cpu-under-limit",
+    "finding": "apps/aiostreams 30d workload-peak 974m vs CPU limit 1.00 cores (97%) — rides close to its limit — may throttle on an unsampled burst",
+    "fix": "raise limits.cpu (or remove it) in its manifest"
+  },
+  {
+    "severity": "LOW",
+    "domain": "resource/cpu-under-limit",
+    "finding": "apps/stremthru-postgres 30d workload-peak 986m vs CPU limit 1.00 cores (99%) — rides close to its limit — may throttle on an unsampled burst",
+    "fix": "raise limits.cpu (or remove it) in its manifest"
+  },
+  {
+    "severity": "LOW",
+    "domain": "resource/cpu-under-limit",
+    "finding": "apps/zilean-postgres 30d workload-peak 951m vs CPU limit 1.00 cores (95%) — rides close to its limit — may throttle on an unsampled burst",
+    "fix": "raise limits.cpu (or remove it) in its manifest"
+  },
+  {
+    "severity": "LOW",
+    "domain": "resource/cpu-under-limit",
+    "finding": "observability/grafana 30d workload-peak 1.47 cores vs CPU limit 1.60 cores (92%) — rides close to its limit — may throttle on an unsampled burst",
+    "fix": "raise limits.cpu (or remove it) in its manifest"
+  },
+  {
+    "severity": "LOW",
+    "domain": "resource/qos",
+    "finding": "apps: 0/33 pods Guaranteed (Burstable=33) — under memory pressure Burstable pods are OOM-ranked by usage-over-request (the under-request cohort dies first)",
+    "fix": "raise requests toward usage (finding 3) to improve OOM survival; request==limit for the few critical workloads makes them Guaranteed"
+  },
+  {
+    "severity": "LOW",
+    "domain": "resource/qos",
+    "finding": "observability: 0/9 pods Guaranteed (Burstable=9) — under memory pressure Burstable pods are OOM-ranked by usage-over-request (the under-request cohort dies first)",
+    "fix": "raise requests toward usage (finding 3) to improve OOM survival; request==limit for the few critical workloads makes them Guaranteed"
+  },
+  {
+    "severity": "LOW",
+    "domain": "security/nonroot",
+    "finding": "apps: 2/34 containers don't enforce runAsNonRoot (may run as root)",
+    "fix": "set runAsNonRoot: true / a non-zero runAsUser where the image allows"
+  },
+  {
+    "severity": "LOW",
+    "domain": "security/readonly-root",
+    "finding": "apps: 32/34 containers have a writable root filesystem",
+    "fix": "set securityContext.readOnlyRootFilesystem: true (+ emptyDir/volume for writable paths) where the image allows"
+  },
+  {
+    "severity": "LOW",
+    "domain": "security/readonly-root",
+    "finding": "observability: 8/12 containers have a writable root filesystem",
+    "fix": "set securityContext.readOnlyRootFilesystem: true (+ emptyDir/volume for writable paths) where the image allows"
+  },
+  {
+    "severity": "LOW",
+    "domain": "security/seccomp",
+    "finding": "observability: 1/12 containers don't set a seccompProfile (RuntimeDefault) — syscall surface unconfined",
+    "fix": "set securityContext.seccompProfile.type: RuntimeDefault where the image allows"
+  },
+  {
+    "severity": "MED",
+    "domain": "resource/cpu-under-limit",
+    "finding": "apps/aiometadata 30d workload-peak 1.02 cores vs CPU limit 1.00 cores (102%) — throttled at peak (gauge read at/over the cap)",
+    "fix": "raise limits.cpu (or remove it) in its manifest"
+  },
+  {
+    "severity": "MED",
+    "domain": "resource/cpu-under-limit",
+    "finding": "apps/comet-postgres 30d workload-peak 502m vs CPU limit 500m (101%) — throttled at peak (gauge read at/over the cap)",
+    "fix": "raise limits.cpu (or remove it) in its manifest"
+  },
+  {
+    "severity": "MED",
+    "domain": "storage/hostpath",
+    "finding": "/opt/docker/data/bitmagnet/db — node-local hostPath (apps/bitmagnet-postgres-c966c5cd7-7vsgn), no PV lifecycle/reclaim guard; an ArgoCD prune or path rename orphans the data",
+    "fix": "confirm /opt/docker/data/bitmagnet/db is in the off-node backup set (see gitops/RESTORE.md); consider migrating to a local-path-retain PVC"
+  },
+  {
+    "severity": "MED",
+    "domain": "storage/hostpath",
+    "finding": "/opt/docker/data/calibre-web-automated/book-ingest — node-local hostPath (apps/calibre-web-automated-b994fc49f-gfrhp), no PV lifecycle/reclaim guard; an ArgoCD prune or path rename orphans the data",
+    "fix": "confirm /opt/docker/data/calibre-web-automated/book-ingest is in the off-node backup set (see gitops/RESTORE.md); consider migrating to a local-path-retain PVC"
+  },
+  {
+    "severity": "MED",
+    "domain": "storage/hostpath",
+    "finding": "/opt/docker/data/calibre-web-automated/books — node-local hostPath (apps/calibre-web-automated-b994fc49f-gfrhp), no PV lifecycle/reclaim guard; an ArgoCD prune or path rename orphans the data",
+    "fix": "confirm /opt/docker/data/calibre-web-automated/books is in the off-node backup set (see gitops/RESTORE.md); consider migrating to a local-path-retain PVC"
+  },
+  {
+    "severity": "MED",
+    "domain": "storage/hostpath",
+    "finding": "/opt/docker/data/calibre-web-automated/calibre-library — node-local hostPath (apps/calibre-web-automated-b994fc49f-gfrhp), no PV lifecycle/reclaim guard; an ArgoCD prune or path rename orphans the data",
+    "fix": "confirm /opt/docker/data/calibre-web-automated/calibre-library is in the off-node backup set (see gitops/RESTORE.md); consider migrating to a local-path-retain PVC"
+  },
+  {
+    "severity": "MED",
+    "domain": "storage/hostpath",
+    "finding": "/opt/docker/data/calibre-web-automated/config — node-local hostPath (apps/calibre-web-automated-b994fc49f-gfrhp), no PV lifecycle/reclaim guard; an ArgoCD prune or path rename orphans the data",
+    "fix": "confirm /opt/docker/data/calibre-web-automated/config is in the off-node backup set (see gitops/RESTORE.md); consider migrating to a local-path-retain PVC"
+  },
+  {
+    "severity": "MED",
+    "domain": "storage/hostpath",
+    "finding": "/opt/docker/data/immich/db — node-local hostPath (apps/immich-postgres-8456f4fc5b-hbf2v), no PV lifecycle/reclaim guard; an ArgoCD prune or path rename orphans the data",
+    "fix": "confirm /opt/docker/data/immich/db is in the off-node backup set (see gitops/RESTORE.md); consider migrating to a local-path-retain PVC"
+  },
+  {
+    "severity": "MED",
+    "domain": "storage/hostpath",
+    "finding": "/opt/docker/data/immich/library — node-local hostPath (apps/immich-5d7f46c978-tvxql), no PV lifecycle/reclaim guard; an ArgoCD prune or path rename orphans the data",
+    "fix": "confirm /opt/docker/data/immich/library is in the off-node backup set (see gitops/RESTORE.md); consider migrating to a local-path-retain PVC"
+  },
+  {
+    "severity": "MED",
+    "domain": "storage/hostpath",
+    "finding": "/opt/docker/data/prowlarr — node-local hostPath (apps/prowlarr-85898dc8cd-2l52d), no PV lifecycle/reclaim guard; an ArgoCD prune or path rename orphans the data",
+    "fix": "confirm /opt/docker/data/prowlarr is in the off-node backup set (see gitops/RESTORE.md); consider migrating to a local-path-retain PVC"
+  },
+  {
+    "severity": "MED",
+    "domain": "storage/hostpath",
+    "finding": "/opt/docker/data/prowlarr/db — node-local hostPath (apps/prowlarr-postgres-76467cbf68-6k8wm), no PV lifecycle/reclaim guard; an ArgoCD prune or path rename orphans the data",
+    "fix": "confirm /opt/docker/data/prowlarr/db is in the off-node backup set (see gitops/RESTORE.md); consider migrating to a local-path-retain PVC"
+  },
+  {
+    "severity": "MED",
+    "domain": "storage/hostpath",
+    "finding": "/opt/docker/data/stremthru — node-local hostPath (apps/stremthru-f9784d576-zjvs6), no PV lifecycle/reclaim guard; an ArgoCD prune or path rename orphans the data",
+    "fix": "confirm /opt/docker/data/stremthru is in the off-node backup set (see gitops/RESTORE.md); consider migrating to a local-path-retain PVC"
+  },
+  {
+    "severity": "MED",
+    "domain": "storage/hostpath",
+    "finding": "/opt/docker/data/stremthru/db — node-local hostPath (apps/stremthru-postgres-5b75995c69-8xlmb), no PV lifecycle/reclaim guard; an ArgoCD prune or path rename orphans the data",
+    "fix": "confirm /opt/docker/data/stremthru/db is in the off-node backup set (see gitops/RESTORE.md); consider migrating to a local-path-retain PVC"
+  }
+]
