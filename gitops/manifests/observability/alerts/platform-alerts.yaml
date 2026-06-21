@@ -17,11 +17,13 @@
 #       (kubeletstats, node root fs — group by k8s.node.name)
 #   up   (scrape health — this one is a classic underscore name; not OTLP)
 #
-# NOTE: pod-crashloop AND per-PVC disk alerting are both intentionally omitted — they
-# need kube-state-metrics (kube_pod_container_status_restarts_total;
-# kubelet_volume_stats_available_bytes with persistentvolumeclaim labels), which is
-# not deployed. kubeletstats emits node/pod resource usage with no restart counters
-# and no per-PVC claim labels. Adding KSM + those rules is a separate follow-up.
+# NOTE: kube-state-metrics IS deployed (observability/kube-state-metrics, since
+# 2026-06-03) and the crash-loop + OOMKilled rules in the platform-workload group
+# below now consume its kube_pod_container_status_* series. Only per-PVC disk
+# alerting stays omitted — and NOT for lack of KSM: on this single node every
+# local-path PVC mirrors the node-root filesystem's free space, so a per-PVC space
+# alert is pure duplication of node-disk-full (see the removed pvc-low-space
+# rationale in the platform-capacity group below). Omitted by choice, not capability.
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -57,8 +59,9 @@ data:
           # the node-root filesystem's free space on this single node. So a per-PVC
           # alert is not expressible here; it was pure duplication of node-disk-full
           # below (both read the same host disk). A real per-PVC alert needs
-          # kube-state-metrics (kubelet_volume_stats_*_bytes with persistentvolumeclaim
-          # labels), which is not deployed — see the KSM follow-up note up top.
+          # kubelet_volume_stats_*_bytes with persistentvolumeclaim labels; KSM is now
+          # deployed, but the duplication-on-single-node argument above stands, so this
+          # stays omitted by choice (see the de-staled NOTE up top).
 
           # ── Node filesystem nearly full: >85% used ──
           # VictoriaMetrics stores OTLP metrics under their LITERAL DOTTED names and
@@ -158,6 +161,53 @@ data:
             labels: { severity: critical }
             annotations:
               summary: "Scrape target {{ $labels.job }} is down (up=0)"
+
+          # ── Scrape target ABSENT: a backbone metric-source produced ZERO series ──
+          # Companion to scrape-target-down above, which uses min(up) and CANNOT fire
+          # when a target's series vanish ENTIRELY (deleted ServiceMonitor, renamed
+          # service, selector typo): min() over an empty set returns no-data, not 0, so
+          # the threshold never trips (obs 3343, Jun 2026). absent() is the only expr
+          # that detects a metric that STOPPED EXISTING. Scoped to the four backbones
+          # whose disappearance silently BLINDS other alarms — KSM (feeds crash-loop /
+          # OOMKilled / pod-not-ready), cert-manager (cert-expiry), traefik-metrics
+          # (traefik-5xx), argocd (ArgoCD rules). Deliberately NOT linkerd-proxy
+          # (per-pod sidecars, transient) or the apps (legitimately scaled to zero).
+          # Targets keyed by the OTLP dotted label `service.name` — `up` here carries
+          # NO `job` label (so the rule above's {{ $labels.job }} is in fact always
+          # empty); verified live against vmsingle that this selector + absent() returns
+          # empty when present and a `service.name`-labelled 1 when gone. or-chained so
+          # each missing target emits its own labelled series. for:10m rides out rollout
+          # /scrape blips; noDataState=OK so all-present (empty) is healthy, never a
+          # phantom NoData fire.
+          - uid: scrape-target-absent
+            title: Scrape target absent (zero series)
+            condition: C
+            for: 10m
+            noDataState: OK
+            execErrState: OK
+            data:
+              - refId: A
+                relativeTimeRange: { from: 300, to: 0 }
+                datasourceUid: victoriametrics
+                model:
+                  refId: A
+                  instant: true
+                  expr: |-
+                    absent(up{__name__="up","service.name"="kube-state-metrics"})
+                    or absent(up{__name__="up","service.name"="cert-manager"})
+                    or absent(up{__name__="up","service.name"="traefik-metrics"})
+                    or absent(up{__name__="up","service.name"="argocd-application-controller-metrics"})
+              - refId: C
+                datasourceUid: __expr__
+                model:
+                  refId: C
+                  type: threshold
+                  expression: A
+                  conditions:
+                    - evaluator: { type: gt, params: [0] }
+            labels: { severity: critical }
+            annotations:
+              summary: 'Scrape target {{ index $labels "service.name" }} produced ZERO series — its metric source is gone; alarms depending on it are silently blind'
 
       - orgId: 1
         name: platform-workload
