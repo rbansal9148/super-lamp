@@ -23,11 +23,10 @@ apiVersion: batch/v1
 kind: CronJob
 metadata: { name: immich-backup, namespace: apps }
 spec:
-  # Ships SUSPENDED: until `immich-backup-secrets` exists the restic step can't start, and
-  # an unsuspended job would fail nightly (and could blip the pod-not-ready alarm). After
-  # sealing the secret (gitops/scripts/seal-immich-backup-secret.sh) and committing it, flip
-  # this to false — or run a one-off: kubectl -n apps create job --from=cronjob/immich-backup immich-backup-manual
-  suspend: true
+  # ACTIVE since the secret was sealed and a manual run verified the full path end-to-end
+  # (snapshot 681cf6a1, 10.4 GiB → B2 EU-Central, restic check clean, 2026-06-21). To pause:
+  # set suspend:true, or `kubectl -n apps patch cronjob immich-backup -p '{"spec":{"suspend":true}}'`.
+  suspend: false
   schedule: "0 22 * * *"   # 22:00 UTC = 03:30 IST
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
