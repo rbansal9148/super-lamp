@@ -142,11 +142,14 @@ restic snapshots                                  # find the snapshot to restore
 restic restore latest --target /restore           # recovers /dump/immich.sql.gz + /library
 ```
 
-1. **Library (files):** copy back and fix ownership (immich runs as uid 1000):
+1. **Library (originals only):** the backup contains just `/library/upload` (the
+   photos/videos — thumbs/encoded-video regenerate, immich's own `backups/` are
+   redundant with the DB dump). Copy back and fix ownership (immich runs as uid 1000):
    ```sh
-   cp -a /restore/library/. /opt/docker/data/immich/library/
+   cp -a /restore/library/upload /opt/docker/data/immich/library/
    chown -R 1000:1000 /opt/docker/data/immich/library
    ```
+   immich rebuilds `thumbs/` and `encoded-video/` automatically after the DB loads.
 2. **Database:** start an EMPTY `immich-postgres`, then load the dump. The `sed`
    rewrite is **required** — without it the pgvecto.rs/vectorchord `search_path`
    is wrong and the typed columns fail to restore (immich's documented method):

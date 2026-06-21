@@ -5,9 +5,10 @@
 #   initContainer pg-dump : immich's documented logical dump (pg_dump --clean --if-exists)
 #     → /dump/immich.sql (raw, shared emptyDir — restic compresses+dedups it). NB the *restore* needs a search_path
 #     sed-rewrite for the pgvecto.rs/vectorchord extension — see RESTORE.md §2.
-#   container restic      : restic backup of /dump + the immich library hostPath
-#     (read-only) into the B2 repo, then forget+prune per the retention policy, then a
-#     structural `restic check`.
+#   container restic      : restic backup of /dump + ONLY the originals subdir of the immich
+#     library hostPath (/library/upload, read-only) into the B2 repo, then forget+prune per
+#     the retention policy, then a structural `restic check`. Regenerable/redundant library
+#     subdirs (thumbs, encoded-video, immich's own backups/) are excluded — see the path scope below.
 #
 # Secrets (repo URL, restic password, B2 key) come from SealedSecret
 # `immich-backup-secrets` — NOT in git; produced by gitops/scripts/seal-immich-backup-secret.sh
@@ -76,10 +77,14 @@ spec:
                 - |
                   set -eu
                   restic snapshots > /dev/null 2>&1 || restic init           # idempotent: init the repo on first ever run
-                  # --compression max: helps the raw SQL dump; the library is already-compressed
-                  # media (measured 1.00x) so restic detects that per-blob and stores it as-is —
-                  # no benefit there, but no harm (CPU only, and it runs at 03:30).
-                  restic backup --host immich --tag immich --compression max /dump/immich.sql /library
+                  # Back up ONLY the originals (/library/upload = the photos/videos) + the DB dump.
+                  # Excludes the rest of the library by scoping the path: thumbs/ (immich regenerates),
+                  # backups/ (immich's own *.sql.gz — redundant with our pg_dump, and gzipped so it
+                  # never dedups), profile/, encoded-video/ (regenerated transcodes). The DB dump
+                  # stays — without it the originals restore as orphaned UUID files (no albums/metadata).
+                  # --compression max helps the raw SQL; JPEG/H.264 originals are incompressible (1.00x)
+                  # so restic stores them as-is (CPU-only cost at 03:30).
+                  restic backup --host immich --tag immich --compression max /dump/immich.sql /library/upload
                   restic forget --host immich --tag immich \
                     --keep-daily 7 --keep-weekly 8 --keep-monthly 12 --keep-yearly 3 --prune
                   restic check                                               # structural integrity (no data download → no egress)
