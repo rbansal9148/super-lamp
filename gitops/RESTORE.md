@@ -41,11 +41,12 @@ Only the NON-reproducible data needs off-node backup; the scraper DBs re-scrape.
 | Prowlarr config + DB | hours of hand-configured indexers + API keys | hostPath `/opt/docker/data/prowlarr` |
 | bitmagnet DB | ~weeks of DHT crawl, slow to rebuild | hostPath `/opt/docker/data/bitmagnet/db` (43GB) |
 | Calibre library | irreplaceable user data (books) | hostPath `/opt/docker/data/calibre-web-automated` |
+| Immich library + DB | irreplaceable user data (photos/videos); the DB holds their albums/metadata/face-ML data — without it the library files are orphaned | hostPath `/opt/docker/data/immich` (library ~11G + db; back up together) |
 
 Reproducible (do NOT need backup — re-scrape on restore): zilean, comet,
 aiostreams, aiometadata, stremthru DBs and all redis (caches).
 
-> A `pg_dump`/tar CronJob to off-box storage for the four rows above is a
+> A `pg_dump`/tar CronJob to off-box storage for the five rows above is a
 > recommended follow-up not yet implemented. Until then, snapshot the hostPath
 > dirs + the retain PVCs manually before any risky change.
 
