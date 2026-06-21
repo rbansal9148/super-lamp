@@ -27,6 +27,7 @@ SECRET="${GRAFANA_TOKEN_SECRET:-stack-audit-grafana-token}"
 SVC="${GRAFANA_SVC:-grafana}"
 LPORT="${GRAFANA_PF_PORT:-33731}"
 DAYS="${ALERT_HISTORY_DAYS:-7}"
+ARGOCD_NS="${ARGOCD_NS:-argocd}"
 
 note() { echo "_Alert posture skipped: $1._"; }
 
@@ -69,6 +70,32 @@ else
       .data.groups[].rules[]
       | select(.state=="firing")
       | "- 🔴 **\(.name)** (severity=\(.labels.severity // "?"), active=\((.alerts // [])|length))"' 2>/dev/null
+  fi
+fi
+echo ""
+
+echo "### OutOfSync apps — why (live diagnosis)"
+# Enriches the OutOfSync alarm's state with the *reason*: the alarm reports an app
+# is not Synced; this reports WHY (the ArgoCD ComparisonError/SyncError message —
+# e.g. a chart repoURL that 404s after an upstream move). Reads via the local
+# kubeconfig (same creds used above for the secret/port-forward), NOT the Grafana
+# token. Live & non-deterministic by design — that's why it lives here, not in a
+# deterministic checks/ check.
+APPS=$(kubectl -n "$ARGOCD_NS" get applications -o json 2>/dev/null)
+if [ -z "$APPS" ]; then
+  echo "- ⚠ could not read ArgoCD applications (kubectl -n $ARGOCD_NS get applications)"
+else
+  diag=$(printf '%s' "$APPS" | jq -r '
+    [ .items[] | select((.status.sync.status // "") != "Synced") ]
+    | sort_by(.metadata.name)
+    | .[]
+    | ((.status.conditions // []) | map(select(.type|test("Error";"i"))) | .[0].message // "") as $msg
+    | "- 🔴 **\(.metadata.name)** sync=\(.status.sync.status // "?") health=\(.status.health.status // "?")"
+      + (if $msg != "" then "\n    ↳ \($msg | gsub("\\s+";" ") | .[0:300])" else "" end)' 2>/dev/null)
+  if [ -z "$diag" ]; then
+    echo "- ✅ all apps Synced"
+  else
+    printf '%s\n' "$diag"
   fi
 fi
 echo ""

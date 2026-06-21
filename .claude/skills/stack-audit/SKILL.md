@@ -71,7 +71,12 @@ wrong, **fix the check script** so the next run is right — don't override it c
 in your response.
 
 **The default run also appends a live `## 📟 Runtime alert posture` section** below the
-punch list (Grafana firing-now + fired-in-last-7d). This part is deliberately LIVE, not
+punch list (Grafana firing-now + fired-in-last-7d + an ArgoCD **OutOfSync-reason**
+diagnosis — for any app not `Synced`, its sync status and first `ComparisonError`/
+`SyncError` message, e.g. a chart `repoURL` that 404s after an upstream move. This
+*enriches* the `argocd-out-of-sync` alarm with the WHY it doesn't carry; it does not
+re-detect drift, and reads via the local kubeconfig, not the Grafana token). This part
+is deliberately LIVE, not
 deterministic — it reports the existing alarms' state (it does NOT re-evaluate runtime
 conditions, which would duplicate the alarms). The high-value half is the firing history:
 ntfy.sh's free tier retains none, so auto-resolved firings are otherwise invisible. It is
