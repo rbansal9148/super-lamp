@@ -28,6 +28,9 @@ SVC="${GRAFANA_SVC:-grafana}"
 LPORT="${GRAFANA_PF_PORT:-33731}"
 DAYS="${ALERT_HISTORY_DAYS:-7}"
 ARGOCD_NS="${ARGOCD_NS:-argocd}"
+OWNED_NS="${RESOURCE_OWNED_NAMESPACES:-apps observability}"
+VL_DS_UID="${VL_DATASOURCE_UID:-victorialogs}"     # Grafana datasource uid for VictoriaLogs
+LOG_WINDOW="${LOG_POSTURE_WINDOW:-30m}"            # lookback for the error/timeout log posture
 
 note() { echo "_Alert posture skipped: $1._"; }
 
@@ -115,4 +118,54 @@ else
   else
     printf '%s\n' "$hist"
   fi
+fi
+echo ""
+
+# ── Failed Jobs / CronJobs (gap: no dedicated alarm) ──────────────────────────
+# Added 2026-06-22 after a cap-exceeded immich-backup Job failed silently: its ONLY
+# signal was the generic Pod-not-Ready alarm, which auto-resolves once the failed pods
+# age out (failedJobsHistoryLimit), so a chronically-failing nightly backup is invisible
+# between runs. A Job with a Failed condition is a durable, unambiguous signal. Live
+# kubectl over owned namespaces (same creds as the OutOfSync diagnosis above).
+# The durable fix is a kube_job_failed Grafana alarm; this reports it until that exists.
+echo "### Failed Jobs (no dedicated alarm yet)"
+JFAIL=""
+for ns in $OWNED_NS; do
+  j=$(kubectl -n "$ns" get jobs -o json 2>/dev/null | jq -r --arg ns "$ns" '
+    .items[]
+    | select((.status.conditions // []) | any((.type=="Failed") and (.status=="True")))
+    | ((.status.conditions // []) | map(select(.type=="Failed")) | .[0]) as $c
+    | "- 🔴 **\($ns)/\(.metadata.name)** — \($c.reason // "Failed"): \(($c.message // "") | gsub("\\s+";" ") | .[0:160]) (failed=\(.status.failed // 0))"' 2>/dev/null)
+  [ -n "$j" ] && JFAIL="$JFAIL$j"$'\n'
+done
+if [ -z "$JFAIL" ]; then echo "- ✅ none"; else printf '%s' "$JFAIL"; fi
+echo ""
+
+# ── Error/timeout log posture + upstream classification ───────────────────────
+# Top error/timeout-emitting pods from VictoriaLogs over $LOG_WINDOW, each tagged
+# upstream-vs-internal. Rationale: high-volume "errors" are often upstream/expected
+# (debrid 429s, external 5xx, addon timeouts) and NOT cluster faults — tagging them
+# stops real internal errors from drowning in that noise. Two stats queries (total +
+# upstream-pattern) joined locally — O(2) calls, not O(pods). Reuses the live Grafana
+# port-forward + token; graceful-skips if VictoriaLogs is unreachable.
+echo "### Error/timeout log posture (last $LOG_WINDOW, top emitters)"
+NS_FILTER=$(for n in $OWNED_NS; do printf 'k8s.namespace.name:%s OR ' "$n"; done | sed 's/ OR $//')
+ERRPAT='"error" OR "ERROR" OR "timeout" OR "timed out" OR "fatal" OR "panic" OR "exception"'
+UPPAT='"429" OR "rate limit" OR "Too Many Requests" OR "502" OR "503" OR "upstream" OR "timed out" OR "timeout" OR "aborted" OR "ECONNREFUSED" OR "EAI_AGAIN"'
+vlq() { curl -fsS -H "Authorization: Bearer $TOK" --data-urlencode "query=$1" \
+  "$API/api/datasources/proxy/uid/$VL_DS_UID/select/logsql/query" 2>/dev/null; }
+TOTAL=$(vlq "_time:$LOG_WINDOW ($NS_FILTER) ($ERRPAT) | stats by (k8s.pod.name) count() as cnt | sort by (cnt desc) | limit 12")
+if [ -z "$TOTAL" ]; then
+  echo "- ⚠ could not query VictoriaLogs (datasource uid=$VL_DS_UID) — skipped"
+elif [ "$(printf '%s' "$TOTAL" | jq -s 'length' 2>/dev/null)" = 0 ]; then
+  echo "- ✅ no error/timeout log lines in the window"
+else
+  UPS=$(vlq "_time:$LOG_WINDOW ($NS_FILTER) ($ERRPAT) ($UPPAT) | stats by (k8s.pod.name) count() as up | sort by (up desc) | limit 50")
+  # build "pod up" map, then classify each top emitter by the upstream ratio
+  printf '%s' "$TOTAL" | jq -r '"\(.cnt)\t\(.["k8s.pod.name"])"' 2>/dev/null | while IFS=$'\t' read -r cnt pod; do
+    up=$(printf '%s' "$UPS" | jq -r --arg p "$pod" 'select(.["k8s.pod.name"]==$p) | .up' 2>/dev/null | head -1); up=${up:-0}
+    ratio=$(awk "BEGIN{ if($cnt>0) printf \"%.2f\", $up/$cnt; else print 0 }")
+    if awk "BEGIN{exit !($ratio>=0.8)}"; then tag="⬆ upstream/expected"; else tag="🔎 mixed/internal — investigate"; fi
+    printf -- "- **%s** — %s err/timeout (%s upstream, %s) %s\n" "$pod" "$cnt" "$up" "$ratio" "$tag"
+  done
 fi

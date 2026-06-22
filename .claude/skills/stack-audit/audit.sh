@@ -26,6 +26,7 @@ SUMMARY=0
 ALERTS=1
 PERSIST=0
 DIFF=0
+UPDATES=0
 for a in "$@"; do
   case "$a" in
     --deep) MODE="deep" ;;
@@ -36,6 +37,7 @@ for a in "$@"; do
     --no-alerts) ALERTS=0 ;;
     --persist) PERSIST=1 ;;
     --diff) DIFF=1 ;;
+    --updates) UPDATES=1 ;;
     --only=*) ONLY="${a#--only=}" ;;
     -h|--help)
       cat <<EOF
@@ -57,6 +59,11 @@ Live data:
                graceful-skips with a note if the token/Grafana is unreachable.
   --no-alerts  suppress that section — pure deterministic, credential-free output
                (use for CI / scripted diffing).
+  --updates    append a LIVE image-drift sweep: floating tags (:latest/:nightly/…)
+               whose upstream digest has moved past the pinned @sha256. Off by
+               default — makes outbound registry calls (~1-2s/image). Complements
+               the deterministic 02-image-pins.sh (which only checks THAT images
+               are pinned). Semver tags are out of scope (see image-drift.sh).
 
 History / feedback loop:
   --diff       append a "Change vs last persisted run" section (NEW / CLEARED /
@@ -211,6 +218,12 @@ case "$OUTPUT" in
     if [ "$ALERTS" = "1" ]; then
       echo ""
       bash "$SKILL_DIR/alert-posture.sh"
+    fi
+    # Opt-in LIVE image-drift sweep (--updates). After the posture; network-bound, so
+    # off by default. Markdown-only (like alerts) — not emitted under --json/--summary.
+    if [ "$UPDATES" = "1" ]; then
+      echo ""
+      bash "$SKILL_DIR/image-drift.sh"
     fi
     ;;
 esac

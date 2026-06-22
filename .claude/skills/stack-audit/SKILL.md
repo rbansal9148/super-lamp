@@ -50,6 +50,7 @@ bash /opt/docker/.claude/skills/stack-audit/audit.sh --no-alerts # suppress post
 bash /opt/docker/.claude/skills/stack-audit/audit.sh --persist   # write findings snapshot (seeds the --diff baseline)
 bash /opt/docker/.claude/skills/stack-audit/audit.sh --diff      # append NEW/CLEARED/SEVERITY-CHANGED vs last --persist
 bash /opt/docker/.claude/skills/stack-audit/audit.sh --diff --persist  # diff-then-advance the baseline in one run
+bash /opt/docker/.claude/skills/stack-audit/audit.sh --updates    # + live image-drift sweep (floating tags vs pinned digest)
 bash /opt/docker/.claude/skills/stack-audit/audit.sh --only=01-resource-allocation
 ```
 
@@ -77,8 +78,15 @@ diagnosis — for any app not `Synced`, its sync status and first `ComparisonErr
 *enriches* the `argocd-out-of-sync` alarm with the WHY it doesn't carry; it does not
 re-detect drift, and reads via the local kubeconfig, not the Grafana token). This part
 is deliberately LIVE, not
-deterministic — it reports the existing alarms' state (it does NOT re-evaluate runtime
-conditions, which would duplicate the alarms). The high-value half is the firing history:
+deterministic — for the alarm-backed rows it reports the existing alarms' state (no
+re-evaluation, no duplication). It ALSO carries two **gap** sections for failure classes
+that have **no dedicated alarm** (added Jun 2026): **Failed Jobs** (a Job in `Failed`
+state — e.g. a cap-exceeded backup CronJob whose only other signal, Pod-not-Ready,
+auto-resolves when the failed pods age out) and an **Error/timeout log posture** (top
+error/timeout-emitting pods over `LOG_POSTURE_WINDOW` from VictoriaLogs, each tagged
+`upstream/expected` vs `mixed/internal` so debrid 429s / external 5xx don't read as
+cluster faults). These complement the alarms rather than duplicate them. The high-value
+half of the original section is the firing history:
 ntfy.sh's free tier retains none, so auto-resolved firings are otherwise invisible. It is
 read-only via a least-privilege Grafana Viewer token (SealedSecret
 `observability/stack-audit-grafana-token`) over an in-cluster port-forward (Grafana sits
@@ -144,6 +152,12 @@ This stack pins images by `@sha256` digest so a restart can't silently pull a br
 change (the crashloop alarm catches that *after* the fact; this is the *before*). Flags
 running containers (owned namespaces) whose image has **no digest**: MED for `:latest` /
 no-tag (genuinely mutable), LOW for a version tag without a digest.
+**Complement — `image-drift.sh` (`--updates`, opt-in, live):** 02 checks THAT images are
+pinned; image-drift checks whether a floating tag's upstream digest has **moved past** the
+pin (`:latest`/`:nightly`/`:dev`/… → resolves the tag's current digest from Docker Hub /
+ghcr.io and diffs the pinned `@sha256`). Off by default (outbound registry calls, ~1-2s/
+image). Semver tags are out of scope by design (immutable tag → "newer version?" is a
+bespoke per-app release check, not digest drift).
 
 ### 03-probes.sh
 Without a `readinessProbe`, a Service routes to a pod the instant its process starts —
