@@ -59,11 +59,12 @@ Live data:
                graceful-skips with a note if the token/Grafana is unreachable.
   --no-alerts  suppress that section — pure deterministic, credential-free output
                (use for CI / scripted diffing).
-  --updates    append a LIVE image-drift sweep: floating tags (:latest/:nightly/…)
-               whose upstream digest has moved past the pinned @sha256. Off by
-               default — makes outbound registry calls (~1-2s/image). Complements
-               the deterministic 02-image-pins.sh (which only checks THAT images
-               are pinned). Semver tags are out of scope (see image-drift.sh).
+  --updates    append a LIVE image-currency sweep via tools/image-currency: floating
+               tags (:latest/:nightly/…) whose digest moved (UPDATE) AND version pins
+               (:18.4) re-pushed under us (DRIFT). Off by default — outbound registry
+               calls. Complements the deterministic 02-image-pins.sh (which only
+               checks THAT images are pinned). Report-only; bump with the binary's
+               own --apply.
 
 History / feedback loop:
   --diff       append a "Change vs last persisted run" section (NEW / CLEARED /
@@ -219,11 +220,20 @@ case "$OUTPUT" in
       echo ""
       bash "$SKILL_DIR/alert-posture.sh"
     fi
-    # Opt-in LIVE image-drift sweep (--updates). After the posture; network-bound, so
-    # off by default. Markdown-only (like alerts) — not emitted under --json/--summary.
+    # Opt-in LIVE image-currency sweep (--updates). Delegates to the in-repo Rust tool
+    # tools/image-currency (floating-tag UPDATE + version-pin DRIFT, generic registry
+    # auth, report-only here). Network-bound → off by default. Markdown-only (like
+    # alerts) — not emitted under --json/--summary.
     if [ "$UPDATES" = "1" ]; then
       echo ""
-      bash "$SKILL_DIR/image-drift.sh"
+      echo "## 🔄 Image currency (floating-tag UPDATE + version-pin DRIFT)"
+      _root=$(git -C "$SKILL_DIR" rev-parse --show-toplevel 2>/dev/null)
+      _ic="$_root/tools/image-currency/target/release/image-currency"
+      if [ -x "$_ic" ]; then
+        echo '```'; "$_ic" 2>&1; echo '```'
+      else
+        echo "_image-currency not built — \`cargo build --release\` in tools/image-currency/._"
+      fi
     fi
     ;;
 esac

@@ -50,7 +50,7 @@ bash /opt/docker/.claude/skills/stack-audit/audit.sh --no-alerts # suppress post
 bash /opt/docker/.claude/skills/stack-audit/audit.sh --persist   # write findings snapshot (seeds the --diff baseline)
 bash /opt/docker/.claude/skills/stack-audit/audit.sh --diff      # append NEW/CLEARED/SEVERITY-CHANGED vs last --persist
 bash /opt/docker/.claude/skills/stack-audit/audit.sh --diff --persist  # diff-then-advance the baseline in one run
-bash /opt/docker/.claude/skills/stack-audit/audit.sh --updates    # + live image-drift sweep (floating tags vs pinned digest)
+bash /opt/docker/.claude/skills/stack-audit/audit.sh --updates    # + live image-currency sweep (delegates to tools/image-currency)
 bash /opt/docker/.claude/skills/stack-audit/audit.sh --only=01-resource-allocation
 ```
 
@@ -152,12 +152,13 @@ This stack pins images by `@sha256` digest so a restart can't silently pull a br
 change (the crashloop alarm catches that *after* the fact; this is the *before*). Flags
 running containers (owned namespaces) whose image has **no digest**: MED for `:latest` /
 no-tag (genuinely mutable), LOW for a version tag without a digest.
-**Complement — `image-drift.sh` (`--updates`, opt-in, live):** 02 checks THAT images are
-pinned; image-drift checks whether a floating tag's upstream digest has **moved past** the
-pin (`:latest`/`:nightly`/`:dev`/… → resolves the tag's current digest from Docker Hub /
-ghcr.io and diffs the pinned `@sha256`). Off by default (outbound registry calls, ~1-2s/
-image). Semver tags are out of scope by design (immutable tag → "newer version?" is a
-bespoke per-app release check, not digest drift).
+**Complement — `tools/image-currency` (`--updates`, opt-in, live):** 02 checks THAT images
+are pinned; image-currency (in-repo Rust binary) checks whether the pinned digest is still
+**current** — floating tags whose digest moved (UPDATE) and version pins re-pushed under us
+(DRIFT) — via the generic `Www-Authenticate` flow (all registries). `--updates` runs it
+report-only; bump in-file with the binary's own `--apply` / `--repin-drift`. Off by default
+(outbound registry calls). NOT a bash check and deliberately NOT Renovate/argocd-image-
+updater (those auto-commit+sync, dropping the human review gate this stack relies on).
 
 ### 03-probes.sh
 Without a `readinessProbe`, a Service routes to a pod the instant its process starts —
