@@ -24,10 +24,14 @@ apiVersion: batch/v1
 kind: CronJob
 metadata: { name: immich-backup, namespace: apps }
 spec:
-  # ACTIVE since the secret was sealed and a manual run verified the full path end-to-end
-  # (snapshot 681cf6a1, 10.4 GiB → B2 EU-Central, restic check clean, 2026-06-21). To pause:
-  # set suspend:true, or `kubectl -n apps patch cronjob immich-backup -p '{"spec":{"suspend":true}}'`.
-  suspend: false
+  # SUSPENDED 2026-06-22: B2 storage cap exceeded — the ~10.4 GiB repo crossed the
+  # Backblaze cap, so every restic write (even the lock) is rejected with
+  # "storage cap exceeded", failing the nightly Job and tripping Degraded/NotReady
+  # alerts. Paused deliberately to stop the nightly failures. RE-ENABLE: raise the
+  # B2 storage cap on the Caps & Alerts page (repo ~10.4 GiB → set 25–50 GB headroom),
+  # then set suspend:false. Verified end-to-end before the cap (snapshot 681cf6a1,
+  # 10.4 GiB → B2 EU-Central, restic check clean, 2026-06-21).
+  suspend: true
   schedule: "0 22 * * *"   # 22:00 UTC = 03:30 IST
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1
