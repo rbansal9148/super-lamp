@@ -61,7 +61,10 @@
 # is un-actionable noise (92 of 123 pin findings, Jun 2026), so skip by container
 # name. Mesh proxy pinning is a linkerd-config concern, out of this audit's
 # per-workload scope.
-: "${IMAGE_PIN_SKIP_CONTAINERS:=linkerd-proxy linkerd-init}"
+# grafana-sc-* : the three kiwigrid/k8s-sidecar containers Grafana's Helm chart injects
+# (alerts/dashboard/datasources) share one image pinned at chart level (sidecar.image.tag in
+# the Grafana values), not per-pod — so 02 flagging them is 3 duplicate un-actionable LOWs.
+: "${IMAGE_PIN_SKIP_CONTAINERS:=linkerd-proxy linkerd-init grafana-sc-alerts grafana-sc-dashboard grafana-sc-datasources}"
 
 # --- GitOps source tree (06-alert-delivery.sh) -------------------------------
 # Static checks read desired-state manifests, not the live cluster.

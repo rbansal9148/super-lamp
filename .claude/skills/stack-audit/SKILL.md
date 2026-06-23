@@ -166,7 +166,11 @@ Without a `readinessProbe`, a Service routes to a pod the instant its process st
 before it can serve — and keeps routing to a wedged-but-running pod (the paperless
 `ALLOWED_HOSTS` class: up, but every request 4xx/5xxs). The `pod-not-ready` alarm only
 fires if a probe *exists* to report not-ready, so probe presence itself stays an audit
-check. LOW (some trivial sidecars legitimately don't need one).
+check. LOW (some trivial sidecars legitimately don't need one). **2nd evolve run:** also flags
+a missing **`livenessProbe`** at **MED** on a *public-path* primary container (the pod's `app`
+matches an IngressRoute name) — a readiness probe passes on a wedged-but-listening process, so
+a 200-but-broken public app stays in the Service endpoints with no alarm. Primary-container-only
+(name == `app` label) so sidecars (gluetun/linkerd) aren't flagged.
 
 ### 04-pvc-reclaim.sh
 The ADR's #1 failure mode is silent disk-fill on Delete-reclaim local-path PVCs; on a
@@ -258,6 +262,19 @@ pg_dump) and is suspended → **HIGH** (a paused *sole* backup is data-loss-in-p
 warning), with `lastSuccessfulTime` in the finding. Deliberate pauses are muted via a
 `.audit-ignore` regex — the explicit "I acknowledge this" record. *Shipped from the 2nd evolve
 run: caught `immich-backup` suspended after the Backblaze cap-exceeded incident (2026-06-21).*
+
+### 12-gitops-hygiene.sh — in-sync-but-wrong faults
+Two standing misconfigurations ArgoCD reports as **Synced** (the manifest tree *is* the
+desired state — it's just wrong), so the `argocd-out-of-sync` alarm never fires:
+- **Dangling IngressRoute → absent Service** (**HIGH**): a Traefik IngressRoute whose target
+  Service doesn't exist 502s every request to its host, forever, with no alarm (pod-not-ready
+  needs a pod; scrape-down needs a target). *Caught `apps/libremdb` → missing `libremdb` Service.*
+- **Sealed-secrets key rotation** (**HIGH**): the controller rotates its sealing key (default
+  30d), keeping old keys + adding a new active one. `>1` active key ⇒ a rotation happened ⇒ any
+  key backup predating it no longer covers secrets sealed with the newest key (RESTORE.md §0:
+  lose the key → every committed secret is undecryptable). Ships green at 1 key; fires the moment
+  rotation creates the second. *(The synthesis also proposed an age-based MED pre-warning — dropped:
+  it fires for ~2/3 of every rotation cycle; the multi-key HIGH catches the real re-backup moment.)*
 
 ### 01/05 extensions (Jun 2026)
 - **01** now emits a per-namespace **QoS line** (`resource/qos`, LOW): every owned pod is

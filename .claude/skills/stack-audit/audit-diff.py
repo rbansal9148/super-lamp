@@ -25,6 +25,10 @@ def norm(domain, finding):
     s = re.sub(r'-[a-z0-9]{6,10}-[a-z0-9]{4,5}\b', '-POD', s)
     # statefulset ordinal pod suffix: -0, -1, …
     s = re.sub(r'-\d{1,3}\b', '-N', s)
+    # unit-bearing quantities FIRST, so a Mi/Gi (or m/cores) boundary crossing collapses to the
+    # same token: check 01's fmt() prints '976Mi' below 1024 and '1.1Gi' above, so a value
+    # drifting across 1024Mi would otherwise read as CLEARED+NEW instead of UNCHANGED.
+    s = re.sub(r'\d+(\.\d+)?\s*(Ki|Mi|Gi|Ti|m|cores)\b', 'N', s)
     # any remaining digit run: counts ("2/34"), percentages, ports, sizes
     s = re.sub(r'\d+', 'N', s)
     return domain + '||' + s

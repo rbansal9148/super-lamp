@@ -23,4 +23,21 @@ for ns in $OWNED; do
   | while IFS=$'\t' read -r pod cn; do
       echo "LOW|workload/probe|$ns/$pod container $cn has no readinessProbe — Service may route to a not-yet-ready or wedged pod|add a readinessProbe (httpGet/tcpSocket) in its manifest"
     done
+
+  # ── livenessProbe on PUBLIC-PATH workloads (MED) ──
+  # A readinessProbe that passes on a wedged-but-listening process (http:/ on a 200-but-broken
+  # app) keeps the pod in the Service endpoints forever — the pod-not-ready alarm never fires
+  # because Ready stays true. For an INTERNET-EXPOSED app (an IngressRoute fronts it) that is a
+  # silent outage with no alarm. We check only the PRIMARY container (name == the pod's `app`
+  # label) so sidecars (gluetun/linkerd) aren't flagged — they restart with the pod anyway.
+  # Convention: an IngressRoute's name == the app label it fronts.
+  exposed=$(kubectl get ingressroute -n "$ns" -o jsonpath='{range .items[*]}{.metadata.name}{"\n"}{end}' 2>/dev/null | sort -u | paste -sd, -)
+  [ -n "$exposed" ] || continue
+  kubectl get pods -n "$ns" -o json 2>/dev/null | jq -r --arg ns "$ns" --arg exposed "$exposed" '
+    ($exposed | split(",")) as $pub
+    | .items[] | select(.status.phase=="Running")
+    | .metadata.labels.app as $app | .metadata.name as $p
+    | select($app != null and ($pub | index($app)))
+    | .spec.containers[] | select(.name == $app) | select(has("livenessProbe") | not)
+    | "MED|workload/liveness|\($ns)/\($p) public-facing container \(.name) (IngressRoute present) has no livenessProbe — a wedged-but-Ready process stays in the Service endpoints with no alarm covering it|add a livenessProbe (reusing the readiness endpoint is fine)"' 2>/dev/null
 done
