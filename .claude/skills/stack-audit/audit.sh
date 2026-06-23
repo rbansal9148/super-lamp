@@ -27,6 +27,7 @@ ALERTS=1
 PERSIST=0
 DIFF=0
 UPDATES=0
+CVE=0
 FAIL_ON=""
 for a in "$@"; do
   case "$a" in
@@ -39,6 +40,7 @@ for a in "$@"; do
     --persist) PERSIST=1 ;;
     --diff) DIFF=1 ;;
     --updates) UPDATES=1 ;;
+    --cve) CVE=1 ;;
     --fail-on=*) FAIL_ON="${a#--fail-on=}" ;;
     --only=*) ONLY="${a#--only=}" ;;
     -h|--help)
@@ -67,6 +69,10 @@ Live data:
                calls. Complements the deterministic 02-image-pins.sh (which only
                checks THAT images are pinned). Report-only; bump with the binary's
                own --apply.
+  --cve        append a LIVE Trivy image CVE scan (HIGH+CRITICAL) of owned-namespace
+               images. Off by default — pulls vuln data (network, minutes) and the DB
+               is time-varying, so it can't live in the byte-stable punch list.
+               INCONCLUSIVE note if trivy isn't installed.
 
 History / feedback loop:
   --diff       append a "Change vs last persisted run" section (NEW / CLEARED /
@@ -168,6 +174,15 @@ if [ "$DIFF" = "1" ] || [ "$PERSIST" = "1" ]; then
   fi
   if [ "$PERSIST" = "1" ]; then
     mkdir -p "$PERSIST_DIR"
+    # Stamp firstSeen BEFORE overwriting latest.json: carry each finding's age forward from the
+    # prior baseline (by the diff's stable identity), new findings get today — gives CLEARED
+    # findings a time-to-remediate. Best-effort: if stamping fails, persist the unstamped JSON.
+    STAMPED=$(mktemp)
+    if python3 "$SKILL_DIR/audit-diff.py" --stamp "$PERSIST_DIR/latest.json" "$CUR_JSON" "$(date -u +%F)" > "$STAMPED" 2>/dev/null && [ -s "$STAMPED" ]; then
+      mv "$STAMPED" "$CUR_JSON"
+    else
+      rm -f "$STAMPED"
+    fi
     cp "$CUR_JSON" "$PERSIST_DIR/latest.json"
     cp "$CUR_JSON" "$PERSIST_DIR/$(date -u +%F).json"
   fi
@@ -249,6 +264,12 @@ case "$OUTPUT" in
       else
         echo "_image-currency not built — \`cargo build --release\` in tools/image-currency/._"
       fi
+    fi
+    # Opt-in LIVE Trivy CVE scan (--cve). After image-currency; network + minutes, so
+    # off by default. Markdown-only — not emitted under --json/--summary.
+    if [ "$CVE" = "1" ]; then
+      echo ""
+      bash "$SKILL_DIR/cve-scan.sh"
     fi
     ;;
 esac

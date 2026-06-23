@@ -25,6 +25,13 @@
 : "${MEM_LIMIT_OVERSIZE_FLOOR_MI:=1024}"    # …and limit ≥ this many Mi (ignore tiny pods)
 : "${MEM_REQUEST_UNDER_RATIO:=1.5}"         # usage ≥ N× request → under-requested
 : "${MEM_REQUEST_UNDER_FLOOR_MI:=256}"      # …and usage ≥ this many Mi
+# p95 OVER-request (chronic over-provisioning): the MAX path can't see it — a single 30d spike
+# keeps a request looking justified while p95 sits far below. Needs the p95 VM query (vm-peak only).
+: "${MEM_OVER_REQUEST_RATIO:=0.5}"          # p95 < ratio×request (AND under-request not firing) → over-requested
+: "${MEM_OVER_REQUEST_FLOOR_MI:=256}"       # …and request ≥ this many Mi (ignore tiny pods)
+# Leading indicator: a LOW when limit-overcommit is within MARGIN pp BELOW the HIGH threshold —
+# a "create headroom before adding workloads" nudge, NOT a re-lowering of the 200% HIGH gate.
+: "${MEM_LIMIT_OVERCOMMIT_WARN_MARGIN:=10}" # percentage-points below WARN that trip the leading LOW
 
 # Usage source for the sizing checks (oversized-limit, under-request).
 # Prefer VictoriaMetrics PEAK (max working_set over a window) over instantaneous
@@ -116,6 +123,7 @@ EOF
 : "${CPU_LIMIT_OVERCOMMIT_PCT_INFO:=1500}"  # sum(cpu limits)/allocatable — LOW-info only above this
                                             # (compressible: throttles, doesn't OOM; high ratio is normal)
 : "${CPU_UNDERLIMIT_PEAK_RATIO:=0.9}"       # 30d-peak ≥ ratio×limit → riding the limit, likely throttling
+: "${CPU_UNDERLIMIT_SUSTAINED_RATIO:=0.7}"  # p95 ≥ ratio×limit → SUSTAINED throttle (not a one-off burst)
 : "${CPU_UNDERLIMIT_MAX_LIMIT_M:=2000}"     # …and limit < this many millicores (big-limit pods self-absorb)
 
 # --- NetworkPolicy DB coverage (09-netpol-db-coverage.sh) --------------------
@@ -138,6 +146,8 @@ export RESOURCE_OWNED_NAMESPACES \
        MEM_LIMIT_OVERCOMMIT_PCT_WARN MEM_LIMIT_OVERCOMMIT_PCT_CRIT \
        MEM_LIMIT_OVERSIZE_RATIO MEM_LIMIT_OVERSIZE_FLOOR_MI \
        MEM_REQUEST_UNDER_RATIO MEM_REQUEST_UNDER_FLOOR_MI \
+       MEM_OVER_REQUEST_RATIO MEM_OVER_REQUEST_FLOOR_MI MEM_LIMIT_OVERCOMMIT_WARN_MARGIN \
+       CPU_UNDERLIMIT_SUSTAINED_RATIO \
        CHECK_TIMEOUT_SECS CHECK_TIMEOUT_SECS_DEEP \
        USE_VM_PEAK VM_PEAK_METRIC VM_PEAK_WINDOW VM_NAMESPACE VM_SERVICE VM_PORT \
        IMAGE_PIN_SKIP_CONTAINERS GITOPS_DIR \

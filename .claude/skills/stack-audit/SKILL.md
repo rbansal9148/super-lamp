@@ -51,6 +51,7 @@ bash /opt/docker/.claude/skills/stack-audit/audit.sh --persist   # write finding
 bash /opt/docker/.claude/skills/stack-audit/audit.sh --diff      # append NEW/CLEARED/SEVERITY-CHANGED vs last --persist
 bash /opt/docker/.claude/skills/stack-audit/audit.sh --diff --persist  # diff-then-advance the baseline in one run
 bash /opt/docker/.claude/skills/stack-audit/audit.sh --updates    # + live image-currency sweep (delegates to tools/image-currency)
+bash /opt/docker/.claude/skills/stack-audit/audit.sh --cve        # + live Trivy CVE scan (HIGH+CRITICAL) of owned-ns images
 bash /opt/docker/.claude/skills/stack-audit/audit.sh --no-alerts --fail-on=CRIT,HIGH  # CI/pre-push gate: exit 1 on any CRIT/HIGH
 bash /opt/docker/.claude/skills/stack-audit/audit.sh --only=01-resource-allocation
 ```
@@ -291,6 +292,23 @@ desired state — it's just wrong), so the `argocd-out-of-sync` alarm never fire
   surface in the stack). Plus a new **`caps-setuid` MED**: a container adding SETUID/SETGID
   without `runAsNonRoot` can change its effective UID if it starts as root (fires on the s6/gosu
   PUID-drop images calibre-web + prowlarr — suppress via `.audit-ignore` if accepted).
+
+### Restructure (Jun 2026, 2nd evolve) — p95 companions, leading-indicator, time-to-remediate
+The MAX path is **never replaced** (a spike OOMs a swapless node, so MAX is correct for
+under-provisioning); these add a **second** VM query — `quantile_over_time(0.95, …[30d])` — for the
+*opposite* problem, plus two feedback-loop tweaks:
+- **01 `resource/over-request` (LOW):** p95 ≪ request (default `< 0.5×`, request ≥ 256Mi) while
+  MAX stays silent ⇒ the request reserves scheduler budget a once-historic spike never sustains.
+  Guarded so it never contradicts the MAX `under-request`. *Caught `zilean` (p95 204Mi = 11% of its
+  1.8Gi request) and `vlsingle-obs`.*
+- **01 `resource/overcommit-headroom` (LOW):** fires when limit-overcommit is within
+  `MEM_LIMIT_OVERCOMMIT_WARN_MARGIN` pp **below** the 200% HIGH gate — a predictive nudge, *not* a
+  re-lowering of the gate. Silent at today's 186% (default margin 10 ⇒ fires at ≥190%).
+- **10 `resource/cpu-sustained-limit` (MED):** p95 ≥ `0.7×` CPU limit ⇒ *sustained* throttle, vs the
+  MAX path's one-off-burst signal. Ships green today (confirms the 92–99%-MAX workloads are bursts).
+- **`firstSeen` / time-to-remediate:** `--persist` stamps each finding's first-seen date (carried
+  forward by the diff's stable identity, new ⇒ today, via `audit-diff.py --stamp`); `--diff` then
+  prints *"was open since …"* on CLEARED findings. Backward-compatible extra JSON field.
 
 ## Thresholds (`thresholds.sh`)
 

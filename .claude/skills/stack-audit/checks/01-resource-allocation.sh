@@ -45,6 +45,13 @@ if [ "${USE_VM_PEAK:-1}" = "1" ] && command -v jq >/dev/null 2>&1; then
     fi
   fi
 fi
+# p95 companion (chronic OVER-provisioning detection) — only with the VM peak source: a single
+# 30d spike keeps MAX-based checks silent while p95 reveals the request is mostly idle budget.
+if [ "$USAGE_SRC" = "vm-peak" ]; then
+  _q95="quantile_over_time(0.95,{__name__=\"${VM_PEAK_METRIC:-k8s.pod.memory.working_set}\"}[${VM_PEAK_WINDOW:-30d}])"
+  _enc95=$(jq -rn --arg q "$_q95" '$q|@uri' 2>/dev/null)
+  [ -n "$_enc95" ] && kubectl get --raw "/api/v1/namespaces/${VM_NAMESPACE:-observability}/services/${VM_SERVICE:-vmsingle-obs}:${VM_PORT:-8428}/proxy/api/v1/query?query=${_enc95}" 2>/dev/null > "$TMPD/vm_p95.json" || true
+fi
 if [ "$USAGE_SRC" = "none" ]; then
   kubectl top pods -A --no-headers 2>/dev/null > "$TMPD/top.txt"   # fallback: instantaneous (or empty if metrics-server down)
   [ -s "$TMPD/top.txt" ] && USAGE_SRC="kubectl-top"
@@ -83,6 +90,9 @@ OVERSIZE_RATIO    = envf("MEM_LIMIT_OVERSIZE_RATIO", 8)
 OVERSIZE_FLOOR_MI = envf("MEM_LIMIT_OVERSIZE_FLOOR_MI", 1024)
 UNDERREQ_RATIO    = envf("MEM_REQUEST_UNDER_RATIO", 1.5)
 UNDERREQ_FLOOR_MI = envf("MEM_REQUEST_UNDER_FLOOR_MI", 256)
+OVERREQ_RATIO     = envf("MEM_OVER_REQUEST_RATIO", 0.5)
+OVERREQ_FLOOR_MI  = envf("MEM_OVER_REQUEST_FLOOR_MI", 256)
+OVERCOMMIT_MARGIN = envf("MEM_LIMIT_OVERCOMMIT_WARN_MARGIN", 10)
 
 def parse_mem(s):
     if s is None: return None
@@ -131,6 +141,21 @@ else:
                 if m > usage.get((ns, wl), 0.0): usage[(ns, wl)] = m
     usage_label = "live usage"
 
+# p95 per workload (Mi) — the chronic-over-provisioning signal, MAX across the workload's pods
+# of each pod's 30d p95. Only populated from the VM peak source (no p95 from `kubectl top`).
+usage_p95 = {}
+if usage_src == "vm-peak":
+    vmp = json.loads(_read("vm_p95.json") or "{}")
+    for r in vmp.get("data", {}).get("result", []):
+        m = r.get("metric", {})
+        ns, name = m.get("k8s.namespace.name"), m.get("k8s.pod.name")
+        if not ns or not name: continue
+        wl = (m.get("k8s.deployment.name") or m.get("k8s.statefulset.name")
+              or m.get("k8s.daemonset.name") or workload_key(name))
+        try: mi = float(r.get("value", [None, None])[1]) / 1024 / 1024
+        except (TypeError, ValueError, IndexError): continue
+        if mi > usage_p95.get((ns, wl), 0.0): usage_p95[(ns, wl)] = mi
+
 def fmt(mi):
     return f"{mi/1024:.1f}Gi" if mi >= 1024 else f"{int(mi)}Mi"
 
@@ -152,6 +177,11 @@ if alloc_mi > 0 and sum_limit_mi > 0:
         print(f"CRIT|resource/overcommit|memory limits sum to {pct}% of node allocatable ({fmt(sum_limit_mi)} / {fmt(alloc_mi)}) on a single swapless node — concurrent bursts OOM the node|kubectl top node; trim oversized limits below")
     elif pct >= OVERCOMMIT_WARN:
         print(f"HIGH|resource/overcommit|memory limits sum to {pct}% of node allocatable ({fmt(sum_limit_mi)} / {fmt(alloc_mi)}) — no swap safety net|kubectl top node; trim oversized limits below")
+    elif pct >= OVERCOMMIT_WARN - OVERCOMMIT_MARGIN:
+        # Leading indicator — NOT a re-lowering of the HIGH gate (the 200% WARN is "by design"
+        # for 30+ peak-sized workloads). Just a "you're within MARGIN pp of HIGH; the next
+        # medium workload trips it" nudge toward acting on the oversized-limit findings first.
+        print(f"LOW|resource/overcommit-headroom|memory limit overcommit at {pct}% — {round(OVERCOMMIT_WARN)-pct}pp below the {round(OVERCOMMIT_WARN)}% HIGH gate; one more medium workload crosses it|act on the resource/oversized-limit findings below to bank headroom before adding workloads")
 
 # ── 1b. QoS class posture (owned namespaces) ──
 # Under the memory overcommit above, WHICH pods the kernel reaps first is decided by QoS:
@@ -205,4 +235,11 @@ for pod in pods:
     # 3. under-requested
     if sum_req > 0 and live >= UNDERREQ_FLOOR_MI and live >= UNDERREQ_RATIO * sum_req:
         print(f"MED|resource/under-request|{ns}/{wl} {usage_label} {fmt(live)} vs request {fmt(sum_req)} ({live/sum_req:.1f}× over request) — scheduler undercounts real demand|raise requests.memory toward observed usage in its manifest")
+    # 5. over-requested (p95 « request) — chronic scheduler-budget reservation a single 30d MAX
+    #    spike hides. Companion to MAX, not a replacement: guarded with `not under-request` so the
+    #    two never give contradictory advice on a spiky workload (MAX wins — a spike OOMs).
+    p95 = usage_p95.get((ns, wl))
+    if (p95 is not None and sum_req >= OVERREQ_FLOOR_MI and p95 < OVERREQ_RATIO * sum_req
+            and not (sum_req > 0 and live is not None and live >= UNDERREQ_RATIO * sum_req)):
+        print(f"LOW|resource/over-request|{ns}/{wl} p95 {fmt(p95)} is {p95/sum_req*100:.0f}% of request {fmt(sum_req)} (30d-MAX {fmt(live)}) — the request reserves scheduler budget a once-historic spike never sustains|lower requests.memory toward p95, keep limits at peak headroom")
 PY

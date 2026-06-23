@@ -40,6 +40,22 @@ def load(path):
     except Exception:
         return None
 
+# --stamp PRIOR CUR TODAY : emit CUR with a firstSeen field carried forward from PRIOR by the
+# same volatility-stripped norm() identity the diff uses (so a rolled pod name keeps its age),
+# else set to TODAY. audit.sh runs this at --persist time → CLEARED findings can then report a
+# time-to-remediate. Backward compatible: the diff path below reads only severity/domain/
+# finding/fix, so the extra field is inert for any existing consumer.
+if len(sys.argv) > 1 and sys.argv[1] == '--stamp':
+    prior = load(sys.argv[2]) or []
+    cur   = load(sys.argv[3]) or []
+    today = sys.argv[4] if len(sys.argv) > 4 else ''
+    pidx  = {norm(it.get('domain', ''), it.get('finding', '')): it for it in prior}
+    for it in cur:
+        k = norm(it.get('domain', ''), it.get('finding', ''))
+        it['firstSeen'] = (pidx.get(k) or {}).get('firstSeen') or today
+    print(json.dumps(cur))
+    sys.exit(0)
+
 base = load(sys.argv[1])
 if base is None:
     print("__NO_BASELINE__")
@@ -77,4 +93,5 @@ if changed:
 if cleared:
     print(f"\n### ✅ Cleared ({len(cleared)})")
     for it in sorted(cleared, key=sk):
-        print(f"- ~~[{it.get('severity')}]~~ [{it.get('domain')}] {it.get('finding')}")
+        age = f"  _(was open since {it['firstSeen']})_" if it.get('firstSeen') else ""
+        print(f"- ~~[{it.get('severity')}]~~ [{it.get('domain')}] {it.get('finding')}{age}")

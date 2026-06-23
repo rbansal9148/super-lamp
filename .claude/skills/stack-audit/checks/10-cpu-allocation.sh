@@ -34,6 +34,13 @@ if [ "${USE_VM_PEAK:-1}" = "1" ] && command -v jq >/dev/null 2>&1; then
     fi
   fi
 fi
+# p95 companion — separates SUSTAINED throttling (p95 rides the limit) from a one-off burst
+# (only MAX touches it). Only meaningful with the VM peak source.
+if [ "$USAGE_SRC" = "vm-peak" ]; then
+  _q95="quantile_over_time(0.95,{__name__=\"${CPU_VM_METRIC:-k8s.pod.cpu.usage}\"}[${VM_PEAK_WINDOW:-30d}])"
+  _enc95=$(jq -rn --arg q "$_q95" '$q|@uri' 2>/dev/null)
+  [ -n "$_enc95" ] && kubectl get --raw "/api/v1/namespaces/${VM_NAMESPACE:-observability}/services/${VM_SERVICE:-vmsingle-obs}:${VM_PORT:-8428}/proxy/api/v1/query?query=${_enc95}" 2>/dev/null > "$TMPD/vm_cpu_p95.json" || true
+fi
 
 TMPD="$TMPD" USAGE_SRC="$USAGE_SRC" python3 - <<'PY'
 import json, os, re
@@ -60,6 +67,7 @@ OWNED_NS         = set((os.environ.get("RESOURCE_OWNED_NAMESPACES") or "apps obs
 OVERCOMMIT_INFO  = envf("CPU_LIMIT_OVERCOMMIT_PCT_INFO", 1500)
 UNDERLIMIT_RATIO = envf("CPU_UNDERLIMIT_PEAK_RATIO", 0.9)
 UNDERLIMIT_MAX_M = envf("CPU_UNDERLIMIT_MAX_LIMIT_M", 2000)
+SUSTAINED_RATIO  = envf("CPU_UNDERLIMIT_SUSTAINED_RATIO", 0.7)
 
 def parse_cpu(s):
     # → millicores. "100m"=100, "1"=1000, "0.5"=500, "2"=2000.
@@ -93,6 +101,20 @@ if os.environ.get("USAGE_SRC") == "vm-peak":
     usage_label = f"{os.environ.get('VM_PEAK_WINDOW', '30d')} workload-peak"
 else:
     usage_label = None   # no usage source → emit overcommit + missing only
+
+# p95 per workload (millicores) — the SUSTAINED-throttle signal; VM peak source only.
+usage_p95 = {}
+if os.environ.get("USAGE_SRC") == "vm-peak":
+    vmp = json.loads(_read("vm_cpu_p95.json") or "{}")
+    for r in vmp.get("data", {}).get("result", []):
+        m = r.get("metric", {})
+        ns, name = m.get("k8s.namespace.name"), m.get("k8s.pod.name")
+        if not ns or not name: continue
+        wl = (m.get("k8s.deployment.name") or m.get("k8s.statefulset.name")
+              or m.get("k8s.daemonset.name") or workload_key(name))
+        try: mc = float(r.get("value", [None, None])[1]) * 1000
+        except (TypeError, ValueError, IndexError): continue
+        if mc > usage_p95.get((ns, wl), 0.0): usage_p95[(ns, wl)] = mc
 
 def fmt(mc):
     return f"{mc/1000:.2f} cores" if mc >= 1000 else f"{int(mc)}m"
@@ -151,4 +173,13 @@ for pod in pods:
         sev = "MED" if live >= sum_lim_m else "LOW"
         tail = "throttled at peak (gauge read at/over the cap)" if sev == "MED" else "rides close to its limit — may throttle on an unsampled burst"
         print(f"{sev}|resource/cpu-under-limit|{ns}/{wl} {usage_label} {fmt(live)} vs CPU limit {fmt(sum_lim_m)} ({pctlim:.0f}%) — {tail}|raise limits.cpu (or remove it) in its manifest")
+
+    # sustained throttle: p95 (not just the MAX spike) rides the limit → chronic, not a one-off.
+    # Distinct MED even when MAX-under-limit stayed LOW/silent; suppressed when MAX already hit
+    # MED (>=100%) so the two don't double-report the same workload.
+    p95 = usage_p95.get((ns, wl))
+    if (p95 is not None and sum_lim_m > 0 and sum_lim_m < UNDERLIMIT_MAX_M
+            and p95 >= SUSTAINED_RATIO * sum_lim_m
+            and not (live is not None and live >= sum_lim_m)):
+        print(f"MED|resource/cpu-sustained-limit|{ns}/{wl} p95 {fmt(p95)} is {p95/sum_lim_m*100:.0f}% of CPU limit {fmt(sum_lim_m)} (30d-MAX {fmt(live)}) — throttling is SUSTAINED across the window, not a one-off burst|raise limits.cpu in its manifest")
 PY
