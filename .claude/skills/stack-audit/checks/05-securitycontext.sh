@@ -86,15 +86,34 @@ for ns in (os.environ.get("NS_LIST") or "").split():
             bad_added = (added & danger) if cn not in allow_caps else set()
             if bad_added:
                 print(f"MED|security/caps-add|{ns}/{name} container {cn} adds escape-grade capabilit{'ies' if len(bad_added)>1 else 'y'} {sorted(bad_added)}|drop these unless required (allowlist via SECCTX_ADDED_CAPS_ALLOW)")
+            # SETUID/SETGID added + not pinned non-root: the process can change its effective
+            # UID/GID if it starts as root. Common in s6/gosu PUID-drop images (calibre-web,
+            # prowlarr) where it's intentional — but it IS a real escalation surface, so surface
+            # it (suppress known-intentional ones via .audit-ignore). Allowlist-exempt like the
+            # escape-grade caps above; distinct from them (SETUID/SETGID are not in `danger`).
+            setid = added & {"SETUID", "SETGID"}
+            if cn not in allow_caps and setid and not (nonroot is True or (isinstance(run_as, int) and run_as != 0)):
+                print(f"MED|security/caps-setuid|{ns}/{name} container {cn} adds {sorted(setid)} without runAsNonRoot — can change effective UID if it starts as root|set runAsNonRoot: true / a non-zero runAsUser, or drop SETUID/SETGID if unused")
 
             # ── baseline tallies (aggregated below) ──
+            # seccompProfile is tallied for ALL containers, INCLUDING allowlisted ones — it is
+            # pulled ABOVE the allow_caps `continue` below on purpose. A RuntimeDefault/Localhost
+            # profile confines the syscall surface, and that is ORTHOGONAL to the cap/root
+            # exception: gluetun needs NET_ADMIN + root for its tun device, but it can still run
+            # RuntimeDefault seccomp. Skipping it here hid gluetun's Unconfined profile — the
+            # widest syscall surface in the stack (NET_ADMIN routes all cluster egress) — from
+            # the tally. Honour container OR pod-level securityContext.
+            sec_type = ((sc.get("seccompProfile") or {}).get("type")
+                        or (psc.get("seccompProfile") or {}).get("type"))
+            if sec_type not in ("RuntimeDefault", "Localhost"):
+                no_seccomp += 1
             # A container ALLOWLISTED for special privileges (SECCTX_ADDED_CAPS_ALLOW, e.g.
             # gluetun: a VPN gateway that CANNOT drop caps / run non-root without breaking its
-            # /dev/net/tun device — documented in its manifest) is a known exception, not a
-            # baseline gap. Counting it emits a PERMANENT false-positive LOW every run, which
-            # trains the operator to ignore the line. Exclude it from the three baseline nags —
-            # it is still subject to the per-container HIGH checks above (priv/root/dangerous
-            # caps), and a DIFFERENT container regressing is still counted (unlike a blanket
+            # /dev/net/tun device — documented in its manifest) is a known exception for the
+            # runAsNonRoot / drop-ALL / no-escalation nags — counting those emits a PERMANENT
+            # false-positive LOW that trains the operator to ignore the line. It is still subject
+            # to the per-container HIGH checks above (priv/root/dangerous caps), the seccomp tally
+            # above, and a DIFFERENT container regressing is still counted (unlike a blanket
             # .audit-ignore on the aggregate line, which would mask that regression).
             if cn in allow_caps:
                 continue
@@ -104,13 +123,6 @@ for ns in (os.environ.get("NS_LIST") or "").split():
                 no_dropall += 1
             if ape is not False:
                 no_ape += 1
-            # seccompProfile: a RuntimeDefault/Localhost profile confines the syscall surface.
-            # Honour either the container OR the pod-level securityContext (pod-level applies
-            # to all containers that don't override it).
-            sec_type = ((sc.get("seccompProfile") or {}).get("type")
-                        or (psc.get("seccompProfile") or {}).get("type"))
-            if sec_type not in ("RuntimeDefault", "Localhost"):
-                no_seccomp += 1
             # readOnlyRootFilesystem: a writable container root is a tampering/persistence surface.
             if sc.get("readOnlyRootFilesystem") is not True:
                 no_rofs += 1

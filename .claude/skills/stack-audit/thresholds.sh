@@ -122,6 +122,10 @@ EOF
 : "${NETPOL_DB_NAME:=apps-allow-trusted-cross-ns}"
 : "${NETPOL_DB_LABEL_PATTERN:=postgres|redis|valkey|mariadb|mysql|mongo}"
 
+# Backup CronJobs whose suspension = "scheduled backups are silently NOT running".
+# Name-matched (case-insensitive) so a new backup job is covered without per-job config.
+: "${BACKUP_CRONJOB_PATTERN:=backup|restic|dump|borg|velero|pg_dump|pgdump}"
+
 # Export everything: bash checks see these via sourcing, but child processes
 # (the Python check 01-resource-allocation.sh, and any future awk/python check)
 # only inherit EXPORTED vars. Without this, `:=` set the shell var but not the
@@ -137,4 +141,5 @@ export RESOURCE_OWNED_NAMESPACES \
        AUTH_PORTAL_HOST PUBLIC_ENDPOINT_PROBES PUBLIC_ENDPOINT_PROBE_TIMEOUT \
        HOSTPATH_ALLOW HOSTPATH_CRITICAL \
        NETPOL_DB_NS NETPOL_DB_NAME NETPOL_DB_LABEL_PATTERN \
-       CPU_VM_METRIC CPU_LIMIT_OVERCOMMIT_PCT_INFO CPU_UNDERLIMIT_PEAK_RATIO CPU_UNDERLIMIT_MAX_LIMIT_M
+       CPU_VM_METRIC CPU_LIMIT_OVERCOMMIT_PCT_INFO CPU_UNDERLIMIT_PEAK_RATIO CPU_UNDERLIMIT_MAX_LIMIT_M \
+       BACKUP_CRONJOB_PATTERN

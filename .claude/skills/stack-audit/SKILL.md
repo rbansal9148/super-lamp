@@ -51,6 +51,7 @@ bash /opt/docker/.claude/skills/stack-audit/audit.sh --persist   # write finding
 bash /opt/docker/.claude/skills/stack-audit/audit.sh --diff      # append NEW/CLEARED/SEVERITY-CHANGED vs last --persist
 bash /opt/docker/.claude/skills/stack-audit/audit.sh --diff --persist  # diff-then-advance the baseline in one run
 bash /opt/docker/.claude/skills/stack-audit/audit.sh --updates    # + live image-currency sweep (delegates to tools/image-currency)
+bash /opt/docker/.claude/skills/stack-audit/audit.sh --no-alerts --fail-on=CRIT,HIGH  # CI/pre-push gate: exit 1 on any CRIT/HIGH
 bash /opt/docker/.claude/skills/stack-audit/audit.sh --only=01-resource-allocation
 ```
 
@@ -247,6 +248,17 @@ overcommit+missing only if VM is unreachable (an instantaneous core reading is m
 for sizing, so there's no `kubectl top` fallback). *Shipped from the evolve run's CPU
 experiment: 2 MED + 4 LOW on the live cluster — actionable, not noise.*
 
+### 11-backup-suspension.sh — the silently-paused backup
+A backup CronJob with `spec.suspend: true` = scheduled off-node backups are **not running**,
+and **nothing else sees it**: checks 01-10 never read `.spec.suspend`; the Grafana alarms
+need a firing/failing run to fire on, but a suspended CronJob spawns **no Jobs and no pods**;
+and even the alert-posture Failed-Jobs section only matches Jobs with a `Failed` condition.
+Flags any CronJob whose name matches `BACKUP_CRONJOB_PATTERN` (backup|restic|dump|borg|velero|
+pg_dump) and is suspended → **HIGH** (a paused *sole* backup is data-loss-in-progress, not a
+warning), with `lastSuccessfulTime` in the finding. Deliberate pauses are muted via a
+`.audit-ignore` regex — the explicit "I acknowledge this" record. *Shipped from the 2nd evolve
+run: caught `immich-backup` suspended after the Backblaze cap-exceeded incident (2026-06-21).*
+
 ### 01/05 extensions (Jun 2026)
 - **01** now emits a per-namespace **QoS line** (`resource/qos`, LOW): every owned pod is
   `Burstable`, so under the memory overcommit the kernel OOM-ranks them by
@@ -256,6 +268,12 @@ experiment: 2 MED + 4 LOW on the live cluster — actionable, not noise.*
   pattern: **`seccompProfile`** (RuntimeDefault, container- or pod-level) and
   **`readOnlyRootFilesystem`**. These turn 05 into a same-run drift detector for the two
   restricted-PSS controls it previously ignored.
+- **05** (2nd evolve run): the **`seccompProfile` tally now counts allowlisted containers too**
+  (moved above the `allow_caps` `continue`) — seccomp confinement is orthogonal to the cap/root
+  exception, and the old order hid gluetun's `Unconfined` profile (NET_ADMIN = widest syscall
+  surface in the stack). Plus a new **`caps-setuid` MED**: a container adding SETUID/SETGID
+  without `runAsNonRoot` can change its effective UID if it starts as root (fires on the s6/gosu
+  PUID-drop images calibre-web + prowlarr — suppress via `.audit-ignore` if accepted).
 
 ## Thresholds (`thresholds.sh`)
 

@@ -27,6 +27,7 @@ ALERTS=1
 PERSIST=0
 DIFF=0
 UPDATES=0
+FAIL_ON=""
 for a in "$@"; do
   case "$a" in
     --deep) MODE="deep" ;;
@@ -38,6 +39,7 @@ for a in "$@"; do
     --persist) PERSIST=1 ;;
     --diff) DIFF=1 ;;
     --updates) UPDATES=1 ;;
+    --fail-on=*) FAIL_ON="${a#--fail-on=}" ;;
     --only=*) ONLY="${a#--only=}" ;;
     -h|--help)
       cat <<EOF
@@ -73,6 +75,12 @@ History / feedback loop:
   --persist    write the current findings to audit-log/latest.json (the --diff
                baseline) + a git-trackable audit-log/<UTC-date>.json snapshot.
                Combine with --diff to diff-then-advance the baseline in one run.
+
+Enforcement:
+  --fail-on=SEV[,SEV]  exit 1 if any finding of these severities (CRIT,HIGH,…) is
+                       present — turns the punch list into a CI / pre-push gate.
+                       The reachability gate emits only INCONCLUSIVE LOWs when the
+                       cluster is unreachable, so an offline run never false-blocks.
 
 Filtering:
   --only=NAME[,NAME]   only run these check scripts (by filename stem)
@@ -166,6 +174,13 @@ if [ "$DIFF" = "1" ] || [ "$PERSIST" = "1" ]; then
   rm -f "$CUR_JSON"
 fi
 
+# --fail-on gate (CI / pre-push): exit 1 if any finding of the listed severities is present.
+# Computed on the sorted $TMP BEFORE any early exit so every output mode honours it. The
+# reachability gate emits only LOW|...INCONCLUSIVE on an unreachable cluster, so
+# --fail-on=CRIT,HIGH never false-blocks an offline commit (proven: those are LOW).
+FAIL_RC=0
+if [ -n "$FAIL_ON" ] && grep -qE "^(${FAIL_ON//,/|})\|" "$TMP" 2>/dev/null; then FAIL_RC=1; fi
+
 # Summary mode — single line
 if [ "$SUMMARY" = "1" ]; then
   crit=$(grep -c "^CRIT|" "$TMP" 2>/dev/null | head -1); crit=${crit:-0}
@@ -173,7 +188,7 @@ if [ "$SUMMARY" = "1" ]; then
   med=$(grep -c "^MED|" "$TMP" 2>/dev/null | head -1); med=${med:-0}
   low=$(grep -c "^LOW|" "$TMP" 2>/dev/null | head -1); low=${low:-0}
   echo "🔴 $crit  🟠 $high  🟡 $med  🟢 $low  (mode=$MODE)"
-  exit 0
+  exit "$FAIL_RC"
 fi
 
 # Render
@@ -237,3 +252,5 @@ case "$OUTPUT" in
     fi
     ;;
 esac
+
+exit "$FAIL_RC"
