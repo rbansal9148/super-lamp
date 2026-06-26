@@ -6,7 +6,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata: {name: stremthru-postgres, namespace: apps, labels: {app: stremthru-postgres}}
 spec:
-  replicas: 0   # disabled 2026-06-26 (temporary isolation test) — was 1
+  replicas: 1
   strategy: {type: Recreate}
   selector: {matchLabels: {app: stremthru-postgres}}
   template:
@@ -49,7 +49,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata: {name: stremthru-redis, namespace: apps, labels: {app: stremthru-redis}}
 spec:
-  replicas: 0   # disabled 2026-06-26 (temporary isolation test) — was 1
+  replicas: 1
   selector: {matchLabels: {app: stremthru-redis}}
   template:
     metadata: {labels: {app: stremthru-redis}}
@@ -74,7 +74,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata: {name: stremthru, namespace: apps, labels: {app: stremthru}}
 spec:
-  replicas: 0   # disabled 2026-06-26 (temporary isolation test) — was 1
+  replicas: 1
   strategy: {type: Recreate}
   selector: {matchLabels: {app: stremthru}}
   template:
