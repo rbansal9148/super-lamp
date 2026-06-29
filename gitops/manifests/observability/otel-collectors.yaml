@@ -82,7 +82,7 @@ spec:
   # metrics spike the collector could balloon and starve the Docker containers.
   resources:
     requests:
-      memory: 256Mi   # req→256Mi: 30d peak 318Mi (was 128Mi, under-counted). limit/memory_limiter unchanged.
+      memory: 384Mi   # req→384Mi: 30d peak 415Mi (was 256Mi, under-counted). limit/memory_limiter unchanged.
       cpu: 50m
     limits:
       memory: 512Mi

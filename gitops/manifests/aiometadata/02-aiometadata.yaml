@@ -21,6 +21,7 @@ spec:
           resources: { requests: { memory: 384Mi, cpu: 25m }, limits: { memory: 1Gi, cpu: 1500m } }   # req rightsized: 7d peak ~466Mi (was 128Mi); cpu limit 1→1500m: 30d-peak 1.02 cores hit the old 1.0 cap (CFS-throttled), 1500m leaves peak at ~68%
           volumeMounts: [{ name: data, mountPath: /app/addon/data }]
           readinessProbe: { httpGet: { path: /, port: 1337 }, initialDelaySeconds: 15, periodSeconds: 20, timeoutSeconds: 8 }
+          livenessProbe: { httpGet: { path: /, port: 1337 }, initialDelaySeconds: 30, periodSeconds: 30, timeoutSeconds: 8, failureThreshold: 3 }
       volumes: [{ name: data, emptyDir: {} }]
 ---
 apiVersion: v1

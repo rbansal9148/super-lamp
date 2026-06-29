@@ -62,6 +62,7 @@ spec:
             - { name: config, mountPath: /app/dist/config/config.json, subPath: config.json, readOnly: true }
             - { name: img, mountPath: /app/dist/img/custom }
           readinessProbe: { httpGet: { path: /, port: 4173 }, initialDelaySeconds: 10, periodSeconds: 20 }
+          livenessProbe: { httpGet: { path: /, port: 4173 }, initialDelaySeconds: 30, periodSeconds: 30, timeoutSeconds: 8, failureThreshold: 3 }
       volumes:
         - name: config
           configMap: { name: honey-config }
