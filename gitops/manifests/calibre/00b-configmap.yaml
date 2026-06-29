@@ -10,7 +10,11 @@ data:
   AA_BASE_URL: auto
   AA_MIRROR_URLS: https://annas-archive.gl,https://annas-archive.gd,https://annas-archive.pk
   BOOK_LANGUAGE: en
-  CALIBRE_WEB_URL: https://calibre.k8s.my-blue-car.work
+  # In-cluster service URL (shelfmark → calibre-web is a server-side API call, same as
+  # PROWLARR_URL/EXT_BYPASSER_URL below). NOT the public calibre.my-blue-car.work — that's
+  # behind Authelia, so a server-side call would hit the login redirect. (Was the dead
+  # 2-label host calibre.k8s.my-blue-car.work.)
+  CALIBRE_WEB_URL: http://calibre-web-automated:8083
   COVERS_CACHE_ENABLED: 'true'
   CWA_DB_PATH: /config/app.db
   DIRECT_DOWNLOAD_ENABLED: 'true'
