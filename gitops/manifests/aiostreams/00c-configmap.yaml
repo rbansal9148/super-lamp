@@ -86,12 +86,14 @@ data:
   FORCE_PROXY_ID: stremthru
   FORCE_PROXY_URL: http://stremthru:8080
   FORCE_PROXY_PUBLIC_URL: https://stremthru.my-blue-car.work
-  # Proxy PLAYBACK only — force the proxied-services list EMPTY so aiostreams does NOT proxy
-  # debrid service streams. Proxying a service triggers a per-proxy public-IP probe
-  # (aiostreams asks StremThru for its egress IP; StremThru returns null → "Failed to get
-  # Proxy public IP after 3 attempts" → the whole user config is marked invalid). With no
-  # proxied services the probe is skipped; the content/URL-rewriting proxy still applies.
-  FORCE_PROXY_PROXIED_SERVICES: ''
+  # aiostreams validates a forced proxy by resolving its public IP; for StremThru it asks
+  # StremThru, which determines egress via STREMTHRU_IP_CHECKER (aws/akamai/ipify) and was
+  # returning null → "Failed to get Proxy public IP after 3 attempts" → whole user config
+  # marked invalid (streams broke). Provide the IP directly so aiostreams skips that probe.
+  # TorBox is fetched UNtunneled (stremthru STREMTHRU_STORE_TUNNEL=torbox:false), so
+  # StremThru's TorBox egress == the node's public IP. UPDATE THIS if the node's public IP
+  # changes (residential/dynamic IP → proxied playback would break until re-set).
+  FORCE_PROXY_PUBLIC_IP: 161.118.165.53
   FORMAT_API_RATE_LIMIT_MAX_REQUESTS: '30'
   FORMAT_API_RATE_LIMIT_WINDOW: '5'
   LOG_FORMAT: json
