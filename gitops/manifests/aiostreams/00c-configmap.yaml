@@ -86,9 +86,15 @@ data:
   FORCE_PROXY_ID: stremthru
   FORCE_PROXY_URL: http://stremthru:8080
   FORCE_PROXY_PUBLIC_URL: https://stremthru.my-blue-car.work
-  # No FORCE_PROXY_PUBLIC_IP — aiostreams auto-detects the proxy egress IP from StremThru,
-  # which resolves the gluetun tunnel egress now that TorBox is tunnelled. Self-healing on
-  # VPN rotation; no hardcoded IP to go stale.
+  # aiostreams validates a forced proxy by resolving its public IP; for StremThru it asks
+  # StremThru, which determines egress via STREMTHRU_IP_CHECKER (aws/akamai/ipify) and was
+  # returning null → "Failed to get Proxy public IP after 3 attempts" → whole user config
+  # marked invalid (streams broke). Provide the IP directly so aiostreams skips that probe.
+  # TorBox is now TUNNELLED (stremthru STREMTHRU_STORE_TUNNEL=torbox:true), so StremThru's
+  # TorBox egress == the gluetun VPN exit IP. WARNING: the VPN IP is DYNAMIC (changes on
+  # gluetun reconnect/server rotation) — this WILL go stale and break proxied playback until
+  # re-set. The durable fix is making StremThru's IP auto-detection report it (currently null).
+  FORCE_PROXY_PUBLIC_IP: 146.70.199.159
   FORMAT_API_RATE_LIMIT_MAX_REQUESTS: '30'
   FORMAT_API_RATE_LIMIT_WINDOW: '5'
   LOG_FORMAT: json
