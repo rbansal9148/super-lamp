@@ -20,7 +20,7 @@ spec:
       containers:
         - name: aiostreams
           # tag kept for readability; digest pins the bits (mutable tag → reproducible pull)
-          image: ghcr.io/viren070/aiostreams:v2.30.3@sha256:12f31fc5b3c828323a7f9a98241b23c5531f083f4ac0cc675e492884514fd7db
+          image: ghcr.io/viren070/aiostreams:v2.30.5@sha256:c42879590fe96a3158e48acbcf544cd6b5ecfe1ea23218f8a92b45de53aed600
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           envFrom: [{ configMapRef: { name: aiostreams-config } }, { secretRef: { name: aiostreams-secrets } }]
           # FORCE_PROXY_CREDENTIALS is a locked override (secret). Wire it straight to
@@ -83,7 +83,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: vacuum
-              image: postgres:18.4@sha256:29ee7bb30d804447dc9a91fd0d74322ae1dc3a4072cc6346f70a5ed6e783b565
+              image: postgres:18.4@sha256:4aabea78cf39b90e834caf3af7d602a18565f6fe2508705c8d01aa63245c2e20
               securityContext: { runAsNonRoot: true, runAsUser: 999, runAsGroup: 999, allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
               env: [{ name: PGPASSWORD, valueFrom: { secretKeyRef: { name: aiostreams-db, key: POSTGRES_PASSWORD } } }]
               # in-pod retry: ride out transient connection-refused blips instead of failing.

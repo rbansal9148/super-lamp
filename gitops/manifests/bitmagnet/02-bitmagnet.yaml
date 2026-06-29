@@ -23,7 +23,7 @@ spec:
           hostnames: ["bitmagnet-postgres"]
       containers:
         - name: gluetun
-          image: qmcgaw/gluetun@sha256:0e999c910d8077458ffbd869acfd9faa2a49decbca02afec6370277854587b3e
+          image: qmcgaw/gluetun@sha256:b0ee2135e6ba52ad3f102aae9663707cd1c9531485117067a380d3b2b6dd991d
           # NOTE: gluetun is NOT drop-ALL/seccomp-hardened — RuntimeDefault seccomp + cap-drop
           # break its /dev/net/tun access ("opening TUN device file: permission denied"). It is a
           # VPN gateway that legitimately needs NET_ADMIN + tun; the audit allowlists its caps.
@@ -112,7 +112,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: prune
-              image: postgres:18.4@sha256:29ee7bb30d804447dc9a91fd0d74322ae1dc3a4072cc6346f70a5ed6e783b565
+              image: postgres:18.4@sha256:4aabea78cf39b90e834caf3af7d602a18565f6fe2508705c8d01aa63245c2e20
               securityContext: { runAsNonRoot: true, runAsUser: 999, runAsGroup: 999, allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
               env:
                 - name: PGPASSWORD
