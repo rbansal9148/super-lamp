@@ -84,16 +84,12 @@ spec:
       automountServiceAccountToken: false   # no k8s API use; drop the token mount
       securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000, fsGroup: 1000 }   # non-root; /app/data hostPath chowned 1000:1000 on-host (see RESTORE.md)
       initContainers:
-        # stremthru tunnels all egress via gluetun (STREMTHRU_TUNNEL=*:true) and resolves its
-        # Tunnel IP Map ONCE at boot (it PANICS if the proxy is wholly unreachable). Gating
-        # only on the proxy PORT (nc -z) let stremthru boot before the VPN was actually
-        # ROUTING, so it cached an EMPTY Tunnel IP — which made aiostreams' proxy public-IP
-        # probe return null ("Failed to get Proxy public IP"). Gate instead on a proxied
-        # request returning a real IP (VPN truly up) so the Tunnel IP resolves correctly.
-        # busybox wget honours http_proxy; ifconfig.me/ip echoes the egress IP as plain text.
+        # stremthru tunnels all egress via gluetun (STREMTHRU_TUNNEL=*:true) and PANICS
+        # at boot if the proxy isn't up ("Failed to resolve Tunnel IP Map"). Gate start
+        # on the gluetun proxy being reachable to avoid CrashLoopBackOff after rolls.
         - name: wait-for-gluetun
           image: busybox:1.38.0@sha256:fd8d9aa63ba2f0982b5304e1ee8d3b90a210bc1ffb5314d980eb6962f1a9715d
-          command: ['sh', '-c', 'until http_proxy=http://gluetun:8888 wget -qO- -T5 http://ifconfig.me/ip 2>/dev/null | grep -qE "[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+"; do echo "waiting for gluetun VPN to route"; sleep 2; done']
+          command: ['sh', '-c', 'until nc -z gluetun 8888; do echo "waiting for gluetun proxy"; sleep 2; done']
           securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}, runAsNonRoot: true, runAsUser: 65534, seccompProfile: {type: RuntimeDefault}}
       containers:
         - name: stremthru
