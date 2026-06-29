@@ -76,6 +76,16 @@ data:
   ENCRYPT_STREMTHRU_URLS: 'false'
   FETCH_TRAKT_ALIASES: 'true'
   FORCE_PROXY_DISABLE_PROXIED_ADDONS: 'false'
+  # Force the StremThru proxy for ALL users — these FORCE_PROXY_* keys are locked overrides
+  # (aiostreams disables UI editing of any setting whose env var is set), so nobody has to
+  # configure the proxy in the per-user UI. FORCE_PROXY_URL is the in-cluster address the
+  # aiostreams SERVER calls; FORCE_PROXY_PUBLIC_URL is what the Stremio CLIENT receives for
+  # playback. FORCE_PROXY_CREDENTIALS is injected as an env var in 02-aiostreams.yaml
+  # (secretKeyRef → stremthru-secrets) so the credential isn't duplicated here.
+  FORCE_PROXY_ENABLED: 'true'
+  FORCE_PROXY_ID: stremthru
+  FORCE_PROXY_URL: http://stremthru:8080
+  FORCE_PROXY_PUBLIC_URL: https://stremthru.my-blue-car.work
   FORMAT_API_RATE_LIMIT_MAX_REQUESTS: '30'
   FORMAT_API_RATE_LIMIT_WINDOW: '5'
   LOG_FORMAT: json
