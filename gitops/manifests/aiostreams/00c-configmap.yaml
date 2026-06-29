@@ -94,7 +94,7 @@ data:
   # TorBox egress == the gluetun VPN exit IP. WARNING: the VPN IP is DYNAMIC (changes on
   # gluetun reconnect/server rotation) — this WILL go stale and break proxied playback until
   # re-set. The durable fix is making StremThru's IP auto-detection report it (currently null).
-  FORCE_PROXY_PUBLIC_IP: 146.70.199.159
+  FORCE_PROXY_PUBLIC_IP: 138.199.60.9
   FORMAT_API_RATE_LIMIT_MAX_REQUESTS: '30'
   FORMAT_API_RATE_LIMIT_WINDOW: '5'
   LOG_FORMAT: json
