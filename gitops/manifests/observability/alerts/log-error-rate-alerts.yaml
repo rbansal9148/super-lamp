@@ -1,0 +1,67 @@
+# Wave 2 — generic app error-SURGE alert (Grafana-provisioned, log-based), sibling of
+# app-upstream-alerts.yaml. Same Grafana alerting sidecar (label grafana_alert), same
+# ntfy contact point, same VictoriaLogs datasource (uid: victorialogs).
+#
+# WHY: app-upstream-alerts.yaml covers the KNOWN failure modes (stremthru store /
+# aiometadata fetch) by matching specific error tokens. This is the backstop: ANY
+# user-facing app (aiostreams, comet, immich, calibre, prowlarr, …) that starts logging
+# error/fatal-severity at a sustained rate trips this — coverage for failures we haven't
+# written a bespoke rule for. Enabled by the Jun 29 severity-parsing work: every log now
+# carries an OTLP severity_number, so we threshold on severity_number:>=17 (Error+Fatal)
+# instead of fragile per-app text tokens.
+#
+# SCOPE = apps namespace ONLY (deliberate). Grounded baseline (VLogs, Jun 29):
+#   • apps:  ~3 error+fatal / 10m when healthy (aiostreams/stremthru transients)
+#   • argocd: ~16 / 10m even when healthy (controller/sync chatter) → NOT alerted; a
+#     cluster-wide rule would page on this infra noise. Infra-tier errors are surfaced
+#     in Grafana, not paged.
+#
+# THRESHOLD: >10 error+fatal lines in 10m, sustained for 5m. ~3× the observed healthy
+# peak (3/10m), so a single transient app error self-resolves without paging; a real
+# surge (an app crash-looping, a dependency down) clears the bar. A RATE alert, like the
+# upstream rules — never per-error. queryType MUST be 'stats' (routes to
+# /select/logsql/stats_query → numeric [Time, Value] frame; 'instant' returns a logs
+# frame Grafana's threshold rejects — verified in app-upstream-alerts.yaml).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-log-error-rate-alerts
+  namespace: observability
+  labels:
+    grafana_alert: "1"
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+data:
+  log-error-rate-alerts.yaml: |
+    apiVersion: 1
+    groups:
+      - orgId: 1
+        name: app-error-rate
+        folder: platform
+        interval: 1m
+        rules:
+          # ── apps namespace error+fatal surge (>10 / 10m, sustained 5m) ──
+          - uid: apps-error-severity-surge
+            title: apps namespace error/fatal log surge
+            condition: C
+            for: 5m
+            data:
+              - refId: A
+                relativeTimeRange: { from: 600, to: 0 }
+                datasourceUid: victorialogs
+                model:
+                  refId: A
+                  datasource: { type: victoriametrics-logs-datasource, uid: victorialogs }
+                  expr: 'k8s.namespace.name:apps severity_number:>=17 | stats count() as hits'
+                  queryType: stats
+              - refId: C
+                datasourceUid: __expr__
+                model:
+                  refId: C
+                  type: threshold
+                  expression: A
+                  conditions:
+                    - evaluator: { type: gt, params: [10] }
+            labels: { severity: warning, scope: app }
+            annotations:
+              summary: "An app in the apps namespace is logging error/fatal severity at a sustained rate (>10 in 10m). Check which container via VictoriaLogs (`k8s.namespace.name:apps severity_number:>=17 | stats by (k8s.container.name) count()`). If it's stremthru/aiometadata the bespoke upstream alert says more; otherwise this is the first signal for that app."

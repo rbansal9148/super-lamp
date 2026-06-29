@@ -82,6 +82,13 @@ spec:
             aiYXazNfeGfkmg==
             -----END CERTIFICATE-----
         proxy:
+          # Default is `warn,linkerd=info,hickory=error`; the `linkerd=info` tier emits a
+          # steady stream of `INFO ThreadId … linkerd_pool_p2c: Adding endpoint` lines from
+          # every meshed sidecar cluster-wide (all Unspecified in VictoriaLogs — no level
+          # field the filelog parser can read). Drop the proxy's own logging to warn while
+          # keeping hickory(DNS) at error. NB: read at INJECTION time — existing meshed pods
+          # keep the old level until restarted (rollout restart the meshed namespaces).
+          logLevel: warn,linkerd=warn,hickory=error
           resources:
             cpu: { request: 10m }
             memory: { request: 20Mi, limit: 128Mi }
