@@ -23,15 +23,16 @@ spec:
           image: ghcr.io/viren070/aiostreams:v2.30.5@sha256:c42879590fe96a3158e48acbcf544cd6b5ecfe1ea23218f8a92b45de53aed600
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           envFrom: [{ configMapRef: { name: aiostreams-config } }, { secretRef: { name: aiostreams-secrets } }]
-          # FORCE_PROXY_CREDENTIALS is a locked override (secret). Wire it straight to
-          # StremThru's own proxy auth (same `apps` namespace) so the credential lives in
-          # ONE place (stremthru-secrets) rather than being duplicated/re-sealed here.
+          # FORCE_PROXY_CREDENTIALS is a locked override (secret). The built-in proxy validates
+          # it against the instance bootstrap auth users, so wire it to the SAME single source
+          # (aiostreams-secrets/AIOSTREAMS_AUTH, a single user:pass pair) — the credential is
+          # then guaranteed to match a bootstrap user and lives in ONE place.
           env:
             - name: FORCE_PROXY_CREDENTIALS
               valueFrom:
                 secretKeyRef:
-                  name: stremthru-secrets
-                  key: STREMTHRU_PROXY_AUTH
+                  name: aiostreams-secrets
+                  key: AIOSTREAMS_AUTH
           ports: [{ containerPort: 3000, name: http }]
           resources: { requests: { memory: 448Mi, cpu: 25m }, limits: { memory: 1Gi, cpu: "1" } }   # req rightsized: 7d peak ~538Mi (was 128Mi)
           volumeMounts: [{ name: data, mountPath: /app/data }]

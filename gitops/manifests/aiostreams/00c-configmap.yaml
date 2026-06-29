@@ -10,6 +10,18 @@ data:
   ADDON_CATALOG_CACHE_TTL: '3600'
   ADDON_ID: aiostreams.viren070.com
   ADDON_NAME: AIOStreams
+  # Outbound VPN tunnel for aiostreams' own HTTP egress (undici dispatcher in
+  # utils/http.ts → shouldProxy). ADDON_PROXY is gluetun's in-cluster HTTP proxy.
+  # ADDON_PROXY_CONFIG routes per-hostname: `*:0` tunnels ALL external hosts through
+  # proxy index 0 (gluetun) — including the BUILT-IN proxy's playback fetch AND its
+  # checkip.amazonaws.com IP probe (server/routes/api/proxy.ts + proxy/builtin.ts both
+  # go through shouldProxy), so the built-in proxy egresses via the VPN and reports the
+  # VPN exit IP consistently. In-cluster scrapers are excluded (`:false`) so they resolve
+  # same-namespace and don't get sent down the tunnel. NOTE: with `*:0`, a gluetun outage
+  # blocks ALL external addon traffic (metadata + scraping), not just playback.
+  # Non-secret (schema secret:false) — moved out of the sealed secret per commit 92cb61b.
+  ADDON_PROXY: http://gluetun:8888
+  ADDON_PROXY_CONFIG: '*:0,stremthru:false,prowlarr:false,zilean:false,comet:false,bitmagnet:false'
   # Authelia SSO (path-scoped on the IngressRoute) is the sole gate for the config UI.
   # Make the app-layer config page public so users get ONE login (Authelia), not two.
   # This env OVERRIDES the DB-persisted setting (which was toggled true via the dashboard);
@@ -76,25 +88,19 @@ data:
   ENCRYPT_STREMTHRU_URLS: 'false'
   FETCH_TRAKT_ALIASES: 'true'
   FORCE_PROXY_DISABLE_PROXIED_ADDONS: 'false'
-  # Force the StremThru proxy for ALL users — these FORCE_PROXY_* keys are locked overrides
-  # (aiostreams disables UI editing of any setting whose env var is set), so nobody has to
-  # configure the proxy in the per-user UI. FORCE_PROXY_URL is the in-cluster address the
-  # aiostreams SERVER calls; FORCE_PROXY_PUBLIC_URL is what the Stremio CLIENT receives for
-  # playback. FORCE_PROXY_CREDENTIALS is injected as an env var in 02-aiostreams.yaml
-  # (secretKeyRef → stremthru-secrets) so the credential isn't duplicated here.
+  # Force the BUILT-IN aiostreams proxy for ALL users — these FORCE_PROXY_* keys are locked
+  # overrides (aiostreams disables UI editing of any setting whose env var is set), so nobody
+  # has to configure the proxy in the per-user UI. The built-in proxy routes playback through
+  # aiostreams itself, so two fields are derived automatically and MUST NOT be set here:
+  #   - proxy URL  → forced to bootstrap.baseUrl (BASE_URL) when id=builtin (utils/config.ts).
+  #   - public IP  → builtin.ts resolves its OWN egress via checkip.amazonaws.com (the k8s
+  #                  node's public IP — NOT the gluetun VPN; debrid is no longer VPN-tunnelled).
+  # FORCE_PROXY_CREDENTIALS is injected in 02-aiostreams.yaml (secretKeyRef →
+  # aiostreams-secrets/AIOSTREAMS_AUTH). The built-in proxy validates credentials against the
+  # instance bootstrap auth users (AIOSTREAMS_AUTH), so the SAME user:pass is both the auth
+  # entry and the forced proxy credential — single source, guaranteed to match.
   FORCE_PROXY_ENABLED: 'true'
-  FORCE_PROXY_ID: stremthru
-  FORCE_PROXY_URL: http://stremthru:8080
-  FORCE_PROXY_PUBLIC_URL: https://stremthru.my-blue-car.work
-  # aiostreams validates a forced proxy by resolving its public IP; for StremThru it asks
-  # StremThru, which determines egress via STREMTHRU_IP_CHECKER (aws/akamai/ipify) and was
-  # returning null → "Failed to get Proxy public IP after 3 attempts" → whole user config
-  # marked invalid (streams broke). Provide the IP directly so aiostreams skips that probe.
-  # TorBox is now TUNNELLED (stremthru STREMTHRU_STORE_TUNNEL=torbox:true), so StremThru's
-  # TorBox egress == the gluetun VPN exit IP. WARNING: the VPN IP is DYNAMIC (changes on
-  # gluetun reconnect/server rotation) — this WILL go stale and break proxied playback until
-  # re-set. The durable fix is making StremThru's IP auto-detection report it (currently null).
-  FORCE_PROXY_PUBLIC_IP: 138.199.60.9
+  FORCE_PROXY_ID: builtin
   FORMAT_API_RATE_LIMIT_MAX_REQUESTS: '30'
   FORMAT_API_RATE_LIMIT_WINDOW: '5'
   LOG_FORMAT: json
