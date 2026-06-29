@@ -212,11 +212,13 @@ spec:
           - type: router
             id: fmt-router
             routes:
-              - expr: 'hasPrefix(body, "{")'          # JSON-bodied logs (zap/zerolog/…)
+              - expr: 'hasPrefix(body, "{")'          # JSON-bodied logs (zap/zerolog, aiostreams)
                 output: parse-json
               - expr: 'indexOf(body, "level=") != -1' # logfmt (ArgoCD, klog, logrus)
                 output: parse-logfmt
-            default: sev-done                         # unrecognized → pass through Unspecified
+              - expr: 'resource["k8s.container.name"] == "postgres"'  # PG text format (data tier)
+                output: parse-postgres
+            default: sev-done                         # no recognizable severity → keep, Unspecified
           - type: json_parser
             id: parse-json
             parse_from: body
@@ -239,6 +241,28 @@ spec:
               error: [err, panic]
               fatal: [critical, crit]
             on_error: send_quiet                      # no/unknown level → leave Unspecified, keep log
+            output: sev-done
+          # Postgres text format: `… [<pid>] LOG|ERROR|FATAL|WARNING|…:`. The format is
+          # fixed (can't be cleanly reshaped at source), so normalize it here. PG's LOG
+          # and NOTICE are info-level, so an explicit mapping (preset: none) is required.
+          - type: regex_parser
+            id: parse-postgres
+            parse_from: body
+            regex: '\]\s+(?P<pglevel>[A-Z]+):'
+            parse_to: attributes
+            on_error: send_quiet
+            output: parse-pg-severity
+          - type: severity_parser
+            id: parse-pg-severity
+            parse_from: attributes.pglevel
+            preset: none
+            mapping:
+              debug: [DEBUG, DEBUG1, DEBUG2, DEBUG3, DEBUG4, DEBUG5]
+              info: [LOG, INFO, NOTICE]
+              warn: [WARNING]
+              error: [ERROR]
+              fatal: [FATAL, PANIC]
+            on_error: send_quiet
             output: sev-done
           - type: noop
             id: sev-done
@@ -288,19 +312,12 @@ spec:
       batch:
         timeout: 5s
       deltatocumulative: {}
-      # ADR guardrail 2 (gap 3): don't ship all 100+ services' info-noise. ArgoCD's
-      # application-controller alone is ~77% of log volume (12.7k/16.4k logs/hr,
-      # verified Jun 29), almost all level=info memory-stat + reconcile lines. Drop
-      # argocd records below WARN now that severity is parsed. The UNSPECIFIED guard
-      # ensures we NEVER drop a log whose level we couldn't determine (fail-open).
-      filter/drop_noise:
-        error_mode: ignore
-        logs:
-          log_record:
-            - >-
-              resource.attributes["k8s.namespace.name"] == "argocd"
-              and severity_number != SEVERITY_NUMBER_UNSPECIFIED
-              and severity_number < SEVERITY_NUMBER_WARN
+      # ADR guardrail 2: log VOLUME is controlled at the SOURCE, not by dropping in the
+      # collector. A collector-side drop leaves the raw pod logs (kubectl logs / stern)
+      # just as noisy and bakes per-app policy into shared infra. ArgoCD's info spam
+      # (~77% of volume, verified Jun 29) is silenced at source via controller.log.level=warn
+      # in gitops/apps/argocd.yaml. The collector's job is severity PARSING (filelog
+      # operators above); the log LEVEL belongs to the app.
     exporters:
       otlphttp/vlogs:
         # VLSingle 'obs' -> Service "vlsingle-obs" (vm-operator naming)
@@ -311,7 +328,7 @@ spec:
       pipelines:
         logs:
           receivers: [filelog, otlp]
-          processors: [memory_limiter, resourcedetection, filter/drop_noise, batch]
+          processors: [memory_limiter, k8sattributes, resourcedetection, batch]
           exporters: [otlphttp/vlogs]
         metrics:
           receivers: [hostmetrics, kubeletstats, otlp]

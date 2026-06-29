@@ -45,6 +45,12 @@ spec:
             # cold-start op-resume spike OOM-killed the 1Gi controller (now 2Gi). 4 bounds
             # that fan-out while keeping bootstrap/DR mass-sync reasonably parallel.
             controller.operation.processors: 4
+            # application-controller logged ~77% of all cluster log volume (verified Jun 29):
+            # level=info goroutine/memory-stat dumps + per-app "Refreshing app status" /
+            # "Ignore status" reconcile lines. Sync history lives in the Application CR
+            # .status (UI), NOT the logs, so warn loses nothing operational. Silencing at
+            # source cleans the raw pod logs too (kubectl logs / stern), not just VictoriaLogs.
+            controller.log.level: warn
         controller:
           resources:
             requests: { cpu: 100m, memory: 512Mi }
