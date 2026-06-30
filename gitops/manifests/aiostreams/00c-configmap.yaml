@@ -7,7 +7,7 @@ metadata:
   labels:
     app: aiostreams
 data:
-  ADDON_CATALOG_CACHE_TTL: '3600'
+  ADDON_CATALOG_CACHE_TTL: '86400'   # was 3600 — addon listings change rarely (SAFE-LONG)
   ADDON_ID: aiostreams.viren070.com
   ADDON_NAME: AIOStreams
   # Outbound VPN tunnel for aiostreams' own HTTP egress (undici dispatcher in
@@ -36,7 +36,7 @@ data:
   ANIME_DB_KITSU_IMDB_MAPPING_REFRESH_INTERVAL: '86400'
   ANIME_DB_LEVEL_OF_DETAIL: required
   ANIME_DB_MANAMI_DB_REFRESH_INTERVAL: '604800'
-  BACKGROUND_RESOURCE_REQUEST_TIMEOUT: '15000'
+  BACKGROUND_RESOURCE_REQUEST_TIMEOUT: '120000'
   BASE_URL: https://aiostreams.my-blue-car.work
   BUILTIN_ANIMETOSHO_URL: https://feed.animetosho.org
   BUILTIN_BITMAGNET_URL: http://bitmagnet:3333
@@ -56,31 +56,37 @@ data:
   BUILTIN_GET_TORRENT_TIMEOUT: '10000'
   BUILTIN_KNABEN_SEARCH_TIMEOUT: '10000'
   BUILTIN_MINIMUM_BACKGROUND_REFRESH_INTERVAL: '86400'
-  BUILTIN_NAB_CAPABILITIES_CACHE_TTL: '1209600'
+  BUILTIN_NAB_CAPABILITIES_CACHE_TTL: '2592000'   # was 1209600 — indexer capability schema, not content (SAFE-LONG)
   BUILTIN_NAB_MAX_PAGES: '5'
-  BUILTIN_NAB_SEARCH_CACHE_TTL: '604800'
+  BUILTIN_NAB_SEARCH_CACHE_TTL: '1209600'   # was 604800 (1wk->2wk) — STALE-RISK: hides newly-added torrents until expiry
   BUILTIN_NAB_SEARCH_TIMEOUT: '10000'
   BUILTIN_NEKOBT_URL: https://nekobt.to/api/torznab
-  BUILTIN_PROWLARR_INDEXERS_CACHE_TTL: '1209600'
-  BUILTIN_PROWLARR_SEARCH_CACHE_TTL: '604800'
+  BUILTIN_PROWLARR_INDEXERS_CACHE_TTL: '2592000'   # was 1209600 — indexer config list, not content (SAFE-LONG)
+  BUILTIN_PROWLARR_SEARCH_CACHE_TTL: '1209600'   # was 604800 (1wk->2wk) — STALE-RISK
   BUILTIN_PROWLARR_SEARCH_TIMEOUT: '10000'
   BUILTIN_PROWLARR_URL: http://prowlarr:9696
   BUILTIN_SCRAPE_WITH_ALL_TITLES: 'false'
   BUILTIN_SEADEX_URL: https://releases.moe
   BUILTIN_STREMTHRU_URL: http://stremthru:8080
   BUILTIN_TORBOX_SEARCH_CACHE_PER_USER_SEARCH_ENGINE: 'false'
+  # TorBox Search result cache. A cache HIT skips the upstream /search call (addon.ts:76-86),
+  # so a longer TTL = fewer TorBox search-API calls for re-opened titles (does NOT help the
+  # cooldown itself — distinct-title searches always miss). Default was 7d; raised to 14d.
+  BUILTIN_TORBOX_SEARCH_METADATA_CACHE_TTL: '2592000'   # 30d (default 14d) — TorBox Search metadata, near-static
+  BUILTIN_TORBOX_SEARCH_SEARCH_API_CACHE_TTL: '1209600'   # 14d (default 7d) — TorBox /search result list
   BUILTIN_TORBOX_SEARCH_SEARCH_API_TIMEOUT: '8000'
   BUILTIN_TORRENT_GALAXY_SEARCH_TIMEOUT: '2000'
+  BUILTIN_TORRENT_METADATA_CACHE_TTL: '2592000'   # 30d (default 7d) — a torrent's own metadata is immutable once published (SAFE-LONG)
   BUILTIN_ZILEAN_URL: http://zilean:8181
   CATALOG_API_RATE_LIMIT_MAX_REQUESTS: '5'
   CATALOG_API_RATE_LIMIT_WINDOW: '5'
-  CATALOG_CACHE_TTL: '1800'
+  CATALOG_CACHE_TTL: '21600'   # was 1800 (30m->6h) — STALE-RISK: new catalog items appear slower
   COMET_URL: http://comet:2020
   CUSTOM_HTML: ''
-  DEFAULT_COMET_TIMEOUT: '20000'   # was 12000 — give comet room on heavy titles (capped by MAX_TIMEOUT below)
+  DEFAULT_COMET_TIMEOUT: '18000'   # was 12000 — give comet room on heavy titles (capped by MAX_TIMEOUT below)
   DEFAULT_JACKETTIO_STREMTHRU_URL: http://stremthru:8080
   DEFAULT_MAX_CACHE_SIZE: '100000'
-  DEFAULT_TIMEOUT: '8000'
+  DEFAULT_TIMEOUT: '15000'
   DEFAULT_TORRENTIO_TIMEOUT: '3000'
   DISABLE_RATE_LIMITS: 'false'
   DISABLE_SELF_SCRAPING: 'true'
@@ -106,7 +112,7 @@ data:
   LOG_FORMAT: json
   LOG_LEVEL: info
   LOG_SENSITIVE_INFO: 'false'
-  MANIFEST_CACHE_TTL: '3600'
+  MANIFEST_CACHE_TTL: '86400'   # was 3600 — manifests change only on addon redeploy (SAFE-LONG)
   MAX_ADDONS: '150'
   MAX_BACKGROUND_PINGS: '1'
   MAX_FORMATTER_TEMPLATE_LENGTH: '50000'
@@ -116,8 +122,9 @@ data:
   MAX_SEL_LENGTH: '30000'
   MAX_STREAM_EXPRESSIONS: '300'
   MAX_STREAM_EXPRESSIONS_TOTAL_CHARACTERS: '300000'
-  MAX_TIMEOUT: '20000'   # was 15000 — raised so DEFAULT_COMET_TIMEOUT=20000 isn't capped (this 15000 cap is what comet fetches were hitting)
-  META_CACHE_TTL: '3600'
+  MAX_TIMEOUT: '20000'   # caps ALL addon timeouts; must stay >= DEFAULT_COMET_TIMEOUT(18000) & DEFAULT_TIMEOUT(15000).
+  # Was accidentally '3000', which silently clamped every addon to 3s and defeated all per-addon timeout tuning.
+  META_CACHE_TTL: '86400'   # was 3600 — title metadata near-static (STALE-RISK, low)
   MIN_TIMEOUT: '1000'
   ORION_STREMIO_ADDON_URL: https://5a0d1888fa64-orion.baby-beamup.club/
   PORT: '3000'
@@ -141,7 +148,10 @@ data:
   STATIC_RATE_LIMIT_WINDOW: '5'
   STREAM_API_RATE_LIMIT_MAX_REQUESTS: '10'
   STREAM_API_RATE_LIMIT_WINDOW: '5'
-  STREAM_CACHE_TTL: '3600'
+  STREAM_CACHE_TTL: '21600'   # was 3600 (1h->6h) — a cache HIT returns the assembled stream list and skips the
+  # ENTIRE addon fan-out incl the TorBox search call (biggest TorBox call-saver). Caveat: this response can embed
+  # a resolved, time-limited debrid link from a wrapped external addon, so a stale hit could hand the player a dead
+  # link; capped at 6h to bound that (builtin-debrid links resolve fresh via BUILTIN_DEBRID_PLAYBACK_LINK_CACHE_TTL).
   STREAM_URL_MAPPINGS: '{"http://stremthru:8080":"https://stremthru.my-blue-car.work","http://comet:2020":"https://comet.my-blue-car.work"}'
   STREMIO_CATALOG_RATE_LIMIT_MAX_REQUESTS: '30'
   STREMIO_CATALOG_RATE_LIMIT_WINDOW: '5'
@@ -155,7 +165,7 @@ data:
   STREMIO_SUBTITLE_RATE_LIMIT_WINDOW: '5'
   STREMTHRU_STORE_URL: http://stremthru:8080/stremio/store
   STREMTHRU_TORZ_URL: http://stremthru:8080/stremio/torz
-  SUBTITLE_CACHE_TTL: '3600'
+  SUBTITLE_CACHE_TTL: '86400'   # was 3600 — subtitles stable per release (STALE-RISK, low)
   TORRENTIO_URL: https://torrentio.strem.fun/
   TORRENTS_DB_URL: https://torrentsdb.com
   TRAKT_CLIENT_ID: 23264f47214ad5f254585912ffd0a5773431f511520ff4e67165da3b7a53c406
