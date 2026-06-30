@@ -14,12 +14,12 @@ data:
   STREMTHRU_LOG_LEVEL: INFO
   STREMTHRU_REDIS_URI: redis://stremthru-redis:6379
   STREMTHRU_STORE_CONTENT_PROXY: '*:true,easydebrid:false,premiumize:false'
-  # torbox now tunnelled too (was torbox:false): TorBox store fetches egress via gluetun
-  # VPN (146.70.199.159), hiding the node's residential IP from TorBox. NB: TorBox now sees
-  # a Singapore VPN IP — watch for throttling/blocks of the VPN range (the earlier 429s were
-  # API-key rate limits, not IP, so unrelated). aiostreams FORCE_PROXY_PUBLIC_IP must track
-  # this egress (set to the VPN IP).
-  STREMTHRU_STORE_TUNNEL: torbox:true,*:true
+  # TorBox store calls go DIRECT (was torbox:true via gluetun). Reverted 2026-07-01: TorBox's WAF
+  # fast-rejects the shared Mullvad VPN exit IP with a plaintext "http response to https client" 400
+  # on /v0/store/magnets/check (api.torbox.app), so debrid resolution intermittently failed and the
+  # Stremio client fell back to raw P2P (127.0.0.1:11470). Trade: node IP is now exposed to TorBox,
+  # but store resolution is reliable. Other stores stay tunnelled (*:true).
+  STREMTHRU_STORE_TUNNEL: torbox:false,*:true
   STREMTHRU_STREMIO_TORZ_LAZY_PULL: 'true'
   # v3-cinemeta.strem.io direct (no VPN proxy): public Stremio metadata, no privacy need;
   # tunneling it caused intermittent store 500s ("http response to https client") + 15s timeouts.

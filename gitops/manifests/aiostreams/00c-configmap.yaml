@@ -21,7 +21,12 @@ data:
   # blocks ALL external addon traffic (metadata + scraping), not just playback.
   # Non-secret (schema secret:false) — moved out of the sealed secret per commit 92cb61b.
   ADDON_PROXY: http://gluetun:8888
-  ADDON_PROXY_CONFIG: '*:0,stremthru:false,prowlarr:false,zilean:false,comet:false,bitmagnet:false'
+  # TorBox API hosts go DIRECT (not via gluetun): TorBox's WAF rejects the shared VPN exit IP with a
+  # plaintext "http response to https client", breaking debrid resolution. Exact hosts only, so the
+  # built-in playback proxy + other torbox.app media/CDN hosts still tunnel via *:0 (playback keeps
+  # reporting the VPN IP). Trade: TorBox sees the node IP on API calls; search cooldown is per-key so
+  # this doesn't change it, but it stops the IP-reputation protocol rejects.
+  ADDON_PROXY_CONFIG: '*:0,api.torbox.app:false,search-api.torbox.app:false,stremthru:false,prowlarr:false,zilean:false,comet:false,bitmagnet:false'
   # Authelia SSO (path-scoped on the IngressRoute) is the sole gate for the config UI.
   # Make the app-layer config page public so users get ONE login (Authelia), not two.
   # This env OVERRIDES the DB-persisted setting (which was toggled true via the dashboard);
