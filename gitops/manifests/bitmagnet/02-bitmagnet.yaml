@@ -122,8 +122,12 @@ spec:
                 - /bin/sh
                 - -c
                 - |
-                  for i in 1 2 3 4 5 6 7; do
-                    OUT=$(psql -h bitmagnet-postgres -U bitmagnet -d bitmagnet -At -c "SET lock_timeout='30s'; WITH d AS (DELETE FROM torrents WHERE info_hash IN (SELECT t.info_hash FROM torrents t LEFT JOIN torrent_contents tc ON tc.info_hash=t.info_hash WHERE tc.content_type IS NULL LIMIT 50000) RETURNING 1) SELECT count(*) FROM d;" 2>&1 | tr '\n' ' ')
+                  # Batch LIMIT kept small so each DELETE finishes well under lock_timeout(30s):
+                  # a 50000-row batch ran ~37s, breaching the timeout and racing the live crawler's
+                  # child inserts (FK violations + deadlocks at every prune). 10000 (~7s) x 12 iters
+                  # = 120k/run capacity, above the observed ~70k peak. See commit msg.
+                  for i in 1 2 3 4 5 6 7 8 9 10 11 12; do
+                    OUT=$(psql -h bitmagnet-postgres -U bitmagnet -d bitmagnet -At -c "SET lock_timeout='30s'; WITH d AS (DELETE FROM torrents WHERE info_hash IN (SELECT t.info_hash FROM torrents t LEFT JOIN torrent_contents tc ON tc.info_hash=t.info_hash WHERE tc.content_type IS NULL LIMIT 10000) RETURNING 1) SELECT count(*) FROM d;" 2>&1 | tr '\n' ' ')
                     echo "batch=$i result=$OUT"
                     case "$OUT" in *" 0 "*|*"|0"*) [ "${OUT% }" = "0" ] && break ;; esac
                     printf '%s' "$OUT" | { read -r n _; [ "$n" = "0" ] && exit 0; }
