@@ -146,5 +146,9 @@ spec:
               env:
                 - name: PGPASSWORD
                   valueFrom: {secretKeyRef: {name: prowlarr-db, key: POSTGRES_PASSWORD}}
-              command: ["/bin/sh", "-c", "psql -h prowlarr-postgres -U prowlarr -d prowlarr -c \"DELETE FROM \\\"History\\\" WHERE \\\"Date\\\" < NOW() - INTERVAL '7 days'; VACUUM \\\"History\\\";\" || true; psql -h prowlarr-postgres -U prowlarr -d prowlarr_log -c \"DELETE FROM \\\"Logs\\\" WHERE \\\"Time\\\" < NOW() - INTERVAL '3 days'; VACUUM \\\"Logs\\\";\" || true"]
+              # DELETE and VACUUM must be separate psql -c calls: a multi-statement -c runs in one
+              # implicit transaction, and VACUUM errors there ("cannot run inside a transaction block"),
+              # aborting the whole tx incl. the DELETE. set -e surfaces a failed DELETE; VACUUM is
+              # tolerant (|| true) since it can lose a lock race and that's non-critical.
+              command: ["/bin/sh", "-c", "set -e; psql -h prowlarr-postgres -U prowlarr -d prowlarr -c \"DELETE FROM \\\"History\\\" WHERE \\\"Date\\\" < NOW() - INTERVAL '7 days';\"; psql -h prowlarr-postgres -U prowlarr -d prowlarr -c \"VACUUM \\\"History\\\";\" || true; psql -h prowlarr-postgres -U prowlarr -d prowlarr_log -c \"DELETE FROM \\\"Logs\\\" WHERE \\\"Time\\\" < NOW() - INTERVAL '3 days';\"; psql -h prowlarr-postgres -U prowlarr -d prowlarr_log -c \"VACUUM \\\"Logs\\\";\" || true"]
               resources: {requests: {memory: 32Mi, cpu: 25m}, limits: {memory: 128Mi, cpu: 250m}}
