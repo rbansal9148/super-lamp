@@ -99,6 +99,10 @@ data:
   ENCRYPT_STREMTHRU_URLS: 'false'
   FETCH_TRAKT_ALIASES: 'true'
   FORCE_PROXY_DISABLE_PROXIED_ADDONS: 'false'
+  # DISABLED 2026-07-02: proxy streaming turned off — playback is no longer forced through the
+  # built-in proxy; clients receive direct debrid URLs (TorBox = Cloudflare CDN, not P2P, so no
+  # VPN/proxy hop needed for playback). Re-enable by flipping FORCE_PROXY_ENABLED back to 'true'.
+  # The wiring notes below remain valid for that case.
   # Force the BUILT-IN aiostreams proxy for ALL users — these FORCE_PROXY_* keys are locked
   # overrides (aiostreams disables UI editing of any setting whose env var is set), so nobody
   # has to configure the proxy in the per-user UI. The built-in proxy routes playback through
@@ -110,7 +114,7 @@ data:
   # aiostreams-secrets/AIOSTREAMS_AUTH). The built-in proxy validates credentials against the
   # instance bootstrap auth users (AIOSTREAMS_AUTH), so the SAME user:pass is both the auth
   # entry and the forced proxy credential — single source, guaranteed to match.
-  FORCE_PROXY_ENABLED: 'true'
+  FORCE_PROXY_ENABLED: 'false'
   FORCE_PROXY_ID: builtin
   FORMAT_API_RATE_LIMIT_MAX_REQUESTS: '30'
   FORMAT_API_RATE_LIMIT_WINDOW: '5'
