@@ -14,7 +14,7 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000, fsGroup: 1000 }   # node:24-alpine node user 1000; direct `node` entrypoint, no chown; /app/addon/data is emptyDir
       containers:
         - name: aiometadata
-          image: ghcr.io/cedya77/aiometadata:latest@sha256:73db14d164a57c46b4882d135e71f91bdb6e90401514a9a5585b9b3b860dbcd9
+          image: ghcr.io/cedya77/aiometadata:latest@sha256:1c0a0f10a609533b33ee350e04ac517f63d83ae21002658778b1b8f5263c1beb
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           envFrom: [{ configMapRef: { name: aiometadata-config } }, { secretRef: { name: aiometadata-secrets } }]
           ports: [{ containerPort: 1337, name: http }]
@@ -57,7 +57,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: vacuum
-              image: postgres:18.4@sha256:4aabea78cf39b90e834caf3af7d602a18565f6fe2508705c8d01aa63245c2e20
+              image: postgres:18.4@sha256:22c89fe0d0f507606260237fd55e51f6137f58b2d5bcf6152242b96d9fe8f9a4
               securityContext: { runAsNonRoot: true, runAsUser: 999, runAsGroup: 999, allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
               env:
                 - name: PGPASSWORD
