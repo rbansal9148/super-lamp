@@ -2,8 +2,9 @@
 # Zero-dep Bun service (src/server.ts): serves a self-contained dashboard.html and rebuilds
 # it every REFRESH_MINUTES via an in-pod scheduler. Writes dashboard.html, dashboard.db
 # (bun:sqlite) and .cache/tokens.json into /app (ROOT = dir above src/), alongside baked
-# code — so the runtime uid (65532) owns /app in the image and the rootfs stays writable
-# (rebuildable cache, wiped on restart by design → strategy: Recreate, single writer).
+# code. Writable artifacts (db/html/.cache) go to the /data emptyDir via DATA_DIR, and bun's
+# cache to the /tmp emptyDir (HOME=/tmp) → the container rootfs is read-only. Data is a
+# rebuildable cache, wiped on restart by design → strategy: Recreate, single writer.
 # config.json (faculty creds) is mounted read-only from the avs-config SealedSecret.
 #
 # Image is side-loaded into k3s containerd (`k3s ctr images import`), NOT pulled from a
@@ -33,15 +34,18 @@ spec:
         - name: auto-verbal-score
           image: localhost/auto-verbal-score:867b703
           imagePullPolicy: Never   # side-loaded into containerd; nothing to pull
-          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
+          securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           env:
             - { name: PORT, value: "8080" }
             - { name: REFRESH_MINUTES, value: "60" }
             - { name: API_CONCURRENCY, value: "6" }   # global FIFO cap on outbound jamboree/kaksha API calls (added in af75a75)
+            - { name: DATA_DIR, value: /data }         # point db/html/.cache at the writable emptyDir → rootfs can be read-only (added in 65b2319)
           ports: [{ containerPort: 8080, name: http }]
           resources: { requests: { cpu: 50m, memory: 160Mi }, limits: { cpu: "1", memory: 512Mi } }
           volumeMounts:
             - { name: config, mountPath: /app/config.json, subPath: config.json, readOnly: true }
+            - { name: data, mountPath: /data }   # writable: dashboard.db, dashboard.html, .cache/tokens.json (DATA_DIR)
+            - { name: tmp, mountPath: /tmp }      # writable: bun runtime cache (HOME=/tmp, baked in the image)
           # /healthz returns build status (200) as soon as the server is up — independent of the
           # first ~30-60s build, so liveness does NOT kill the pod mid-initial-build.
           livenessProbe: { httpGet: { path: /healthz, port: 8080 }, initialDelaySeconds: 15, periodSeconds: 30, timeoutSeconds: 5, failureThreshold: 3 }
@@ -49,6 +53,8 @@ spec:
           readinessProbe: { httpGet: { path: /ready, port: 8080 }, initialDelaySeconds: 5, periodSeconds: 10, timeoutSeconds: 5, failureThreshold: 12 }
       volumes:
         - { name: config, secret: { secretName: avs-config } }
+        - { name: data, emptyDir: {} }
+        - { name: tmp, emptyDir: {} }
 ---
 apiVersion: v1
 kind: Service
