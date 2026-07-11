@@ -133,8 +133,9 @@ The off-node backup uses **restic** to **Backblaze B2, region EU-Central
      ~21 streaming/infra apps). Recurses `gitops/apps/`, excludes
      `observability/**` (owned by root-app).
 5. ArgoCD reconciles the rest: cert-manager issues the wildcard LE cert,
-   external-dns repopulates Cloudflare DNS, the apps come up against their
-   restored data.
+   the apps come up against their restored data. DNS is NOT reconciled by the
+   cluster — it relies on the out-of-band Cloudflare `*.my-blue-car.work` wildcard
+   record (see §3); every host resolves through it automatically.
 
 ### Restoring immich from the restic / B2 backup
 
@@ -176,6 +177,14 @@ restic restore latest --target /restore           # recovers /dump/immich.sql.gz
   `argocd.argoproj.io/secret-type=repository`). Back this up alongside the
   sealing key.
 - The ClusterIssuer is named **`letsencrypt`** (DNS-01 via the Cloudflare token).
+- **DNS is a single Cloudflare wildcard record (out-of-band, not in git).**
+  `*.my-blue-car.work` → `161.118.165.53` (the static Oracle origin IP), **proxied**.
+  One record resolves every host — existing and future — to Traefik, which routes by the
+  `Host()` rule in each IngressRoute (undefined hosts → 404). This replaced **external-dns**
+  (removed 2026-07-11: its traefik source silently emitted zero endpoints, so only legacy
+  records ever worked). Recreate via the Cloudflare dashboard, or API with the token in the
+  `cloudflare-api-token` sealed secret:
+  `POST zones/<zoneid>/dns_records {"type":"A","name":"*.my-blue-car.work","content":"161.118.165.53","proxied":true}`.
 - **Prowlarr indexer config is DB-only (not declarative, not in git).** Indexers and
   indexer-proxies live in prowlarr's DB under the `/opt/docker/data/prowlarr` hostPath
   (StorageClass `local-path-retain`). Restoring that hostPath restores them; a *clean*
