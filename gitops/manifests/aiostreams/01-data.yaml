@@ -38,6 +38,16 @@ spec:
             - {name: data, mountPath: /var/lib/postgresql/data}
             - {name: dshm, mountPath: /dev/shm}
           readinessProbe: {exec: {command: ["pg_isready", "-U", "aiostreams", "-d", "aiostreams"]}, initialDelaySeconds: 10, periodSeconds: 10, timeoutSeconds: 3}
+        - name: postgres-exporter
+          image: quay.io/prometheuscommunity/postgres-exporter:v0.20.1@sha256:ac5ec343104fae0e2d84a27bb8d69b38430a11910c5382cad85d478d2bab713e
+          securityContext: { runAsNonRoot: true, runAsUser: 65534, runAsGroup: 65534, allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, readOnlyRootFilesystem: true, seccompProfile: { type: RuntimeDefault } }
+          env:
+            - {name: DATA_SOURCE_URI, value: "localhost:5432/aiostreams?sslmode=disable"}
+            - {name: DATA_SOURCE_USER, value: aiostreams}
+            - name: DATA_SOURCE_PASS
+              valueFrom: {secretKeyRef: {name: aiostreams-db, key: POSTGRES_PASSWORD}}
+          ports: [{containerPort: 9187, name: metrics}]
+          resources: {requests: {memory: 24Mi, cpu: 5m}, limits: {memory: 64Mi, cpu: 100m}}
       volumes:
         - name: data
           persistentVolumeClaim: {claimName: aiostreams-db-data}
@@ -47,8 +57,12 @@ spec:
 ---
 apiVersion: v1
 kind: Service
-metadata: {name: aiostreams-postgres, namespace: apps}
-spec: {selector: {app: aiostreams-postgres}, ports: [{name: postgres, port: 5432, targetPort: 5432}]}
+metadata: {name: aiostreams-postgres, namespace: apps, labels: {exporter: postgres}}
+spec:
+  selector: {app: aiostreams-postgres}
+  ports:
+    - {name: postgres, port: 5432, targetPort: 5432}
+    - {name: metrics, port: 9187, targetPort: 9187}
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -68,8 +82,19 @@ spec:
           ports: [{containerPort: 6379}]
           resources: {requests: {memory: 16Mi, cpu: 10m}, limits: {memory: 160Mi, cpu: 200m}}
           readinessProbe: {exec: {command: ["redis-cli", "ping"]}, initialDelaySeconds: 5, periodSeconds: 10, timeoutSeconds: 3}
+        - name: redis-exporter
+          image: quay.io/oliver006/redis_exporter:v1.86.0@sha256:2e9795be900db073e9475fdb9c5124db309b07a3e4e75a1770705cb03be1a1c8
+          securityContext: { runAsNonRoot: true, runAsUser: 65534, runAsGroup: 65534, allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, readOnlyRootFilesystem: true, seccompProfile: { type: RuntimeDefault } }
+          env:
+            - {name: REDIS_ADDR, value: "redis://localhost:6379"}
+          ports: [{containerPort: 9121, name: metrics}]
+          resources: {requests: {memory: 16Mi, cpu: 5m}, limits: {memory: 48Mi, cpu: 100m}}
 ---
 apiVersion: v1
 kind: Service
-metadata: {name: aiostreams-redis, namespace: apps}
-spec: {selector: {app: aiostreams-redis}, ports: [{name: redis, port: 6379, targetPort: 6379}]}
+metadata: {name: aiostreams-redis, namespace: apps, labels: {exporter: redis}}
+spec:
+  selector: {app: aiostreams-redis}
+  ports:
+    - {name: redis, port: 6379, targetPort: 6379}
+    - {name: metrics, port: 9121, targetPort: 9121}
