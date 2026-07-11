@@ -1,0 +1,69 @@
+# auto-verbal-score (AVS) — Jamboree/Kaksha faculty student-performance dashboard.
+# Zero-dep Bun service (src/server.ts): serves a self-contained dashboard.html and rebuilds
+# it every REFRESH_MINUTES via an in-pod scheduler. Writes dashboard.html, dashboard.db
+# (bun:sqlite) and .cache/tokens.json into /app (ROOT = dir above src/), alongside baked
+# code — so the runtime uid (65532) owns /app in the image and the rootfs stays writable
+# (rebuildable cache, wiped on restart by design → strategy: Recreate, single writer).
+# config.json (faculty creds) is mounted read-only from the avs-config SealedSecret.
+#
+# Image is side-loaded into k3s containerd (`k3s ctr images import`), NOT pulled from a
+# registry → imagePullPolicy: Never, tag = app repo commit SHA (traceability).
+#
+# NETWORK: no policy/authelia/external-dns edits needed. The non-DB `app` label →
+# apps-allow-trusted-cross-ns (Traefik ingress from kube-system) + namespace-wide egress
+# allow (internet for jamboree/kaksha's ~318 endpoints). Public via the IngressRoute below:
+# external-dns publishes the proxied Cloudflare record for the Host under my-blue-car.work,
+# wildcard TLS from the TLSStore default cert, authelia middleware + the
+# `*.my-blue-car.work → two_factor` access_control rule gate it (obscured host, 2FA).
+apiVersion: apps/v1
+kind: Deployment
+metadata: { name: auto-verbal-score, namespace: apps, labels: { app: auto-verbal-score } }
+spec:
+  replicas: 1
+  strategy: { type: Recreate }   # single writer of dashboard.html/.db; never run two pods racing the rebuild
+  selector: { matchLabels: { app: auto-verbal-score } }
+  template:
+    metadata: { labels: { app: auto-verbal-score } }
+    spec:
+      enableServiceLinks: false
+      automountServiceAccountToken: false   # app never calls the k8s API
+      securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532, fsGroup: 65532 }
+      containers:
+        - name: auto-verbal-score
+          image: localhost/auto-verbal-score:f068f85
+          imagePullPolicy: Never   # side-loaded into containerd; nothing to pull
+          securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
+          env:
+            - { name: PORT, value: "8080" }
+            - { name: REFRESH_MINUTES, value: "60" }
+          ports: [{ containerPort: 8080, name: http }]
+          resources: { requests: { cpu: 50m, memory: 160Mi }, limits: { cpu: "1", memory: 512Mi } }
+          volumeMounts:
+            - { name: config, mountPath: /app/config.json, subPath: config.json, readOnly: true }
+          # /healthz returns build status (200) as soon as the server is up — independent of the
+          # first ~30-60s build, so liveness does NOT kill the pod mid-initial-build.
+          livenessProbe: { httpGet: { path: /healthz, port: 8080 }, initialDelaySeconds: 15, periodSeconds: 30, timeoutSeconds: 5, failureThreshold: 3 }
+          # /ready is 503 until dashboard.html exists → gates traffic until the first build lands.
+          readinessProbe: { httpGet: { path: /ready, port: 8080 }, initialDelaySeconds: 5, periodSeconds: 10, timeoutSeconds: 5, failureThreshold: 12 }
+      volumes:
+        - { name: config, secret: { secretName: avs-config } }
+---
+apiVersion: v1
+kind: Service
+metadata: { name: auto-verbal-score, namespace: apps }
+spec:
+  selector: { app: auto-verbal-score }
+  ports: [{ name: http, port: 80, targetPort: 8080 }]
+---
+apiVersion: traefik.io/v1alpha1
+kind: IngressRoute
+metadata: { name: auto-verbal-score, namespace: apps }
+spec:
+  entryPoints: [websecure]
+  routes:
+    - match: Host(`avs-1245567de3019b59765cd681c2.my-blue-car.work`)   # obscured, non-enumerable
+      kind: Rule
+      middlewares:
+        - { name: authelia, namespace: apps }   # forwardAuth → authelia; *.my-blue-car.work = two_factor
+      services: [{ name: auto-verbal-score, port: 80 }]
+  tls: {}   # wildcard *.my-blue-car.work default cert (TLSStore default)

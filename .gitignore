@@ -25,3 +25,6 @@ __pycache__/
 # Decommissioned Docker stack — removed from git (was the plaintext-secret leak source).
 # Data lives in /opt/docker/data (gitignored); k8s manifests live in gitops/.
 /apps/
+
+# local plaintext secrets staged for kubeseal — never commit
+.secrets/
