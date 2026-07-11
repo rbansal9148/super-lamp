@@ -36,11 +36,15 @@ spec:
           imagePullPolicy: Never   # side-loaded into containerd; nothing to pull
           securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           # PORT=8080, REFRESH_MINUTES=1440 (daily rebuild), API_CONCURRENCY=1 (fully serial) are the
-          # app's OWN code defaults now (src/server.ts, src/limit.ts) — not restated here. Outbound
-          # load is further capped by API_MIN_INTERVAL_MS (default 5m, src/limit.ts). Only DATA_DIR
-          # deviates: the app defaults writes to ROOT (/app), read-only in this pod.
+          # app's OWN code defaults now (src/server.ts, src/limit.ts) — not restated here.
           env:
             - { name: DATA_DIR, value: /data }   # db/html/.cache → writable emptyDir so rootfs stays read-only
+            # API_MIN_INTERVAL_MS: override the app's 5-min/call default (src/limit.ts). That default is
+            # fine for the daily background rebuild (pod serves stale HTML meanwhile) but pathological on
+            # COLD START: Recreate kills the old pod, so /ready stays 503 until the first full build lands
+            # (~22+ fetches × 5min ≈ hours of downtime). 5s/call bounds cold start to ~2-3min; ~30 calls
+            # once a day is still gentle on jamboree/kaksha.
+            - { name: API_MIN_INTERVAL_MS, value: "5000" }
           ports: [{ containerPort: 8080, name: http }]
           resources: { requests: { cpu: 50m, memory: 160Mi }, limits: { cpu: "1", memory: 512Mi } }
           volumeMounts:
