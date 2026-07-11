@@ -1,0 +1,47 @@
+# Scrape the postgres_exporter / redis_exporter sidecars running in every apps DB pod.
+# Each DB Service carries label exporter=postgres|redis and a named `metrics` port
+# (9187 pg / 9121 redis); these two ServiceMonitors select on that label. The OTel Target
+# Allocator selects all ServiceMonitors (in: {}) and forwards to VictoriaMetrics.
+#
+# Cross-ns reach to the (otherwise isolated) DB pods is granted by the companion
+# NetworkPolicy network-policies/02-db-metrics-ingress.yaml, scoped to ports 9187/9121 only.
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: postgres-exporters
+  namespace: observability
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  labels: { app.kubernetes.io/name: postgres-exporters }
+spec:
+  namespaceSelector:
+    matchNames: [apps]
+  selector:
+    matchLabels:
+      exporter: postgres
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 60s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: redis-exporters
+  namespace: observability
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  labels: { app.kubernetes.io/name: redis-exporters }
+spec:
+  namespaceSelector:
+    matchNames: [apps]
+  selector:
+    matchLabels:
+      exporter: redis
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 60s
