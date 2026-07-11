@@ -26,4 +26,4 @@ editing** — the full rationale (and past incidents) lives there.
 - Egress default-deny **fails closed**: a new app needing an un-listed destination is an outage until
   you add the allow.
 
-<!-- init-deep: generated 2026-07-11 from sha=edc1d16 -->
+<!-- init-deep: generated 2026-07-11 from sha=f3d182c -->

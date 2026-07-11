@@ -56,4 +56,4 @@ cargo run --release --manifest-path tools/image-currency/Cargo.toml   # image-di
   e.g. `auto-verbal-score` rebuilds via `gitops/scripts/update-avs.sh`.
 - Deep operational history (incidents, gotchas) lives in codebase-memory and the YAML header comments.
 
-<!-- init-deep: generated 2026-07-11 from sha=edc1d16 -->
+<!-- init-deep: generated 2026-07-11 from sha=f3d182c -->

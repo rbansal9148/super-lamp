@@ -26,4 +26,4 @@ For cluster-wide error sweeps use the **field-filter** form `k8s.container.name:
 bare-word aggregate `error OR ERROR | stats by (…)` — the latter mis-attributes counts wildly
 (verified 2026-07-11: reported 1.18M "errors" for a container with 0 actual matches).
 
-<!-- init-deep: generated 2026-07-11 from sha=edc1d16 -->
+<!-- init-deep: generated 2026-07-11 from sha=f3d182c -->
