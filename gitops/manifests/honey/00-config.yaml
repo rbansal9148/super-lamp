@@ -37,7 +37,8 @@ data:
         { "name": "SearXNG", "desc": "Privacy-respecting search engine.", "href": "https://searxng.my-blue-car.work", "icon": "https://raw.githubusercontent.com/searxng/searxng/refs/heads/master/searx/static/themes/simple/img/favicon.png" },
         { "name": "Calibre-Web Automated", "desc": "Self-hosted ebook library and reader.", "href": "https://calibre.my-blue-car.work", "icon": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/calibre-web.png" },
         { "name": "Shelfmark", "desc": "Modern reading UI for Calibre-Web.", "href": "https://shelfmark.my-blue-car.work", "icon": "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/shelfmark.png" },
-        { "name": "Syncio", "desc": "Stremio library and progress sync.", "href": "https://syncio.my-blue-car.work", "icon": "https://raw.githubusercontent.com/iamneur0/syncio/main/client/public/logo-white.png" }
+        { "name": "Syncio", "desc": "Stremio library and progress sync.", "href": "https://syncio.my-blue-car.work", "icon": "https://raw.githubusercontent.com/iamneur0/syncio/main/client/public/logo-white.png" },
+        { "name": "Verbal Score", "desc": "Jamboree/Kaksha faculty student-performance dashboard.", "href": "https://avs-1245567de3019b59765cd681c2.my-blue-car.work", "icon": "https://emojiapi.dev/api/v1/bar-chart/256.png" }
       ]
     }
 ---
