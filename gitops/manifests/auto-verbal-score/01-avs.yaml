@@ -32,7 +32,7 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532, fsGroup: 65532 }
       containers:
         - name: auto-verbal-score
-          image: localhost/auto-verbal-score:867b703
+          image: localhost/auto-verbal-score:2b7573a
           imagePullPolicy: Never   # side-loaded into containerd; nothing to pull
           securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           # PORT=8080, REFRESH_MINUTES=1440 (daily rebuild), API_CONCURRENCY=1 (fully serial) are the
