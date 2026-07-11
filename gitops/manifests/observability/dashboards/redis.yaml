@@ -1,0 +1,120 @@
+# Redis data-tier dashboard. Provisioned by the Grafana sidecar (watches ConfigMaps
+# labelled grafana_dashboard in this namespace). Fed by the redis_exporter sidecars
+# (:9121) added to every apps *-redis pod; series land in VictoriaMetrics (uid
+# victoriametrics) keyed by label service="<app>-redis". $redis template var = the instance.
+# maxmemory is set per-pod via redis-server --maxmemory, so redis_config_maxmemory is
+# non-zero and the saturation panel is meaningful. All queries verified non-empty (VM 8429).
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-redis
+  namespace: observability
+  labels:
+    grafana_dashboard: "1"
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+data:
+  redis.json: |
+    {
+      "uid": "redis-data-tier",
+      "title": "Redis — Data Tier",
+      "tags": ["redis", "cache", "gitops"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "30s",
+      "time": { "from": "now-6h", "to": "now" },
+      "annotations": { "list": [] },
+      "templating": {
+        "list": [
+          {
+            "type": "query", "name": "redis", "label": "Instance",
+            "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+            "query": { "query": "label_values(redis_up, service)", "refId": "StandardVariableQuery" },
+            "definition": "label_values(redis_up, service)",
+            "refresh": 2, "includeAll": false, "multi": false, "sort": 1,
+            "current": { "selected": false, "text": "searxng-redis", "value": "searxng-redis" }
+          }
+        ]
+      },
+      "panels": [
+        { "id": 100, "type": "row", "title": "Overview — $redis", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }, "collapsed": false },
+        {
+          "id": 1, "type": "stat", "title": "Up",
+          "gridPos": { "h": 5, "w": 6, "x": 0, "y": 1 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "max(redis_up{service=~\"$redis\"})", "legendFormat": "up" } ],
+          "fieldConfig": { "defaults": { "unit": "short", "mappings": [ { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } } ], "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] } }, "overrides": [] },
+          "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } }
+        },
+        {
+          "id": 2, "type": "stat", "title": "Connected clients",
+          "gridPos": { "h": 5, "w": 6, "x": 6, "y": 1 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum(redis_connected_clients{service=~\"$redis\"})", "legendFormat": "clients" } ],
+          "fieldConfig": { "defaults": { "unit": "short", "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] } }, "overrides": [] },
+          "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } }
+        },
+        {
+          "id": 3, "type": "stat", "title": "Memory saturation (of maxmemory)",
+          "gridPos": { "h": 5, "w": 6, "x": 12, "y": 1 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "100 * sum(redis_memory_used_bytes{service=~\"$redis\"}) / max(redis_config_maxmemory{service=~\"$redis\"})", "legendFormat": "used %" } ],
+          "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 80 }, { "color": "red", "value": 95 } ] } }, "overrides": [] },
+          "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } }
+        },
+        {
+          "id": 4, "type": "stat", "title": "Total keys",
+          "gridPos": { "h": 5, "w": 6, "x": 18, "y": 1 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum(redis_db_keys{service=~\"$redis\"})", "legendFormat": "keys" } ],
+          "fieldConfig": { "defaults": { "unit": "short", "thresholds": { "mode": "absolute", "steps": [ { "color": "blue", "value": null } ] } }, "overrides": [] },
+          "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } }
+        },
+        { "id": 101, "type": "row", "title": "Throughput & efficiency", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 6 }, "collapsed": false },
+        {
+          "id": 5, "type": "timeseries", "title": "Commands / s",
+          "gridPos": { "h": 7, "w": 12, "x": 0, "y": 7 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum(rate(redis_commands_processed_total{service=~\"$redis\"}[5m]))", "legendFormat": "ops/s" } ],
+          "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "fillOpacity": 15, "showPoints": "never" } }, "overrides": [] },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } }
+        },
+        {
+          "id": 6, "type": "timeseries", "title": "Keyspace hit ratio %",
+          "gridPos": { "h": 7, "w": 12, "x": 12, "y": 7 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "100 * sum(rate(redis_keyspace_hits_total{service=~\"$redis\"}[5m])) / (sum(rate(redis_keyspace_hits_total{service=~\"$redis\"}[5m])) + sum(rate(redis_keyspace_misses_total{service=~\"$redis\"}[5m])))", "legendFormat": "hit %" } ],
+          "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" }, "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 80 } ] } }, "overrides": [] },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } }
+        },
+        { "id": 102, "type": "row", "title": "Memory & eviction", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 }, "collapsed": false },
+        {
+          "id": 7, "type": "timeseries", "title": "Memory used vs maxmemory",
+          "gridPos": { "h": 7, "w": 12, "x": 0, "y": 15 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [
+            { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum(redis_memory_used_bytes{service=~\"$redis\"})", "legendFormat": "used" },
+            { "refId": "B", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "max(redis_config_maxmemory{service=~\"$redis\"})", "legendFormat": "maxmemory" }
+          ],
+          "fieldConfig": { "defaults": { "unit": "bytes", "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never" } }, "overrides": [ { "matcher": { "id": "byName", "options": "maxmemory" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }, { "id": "custom.fillOpacity", "value": 0 } ] } ] },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+        },
+        {
+          "id": 8, "type": "timeseries", "title": "Evicted keys / s",
+          "gridPos": { "h": 7, "w": 6, "x": 12, "y": 15 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum(rate(redis_evicted_keys_total{service=~\"$redis\"}[5m]))", "legendFormat": "evicted/s" } ],
+          "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "bars", "fillOpacity": 60, "showPoints": "never" }, "color": { "mode": "fixed", "fixedColor": "orange" } }, "overrides": [] },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } }
+        },
+        {
+          "id": 9, "type": "timeseries", "title": "Blocked clients",
+          "gridPos": { "h": 7, "w": 6, "x": 18, "y": 15 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum(redis_blocked_clients{service=~\"$redis\"})", "legendFormat": "blocked" } ],
+          "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 15, "showPoints": "never" } }, "overrides": [] },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } }
+        }
+      ]
+    }

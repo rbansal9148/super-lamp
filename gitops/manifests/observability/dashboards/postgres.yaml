@@ -1,0 +1,141 @@
+# Postgres data-tier dashboard. Provisioned by the Grafana sidecar (watches ConfigMaps
+# labelled grafana_dashboard in this namespace). Fed by the postgres_exporter sidecars
+# (:9187) added to every apps *-postgres pod; series land in VictoriaMetrics (uid
+# victoriametrics) keyed by label service="<app>-postgres". $db template var = the instance.
+# Panels chosen for the failure modes this stack actually hit (Prowlarr VACUUM, bitmagnet
+# lock_timeout/deadlocks): connections vs max, locks by mode, deadlocks, long-running tx,
+# cache-hit, txn rate. All queries verified non-empty (VM 8429) before commit.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-dashboard-postgres
+  namespace: observability
+  labels:
+    grafana_dashboard: "1"
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+data:
+  postgres.json: |
+    {
+      "uid": "postgres-data-tier",
+      "title": "Postgres — Data Tier",
+      "tags": ["postgres", "database", "gitops"],
+      "timezone": "browser",
+      "schemaVersion": 39,
+      "version": 1,
+      "refresh": "30s",
+      "time": { "from": "now-6h", "to": "now" },
+      "annotations": { "list": [] },
+      "templating": {
+        "list": [
+          {
+            "type": "query", "name": "db", "label": "Instance",
+            "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+            "query": { "query": "label_values(pg_up, service)", "refId": "StandardVariableQuery" },
+            "definition": "label_values(pg_up, service)",
+            "refresh": 2, "includeAll": false, "multi": false, "sort": 1,
+            "current": { "selected": false, "text": "bitmagnet-postgres", "value": "bitmagnet-postgres" }
+          }
+        ]
+      },
+      "panels": [
+        { "id": 100, "type": "row", "title": "Overview — $db", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 0 }, "collapsed": false },
+        {
+          "id": 1, "type": "stat", "title": "Up",
+          "gridPos": { "h": 5, "w": 6, "x": 0, "y": 1 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "max(pg_up{service=~\"$db\"})", "legendFormat": "up" } ],
+          "fieldConfig": { "defaults": { "unit": "short", "mappings": [ { "type": "value", "options": { "0": { "text": "DOWN", "color": "red" }, "1": { "text": "UP", "color": "green" } } } ], "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "green", "value": 1 } ] } }, "overrides": [] },
+          "options": { "colorMode": "background", "graphMode": "none", "reduceOptions": { "calcs": ["lastNotNull"] } }
+        },
+        {
+          "id": 2, "type": "stat", "title": "Active connections",
+          "gridPos": { "h": 5, "w": 6, "x": 6, "y": 1 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum(pg_stat_activity_count{service=~\"$db\"})", "legendFormat": "conns" } ],
+          "fieldConfig": { "defaults": { "unit": "short", "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] } }, "overrides": [] },
+          "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } }
+        },
+        {
+          "id": 3, "type": "stat", "title": "Connection saturation",
+          "gridPos": { "h": 5, "w": 6, "x": 12, "y": 1 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "100 * sum(pg_stat_activity_count{service=~\"$db\"}) / max(pg_settings_max_connections{service=~\"$db\"})", "legendFormat": "used %" } ],
+          "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 70 }, { "color": "red", "value": 90 } ] } }, "overrides": [] },
+          "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } }
+        },
+        {
+          "id": 4, "type": "stat", "title": "Database size",
+          "gridPos": { "h": 5, "w": 6, "x": 18, "y": 1 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum(pg_database_size_bytes{service=~\"$db\"})", "legendFormat": "size" } ],
+          "fieldConfig": { "defaults": { "unit": "bytes", "thresholds": { "mode": "absolute", "steps": [ { "color": "blue", "value": null } ] } }, "overrides": [] },
+          "options": { "colorMode": "value", "graphMode": "area", "reduceOptions": { "calcs": ["lastNotNull"] } }
+        },
+        { "id": 101, "type": "row", "title": "Throughput & efficiency", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 6 }, "collapsed": false },
+        {
+          "id": 5, "type": "timeseries", "title": "Transactions / s (commit vs rollback)",
+          "gridPos": { "h": 7, "w": 12, "x": 0, "y": 7 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [
+            { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum(rate(pg_stat_database_xact_commit{service=~\"$db\"}[5m]))", "legendFormat": "commit" },
+            { "refId": "B", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum(rate(pg_stat_database_xact_rollback{service=~\"$db\"}[5m]))", "legendFormat": "rollback" }
+          ],
+          "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "fillOpacity": 15, "showPoints": "never" } }, "overrides": [ { "matcher": { "id": "byName", "options": "rollback" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } } ] } ] },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+        },
+        {
+          "id": 6, "type": "timeseries", "title": "Cache hit ratio %",
+          "gridPos": { "h": 7, "w": 12, "x": 12, "y": 7 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "100 * sum(rate(pg_stat_database_blks_hit{service=~\"$db\"}[5m])) / (sum(rate(pg_stat_database_blks_hit{service=~\"$db\"}[5m])) + sum(rate(pg_stat_database_blks_read{service=~\"$db\"}[5m])))", "legendFormat": "hit %" } ],
+          "fieldConfig": { "defaults": { "unit": "percent", "min": 0, "max": 100, "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never", "thresholdsStyle": { "mode": "line" } }, "thresholds": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "yellow", "value": 90 }, { "color": "green", "value": 99 } ] } }, "overrides": [] },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } }
+        },
+        { "id": 102, "type": "row", "title": "Health — locks / deadlocks / long transactions", "gridPos": { "h": 1, "w": 24, "x": 0, "y": 14 }, "collapsed": false },
+        {
+          "id": 7, "type": "timeseries", "title": "Connections by state",
+          "gridPos": { "h": 7, "w": 12, "x": 0, "y": 15 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum by (state) (pg_stat_activity_count{service=~\"$db\"})", "legendFormat": "{{state}}" } ],
+          "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 20, "stacking": { "mode": "normal" }, "showPoints": "never" } }, "overrides": [] },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+        },
+        {
+          "id": 8, "type": "timeseries", "title": "Locks by mode",
+          "gridPos": { "h": 7, "w": 12, "x": 12, "y": 15 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum by (mode) (pg_locks_count{service=~\"$db\"})", "legendFormat": "{{mode}}" } ],
+          "fieldConfig": { "defaults": { "unit": "short", "custom": { "drawStyle": "line", "fillOpacity": 20, "stacking": { "mode": "normal" }, "showPoints": "never" } }, "overrides": [ { "matcher": { "id": "byName", "options": "ExclusiveLock" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } } ] } ] },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+        },
+        {
+          "id": 9, "type": "timeseries", "title": "Deadlocks / s",
+          "gridPos": { "h": 6, "w": 8, "x": 0, "y": 22 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum(rate(pg_stat_database_deadlocks{service=~\"$db\"}[5m]))", "legendFormat": "deadlocks/s" } ],
+          "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "bars", "fillOpacity": 60, "showPoints": "never" }, "color": { "mode": "fixed", "fixedColor": "red" } }, "overrides": [] },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } }
+        },
+        {
+          "id": 10, "type": "timeseries", "title": "Longest running transaction (s)",
+          "gridPos": { "h": 6, "w": 8, "x": 8, "y": 22 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [ { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "max(pg_stat_activity_max_tx_duration{service=~\"$db\"})", "legendFormat": "max tx age" } ],
+          "fieldConfig": { "defaults": { "unit": "s", "custom": { "drawStyle": "line", "fillOpacity": 10, "showPoints": "never", "thresholdsStyle": { "mode": "line" } }, "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null }, { "color": "yellow", "value": 60 }, { "color": "red", "value": 300 } ] } }, "overrides": [] },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "single" } }
+        },
+        {
+          "id": 11, "type": "timeseries", "title": "Tuple write rate (ins/upd/del /s)",
+          "gridPos": { "h": 6, "w": 8, "x": 16, "y": 22 },
+          "datasource": { "type": "prometheus", "uid": "victoriametrics" },
+          "targets": [
+            { "refId": "A", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum(rate(pg_stat_database_tup_inserted{service=~\"$db\"}[5m]))", "legendFormat": "inserted" },
+            { "refId": "B", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum(rate(pg_stat_database_tup_updated{service=~\"$db\"}[5m]))", "legendFormat": "updated" },
+            { "refId": "C", "datasource": { "type": "prometheus", "uid": "victoriametrics" }, "expr": "sum(rate(pg_stat_database_tup_deleted{service=~\"$db\"}[5m]))", "legendFormat": "deleted" }
+          ],
+          "fieldConfig": { "defaults": { "unit": "ops", "custom": { "drawStyle": "line", "fillOpacity": 15, "showPoints": "never" } }, "overrides": [] },
+          "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+        }
+      ]
+    }
