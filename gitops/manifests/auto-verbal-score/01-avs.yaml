@@ -37,8 +37,8 @@ spec:
           securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           env:
             - { name: PORT, value: "8080" }
-            - { name: REFRESH_MINUTES, value: "60" }
-            - { name: API_CONCURRENCY, value: "6" }   # global FIFO cap on outbound jamboree/kaksha API calls (added in af75a75)
+            - { name: REFRESH_MINUTES, value: "1440" }   # rebuild once daily (was 60 = hourly)
+            - { name: API_CONCURRENCY, value: "1" }       # FIFO cap on outbound jamboree/kaksha API calls; 1 = fully serial (gentlest; slower build)
             - { name: DATA_DIR, value: /data }         # point db/html/.cache at the writable emptyDir → rootfs can be read-only (added in 65b2319)
           ports: [{ containerPort: 8080, name: http }]
           resources: { requests: { cpu: 50m, memory: 160Mi }, limits: { cpu: "1", memory: 512Mi } }
