@@ -1,8 +1,19 @@
-# Narrow exception to the DB isolation in 00-apps-namespace-isolation.yaml: the data tier
-# (Postgres/Redis) stays unreachable cross-ns on its DATA ports (5432/6379), but the
-# observability namespace may scrape the exporter sidecars on their METRICS ports ONLY
-# (9187 postgres_exporter, 9121 redis_exporter). Companion to
-# observability/servicemonitors/db-exporters.yaml.
+# Lets the observability namespace scrape the exporter sidecars in the (otherwise
+# cross-ns-isolated) DB pods. Companion to observability/servicemonitors/db-exporters.yaml.
+#
+# LINKERD NOTE — why port 4143, not just 9187/9121:
+#   Both the OTel scrape collector and the DB pods are meshed. Per linkerd, "communication
+#   between two meshed pods will always have its original target port replaced with the
+#   proxy's inbound port (4143)" and "any NetworkPolicy which blocks 4143 will block all
+#   meshed traffic" (linkerd.io/2-edge/common-errors/network-policy/). So the scrape arrives
+#   on 4143 — an app-port-only allow (9187/9121) silently drops it (target DOWN / 504).
+#   Consequence: this cannot L4-restrict observability to metrics-only — 4143 multiplexes
+#   ALL of the pod's ports through the proxy (data ports included). That is an acceptable
+#   widening: observability is already fully trusted for every NON-DB apps pod via
+#   apps-allow-trusted-cross-ns; this extends the same trust to the data tier. The isolation
+#   that matters — app↔other-app's-DB lateral movement — stays blocked. True metrics-only
+#   would require a linkerd Server + AuthorizationPolicy (L7); out of scope here.
+#   9187/9121 are kept below to document intent and cover a hypothetical unmeshed scraper.
 #
 # MAINTENANCE: this pod list must stay in sync with the DB exclusion list in
 # 00-apps-namespace-isolation.yaml — a new *-postgres/*-redis added there must be added here
@@ -41,5 +52,6 @@ spec:
             matchLabels:
               kubernetes.io/metadata.name: observability
       ports:
-        - { protocol: TCP, port: 9187 }
-        - { protocol: TCP, port: 9121 }
+        - { protocol: TCP, port: 4143 }   # linkerd proxy inbound — REQUIRED for meshed scrape (see note above)
+        - { protocol: TCP, port: 9187 }   # postgres_exporter (intent/doc; unmeshed path)
+        - { protocol: TCP, port: 9121 }   # redis_exporter    (intent/doc; unmeshed path)
