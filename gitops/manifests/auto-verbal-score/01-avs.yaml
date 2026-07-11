@@ -31,7 +31,7 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532, fsGroup: 65532 }
       containers:
         - name: auto-verbal-score
-          image: localhost/auto-verbal-score:233fb84
+          image: localhost/auto-verbal-score:867b703
           imagePullPolicy: Never   # side-loaded into containerd; nothing to pull
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           env:
