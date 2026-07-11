@@ -1,0 +1,124 @@
+# Wave 2 — Postgres data-tier alert rules (Grafana-provisioned, metric-based).
+# Loaded by the same Grafana alerting sidecar (label grafana_alert) and routed to the same
+# ntfy contact point / platform folder as the other alert files. Metrics come from the
+# postgres_exporter sidecars (:9187) added to every apps *-postgres pod -> ServiceMonitor
+# postgres-exporters -> OTel TA -> VM (vmsingle-obs:8429), keyed by label service="<app>-postgres".
+# Standard Prometheus underscore names (pg_*), standard PromQL. All exprs verified against VM
+# before commit; all rules are PER-service (multi-dimensional) so the alert names the DB.
+#
+# These target the exact failure classes this stack has actually hit, with metrics that were
+# previously blind (data tier had NO metrics before 2026-07-11): the Prowlarr VACUUM abort and
+# bitmagnet lock_timeout/deadlock incidents (obs 3846-3863). Thresholds grounded on observed
+# baselines (2026-07-11): conn saturation 1-7%, deadlocks 0/15m, longest tx ~0s across all 9 DBs.
+# All warning severity (degradation signals, not hard-down — scrape-target-down in
+# platform-alerts already covers a dead DB pod). noDataState=OK to avoid flapping on scrape gaps.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: grafana-postgres-alerts
+  namespace: observability
+  labels:
+    grafana_alert: "1"
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+data:
+  postgres-alerts.yaml: |
+    apiVersion: 1
+    groups:
+      - orgId: 1
+        name: postgres
+        folder: platform
+        interval: 1m
+        rules:
+          # ── Connection pool near-exhausted: >90% of max_connections for 5m ──
+          # The pool-exhaustion class: at 100% Postgres rejects new clients ("too many
+          # connections") and the app fails. Baseline is 1-7% across all 9 DBs (max_connections
+          # =100), so 90% is 13-90x over normal — bursts won't trip it; for:5m rides out spikes.
+          - uid: postgres-conn-saturation
+            title: Postgres connection saturation high
+            condition: C
+            for: 5m
+            noDataState: OK
+            execErrState: OK
+            data:
+              - refId: A
+                relativeTimeRange: { from: 600, to: 0 }
+                datasourceUid: victoriametrics
+                model:
+                  refId: A
+                  instant: true
+                  expr: 100 * sum by (service) (pg_stat_activity_count) / max by (service) (pg_settings_max_connections)
+              - refId: C
+                datasourceUid: __expr__
+                model:
+                  refId: C
+                  type: threshold
+                  expression: A
+                  conditions:
+                    - evaluator: { type: gt, params: [90] }
+            labels: { severity: warning }
+            annotations:
+              summary: 'Postgres {{ $labels.service }} connection pool >90% of max_connections for 5m — approaching pool exhaustion (too-many-connections rejection at 100%)'
+
+          # ── Deadlocks sustained: >5 new deadlocks in 15m ──
+          # The bitmagnet lock_timeout/deadlock class (obs 3850-3863). pg_stat_database_deadlocks
+          # is a CUMULATIVE counter; delta() over the window = new deadlocks (tolerates counter
+          # reset on pod restart → negative → no fire, same pattern as bitmagnet-alerts). Baseline
+          # is 0/15m; >5 is unambiguous sustained deadlocking, not a single transient contention.
+          - uid: postgres-deadlocks
+            title: Postgres deadlocks climbing
+            condition: C
+            for: 5m
+            noDataState: OK
+            execErrState: OK
+            data:
+              - refId: A
+                relativeTimeRange: { from: 900, to: 0 }
+                datasourceUid: victoriametrics
+                model:
+                  refId: A
+                  instant: true
+                  expr: max by (service) (delta(pg_stat_database_deadlocks[15m]))
+              - refId: C
+                datasourceUid: __expr__
+                model:
+                  refId: C
+                  type: threshold
+                  expression: A
+                  conditions:
+                    - evaluator: { type: gt, params: [5] }
+            labels: { severity: warning }
+            annotations:
+              summary: 'Postgres {{ $labels.service }} had >5 deadlocks in 15m — sustained lock contention (check for competing writers / prune jobs, cf. bitmagnet 2026-07-03)'
+
+          # ── Long-running transaction: any tx open >10m ──
+          # The Prowlarr VACUUM-abort / stuck-lock class. pg_stat_activity_max_tx_duration is the
+          # age of the oldest open transaction; a tx held >10m blocks vacuum, holds locks, and
+          # bloats WAL. Baseline is ~0s everywhere. 600s clears normal autovacuum (which is
+          # counted here) on the big DBs (bitmagnet 18GB) while catching a genuinely stuck/runaway
+          # transaction. for:5m so a legitimate long batch has to persist past 10m to fire.
+          - uid: postgres-long-transaction
+            title: Postgres long-running transaction
+            condition: C
+            for: 5m
+            noDataState: OK
+            execErrState: OK
+            data:
+              - refId: A
+                relativeTimeRange: { from: 600, to: 0 }
+                datasourceUid: victoriametrics
+                model:
+                  refId: A
+                  instant: true
+                  expr: max by (service) (pg_stat_activity_max_tx_duration)
+              - refId: C
+                datasourceUid: __expr__
+                model:
+                  refId: C
+                  type: threshold
+                  expression: A
+                  conditions:
+                    - evaluator: { type: gt, params: [600] }
+            labels: { severity: warning }
+            annotations:
+              summary: 'Postgres {{ $labels.service }} has a transaction open >10m — blocks vacuum / holds locks / bloats WAL (stuck tx or runaway VACUUM, cf. Prowlarr 2026-07-03)'
