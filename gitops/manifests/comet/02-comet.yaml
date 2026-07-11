@@ -58,6 +58,7 @@ spec:
             # background scraper ON; serving sources flipped to background (the ones that
             # were "both" pre-split). Live-only sources have no bg component -> False.
             - { name: BACKGROUND_SCRAPER_ENABLED, value: "True" }
+            - { name: BACKGROUND_SCRAPER_CONCURRENT_WORKERS, value: "1" }   # 2->1 (2026-07-11): after Nyaa/TorrentsDB were disabled, the bg time-budget concentrated onto the still-working Comet source -> ~1.7k 429/h (though it still returns ~50% results). Halving concurrency again cuts the request rate to Comet while keeping its DMM results. Overrides the configmap baseline (2, inert on live).
             - { name: SCRAPE_COMET,        value: background }
             - { name: SCRAPE_NYAA,         value: "False" }   # OFF (2026-07-11): bg scraping hammered Nyaa into a sustained 429 storm (~4.5k/h, ~99.9% of comet's errors) — same rate-limit→ban trajectory as TorBox (obs 3759). 429 on ~every bg request => near-zero results anyway. Live keeps SCRAPE_NYAA=live (on-demand, ~3/h, still serves users).
             - { name: SCRAPE_TORRENTIO,    value: background }
