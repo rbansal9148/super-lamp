@@ -59,9 +59,9 @@ spec:
             # were "both" pre-split). Live-only sources have no bg component -> False.
             - { name: BACKGROUND_SCRAPER_ENABLED, value: "True" }
             - { name: SCRAPE_COMET,        value: background }
-            - { name: SCRAPE_NYAA,         value: background }
+            - { name: SCRAPE_NYAA,         value: "False" }   # OFF (2026-07-11): bg scraping hammered Nyaa into a sustained 429 storm (~4.5k/h, ~99.9% of comet's errors) — same rate-limit→ban trajectory as TorBox (obs 3759). 429 on ~every bg request => near-zero results anyway. Live keeps SCRAPE_NYAA=live (on-demand, ~3/h, still serves users).
             - { name: SCRAPE_TORRENTIO,    value: background }
-            - { name: SCRAPE_TORRENTSDB,   value: background }
+            - { name: SCRAPE_TORRENTSDB,   value: "False" }   # OFF (2026-07-11): same 429 storm as Nyaa (TorrentsDB co-dominant source). Live on-demand path (configmap SCRAPE_TORRENTSDB=live) retained.
             - { name: SCRAPE_MEDIAFUSION,  value: "False" }   # dead: public mediafusion 0 results (auth/ratelimit). Off in bg too.
             - { name: SCRAPE_STREMTHRU,    value: "False" }
             - { name: SCRAPE_ZILEAN,       value: "False" }
