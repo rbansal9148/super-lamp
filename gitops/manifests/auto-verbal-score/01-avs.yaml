@@ -79,7 +79,7 @@ spec:
 ---
 apiVersion: v1
 kind: Service
-metadata: { name: auto-verbal-score, namespace: apps }
+metadata: { name: auto-verbal-score, namespace: apps, labels: { app: auto-verbal-score } }   # label required: the observability ServiceMonitor selects on Service labels
 spec:
   selector: { app: auto-verbal-score }
   ports: [{ name: http, port: 80, targetPort: 8080 }]

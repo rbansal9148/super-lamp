@@ -1,0 +1,36 @@
+# Scrape auto-verbal-score's app metrics (:8080/metrics) into VictoriaMetrics so build
+# health + upstream-fetch behaviour is queryable/alertable instead of tail-the-log-by-hand.
+# Zero-dep OpenMetrics surface (app's src/metrics.ts) — no PII, counts/gauges only:
+#   api_calls_total{backend}          — jamboree/kaksha call volume (rate-limiter pressure)
+#   fetch_failures_total              — transient upstream fetch failures
+#   builds_total{outcome}             — daily/refresh build success vs failure
+#   build_duration_seconds            — wall-clock of the (serial) build
+#   last_build_exit                   — 0 = clean; non-zero = last build failed
+#   last_build_timestamp_seconds      — staleness watchdog (freshness of dashboard.html)
+#
+# AVS is a non-DB `app` pod → apps-allow-trusted-cross-ns already admits the observability
+# namespace to it on all ports (no netpol edit). The scrape-collector is unmeshed (no
+# linkerd sidecar), so it hits the real 8080, not the 4143 proxy port. The OTel Target
+# Allocator selects ALL ServiceMonitors (serviceMonitorSelector {}) and forwards to VM.
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: auto-verbal-score
+  namespace: observability
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    # ServiceMonitor CRD ships with prometheus-operator-crds (earlier wave) — skip the
+    # pre-sync dry-run that would fail if the CRD weren't present yet.
+    argocd.argoproj.io/sync-options: SkipDryRunOnMissingResource=true
+  labels: { app.kubernetes.io/name: auto-verbal-score }
+spec:
+  namespaceSelector:
+    matchNames: [apps]
+  selector:
+    matchLabels:
+      app: auto-verbal-score
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 60s
