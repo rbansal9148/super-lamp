@@ -61,6 +61,13 @@ spec:
           # it must be faster (jamboree is an authed account — keep it slow).
           env:
             - { name: DATA_DIR, value: /data }   # db/html/.cache → writable PVC so rootfs stays read-only
+            # TEMPORARY (2026-07-12): speed the one-time empty-PVC first build. kaksha is public
+            # (a 429 is recoverable) so its interval is safe to drop; API_CONCURRENCY is global but
+            # jamboree stays gated by its OWN 5-min RateLimiter (authed account — left at default, no
+            # lockout risk). REVERT both once /data/dashboard.html has landed — the PVC then skips
+            # cold-start on every future roll, so the slow default only ever cost this first build.
+            - { name: KAKSHA_MIN_INTERVAL_MS, value: "2000" }
+            - { name: API_CONCURRENCY, value: "4" }
           ports: [{ containerPort: 8080, name: http }]
           resources: { requests: { cpu: 50m, memory: 160Mi }, limits: { cpu: "1", memory: 512Mi } }
           volumeMounts:
