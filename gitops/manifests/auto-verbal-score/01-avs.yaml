@@ -49,7 +49,7 @@ spec:
       securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532, fsGroup: 65532, fsGroupChangePolicy: OnRootMismatch }
       containers:
         - name: auto-verbal-score
-          image: localhost/auto-verbal-score:a3d1a1f
+          image: localhost/auto-verbal-score:6fcf8fa
           imagePullPolicy: Never   # side-loaded into containerd; nothing to pull
           securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           # ALL schedule/throttle knobs are the app's OWN code defaults now — REFRESH_AT_IST=17:00
