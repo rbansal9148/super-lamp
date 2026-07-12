@@ -1,10 +1,12 @@
 # auto-verbal-score (AVS) — Jamboree/Kaksha faculty student-performance dashboard.
 # Zero-dep Bun service (src/server.ts): serves a self-contained dashboard.html and rebuilds
-# it every REFRESH_MINUTES via an in-pod scheduler. Writes dashboard.html, dashboard.db
-# (bun:sqlite) and .cache/tokens.json into /app (ROOT = dir above src/), alongside baked
-# code. Writable artifacts (db/html/.cache) go to the /data emptyDir via DATA_DIR, and bun's
-# cache to the /tmp emptyDir (HOME=/tmp) → the container rootfs is read-only. Data is a
-# rebuildable cache, wiped on restart by design → strategy: Recreate, single writer.
+# it daily at REFRESH_AT_IST (17:00 IST) via an in-pod scheduler. Writes dashboard.html,
+# dashboard.db (bun:sqlite) and .cache/tokens.json into /app (ROOT = dir above src/), alongside
+# baked code. Writable artifacts (db/html/.cache) go to the /data PVC via DATA_DIR, and bun's
+# cache to the /tmp emptyDir (HOME=/tmp) → the container rootfs is read-only. dashboard.db holds
+# the incremental-fetch `sync` checkpoint, so /data MUST persist across restarts (PVC, not
+# emptyDir) — else every pod roll forces an off-schedule full refetch. strategy: Recreate,
+# single writer; the RWO PVC mounts to one pod at a time.
 # config.json (faculty creds) is mounted read-only from the avs-config SealedSecret.
 #
 # Image is side-loaded into k3s containerd (`k3s ctr images import`), NOT pulled from a
@@ -15,8 +17,21 @@
 # jamboree/kaksha's ~318 endpoints). Public via the IngressRoute below: DNS resolves through
 # the *.my-blue-car.work wildcard record (Cloudflare-proxied → origin), wildcard TLS from the
 # TLSStore default cert. NO Authelia — the route is intentionally open, protected ONLY by the
-# unguessable 28-char host. The app has no auth of its own, so anyone with the URL sees the
-# dashboard (student-performance data). Deliberate choice 2026-07-11.
+# unguessable 28-char host. The app CAN gate itself (DASH_USER/DASH_PASS ⇒ Basic auth) but is
+# left OPEN here; anyone with the URL sees student data AND can POST /refresh (triggers a full
+# rebuild). Open-route choice reaffirmed 2026-07-12 (the unguessable host is the only control).
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: { name: avs-data, namespace: apps, labels: { app: auto-verbal-score } }
+spec:
+  # Persists dashboard.db (incl. the incremental `sync` checkpoint) + dashboard.html across
+  # restarts, so a pod roll reuses the last build instead of an off-schedule full refetch.
+  # local-path (Delete reclaim) is deliberate: `kubectl -n apps delete pvc avs-data` purges the
+  # student PII (rebuildable cache) — Retain would orphan it on disk. RWO: single writer/reader.
+  accessModes: [ReadWriteOnce]
+  storageClassName: local-path
+  resources: { requests: { storage: 1Gi } }
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata: { name: auto-verbal-score, namespace: apps, labels: { app: auto-verbal-score } }
@@ -29,27 +44,28 @@ spec:
     spec:
       enableServiceLinks: false
       automountServiceAccountToken: false   # app never calls the k8s API
-      securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532, fsGroup: 65532 }
+      # fsGroup + OnRootMismatch chowns the PVC to 65532 (local-path mounts root:root → the
+      # read-only-rootfs non-root uid would hit EACCES on /data without this).
+      securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532, fsGroup: 65532, fsGroupChangePolicy: OnRootMismatch }
       containers:
         - name: auto-verbal-score
           image: localhost/auto-verbal-score:2b7573a
           imagePullPolicy: Never   # side-loaded into containerd; nothing to pull
           securityContext: { allowPrivilegeEscalation: false, readOnlyRootFilesystem: true, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
-          # PORT=8080, REFRESH_MINUTES=1440 (daily rebuild), API_CONCURRENCY=1 (fully serial) are the
-          # app's OWN code defaults now (src/server.ts, src/limit.ts) — not restated here.
+          # ALL schedule/throttle knobs are the app's OWN code defaults now — REFRESH_AT_IST=17:00
+          # (daily, IST wall clock; no boot-time fetch), API_CONCURRENCY=1, API_MIN_INTERVAL_MS=300000
+          # (5min/call, per-backend), FULL_REFRESH_DAYS=7 (src/schedule.ts, src/limit.ts). The /data PVC
+          # persists the sync checkpoint, so restarts REUSE the last build — the only full fetch is the
+          # daily run (incremental) or the one-time first build on an empty PVC. That first build runs at
+          # the 5min default (hours; serves 503 meanwhile, self-heals) — lower KAKSHA_MIN_INTERVAL_MS if
+          # it must be faster (jamboree is an authed account — keep it slow).
           env:
-            - { name: DATA_DIR, value: /data }   # db/html/.cache → writable emptyDir so rootfs stays read-only
-            # API_MIN_INTERVAL_MS: override the app's 5-min/call default (src/limit.ts). That default is
-            # fine for the daily background rebuild (pod serves stale HTML meanwhile) but pathological on
-            # COLD START: Recreate kills the old pod, so /ready stays 503 until the first full build lands
-            # (~22+ fetches × 5min ≈ hours of downtime). 5s/call bounds cold start to ~2-3min; ~30 calls
-            # once a day is still gentle on jamboree/kaksha.
-            - { name: API_MIN_INTERVAL_MS, value: "5000" }
+            - { name: DATA_DIR, value: /data }   # db/html/.cache → writable PVC so rootfs stays read-only
           ports: [{ containerPort: 8080, name: http }]
           resources: { requests: { cpu: 50m, memory: 160Mi }, limits: { cpu: "1", memory: 512Mi } }
           volumeMounts:
             - { name: config, mountPath: /app/config.json, subPath: config.json, readOnly: true }
-            - { name: data, mountPath: /data }   # writable: dashboard.db, dashboard.html, .cache/tokens.json (DATA_DIR)
+            - { name: data, mountPath: /data }   # writable PVC: dashboard.db (+ sync checkpoint), dashboard.html, .cache/tokens.json (DATA_DIR)
             - { name: tmp, mountPath: /tmp }      # writable: bun runtime cache (HOME=/tmp, baked in the image)
           # /healthz returns build status (200) as soon as the server is up — independent of the
           # first ~30-60s build, so liveness does NOT kill the pod mid-initial-build.
@@ -58,7 +74,7 @@ spec:
           readinessProbe: { httpGet: { path: /ready, port: 8080 }, initialDelaySeconds: 5, periodSeconds: 10, timeoutSeconds: 5, failureThreshold: 12 }
       volumes:
         - { name: config, secret: { secretName: avs-config } }
-        - { name: data, emptyDir: {} }
+        - { name: data, persistentVolumeClaim: { claimName: avs-data } }
         - { name: tmp, emptyDir: {} }
 ---
 apiVersion: v1
