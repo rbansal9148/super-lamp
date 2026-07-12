@@ -38,4 +38,4 @@ kubectl -n argocd annotate application <app> argocd.argoproj.io/refresh=hard --o
 kubectl -n argocd get applications                                                          # sync/health
 ```
 
-<!-- init-deep: generated 2026-07-11 from sha=f3d182c -->
+<!-- init-deep: generated 2026-07-12 from sha=d99636d -->

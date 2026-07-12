@@ -35,4 +35,4 @@ image-currency --apply       # rewrite floating UPDATEs
 image-currency --repin-drift # re-pin drifted version tags
 ```
 
-<!-- init-deep: generated 2026-07-11 from sha=f3d182c -->
+<!-- init-deep: generated 2026-07-12 from sha=d99636d -->
