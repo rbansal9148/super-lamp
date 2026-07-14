@@ -49,7 +49,7 @@ spec:
           securityContext: { runAsNonRoot: true, runAsUser: 1000, runAsGroup: 1000, fsGroup: 1000, seccompProfile: { type: RuntimeDefault } }
           initContainers:
             - name: pg-dump
-              image: postgres:18.4@sha256:22c89fe0d0f507606260237fd55e51f6137f58b2d5bcf6152242b96d9fe8f9a4   # pg_dump 18 dumps the PG14 server fine
+              image: postgres:18.4@sha256:b913fd5699b8bd23fa4b06d72ecdd939fad43b80fb8651bac06caa0e6d135cac   # pg_dump 18 dumps the PG14 server fine
               securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL] } }
               env:
                 - name: PGPASSWORD
