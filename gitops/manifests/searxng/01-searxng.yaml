@@ -43,7 +43,7 @@ spec:
       enableServiceLinks: false
       containers:
         - name: searxng
-          image: searxng/searxng:latest@sha256:aaf56bb5ad737d48a8a375778d42eb4ab1757231e6b1eb7980e71d8dd5bdf0de
+          image: searxng/searxng:latest@sha256:af9aec5c8fe88767106e8043004a1232d43cabde22869e6355f3a63d26e41351
           # image ships user searxng 977:977 (app+data COPY --chown=977); entrypoint gates chown/ca-update on id==0 else warns+continues. proven: already runs root w/ drop:[ALL] healthy, doesn't write cache
           securityContext: { runAsNonRoot: true, runAsUser: 977, runAsGroup: 977, allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           env:
