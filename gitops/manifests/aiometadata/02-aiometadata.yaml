@@ -37,6 +37,7 @@ spec:
   routes:
     - match: Host(`aiometadata.my-blue-car.work`)
       kind: Rule
+      middlewares: [{ name: ratelimit-default }]   # anonymous addon endpoint
       services: [{ name: aiometadata, port: 1337 }]
   tls: {}
 ---

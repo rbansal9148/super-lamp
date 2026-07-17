@@ -57,7 +57,7 @@ spec:
     - match: Host(`aiostreams.my-blue-car.work`) && (Path(`/`) || PathPrefix(`/login`) || Path(`/configure`) || Path(`/stremio/configure`) || Path(`/u/configure`) || (PathPrefix(`/api/v1`) && !PathPrefix(`/api/v1/proxy`) && !PathPrefix(`/api/v1/debrid`) && !Path(`/api/v1/health`) && !Path(`/api/v1/status`)))
       kind: Rule
       priority: 100
-      middlewares: [{ name: authelia }]
+      middlewares: [{ name: ratelimit-auth }, { name: authelia }]
       services: [{ name: aiostreams, port: 3000 }]
     # Public: Stremio manifest/stream (/stremio/<uuid>/...), built-in proxy playback
     # (/proxy, /stremio/proxy, /api/v1/proxy), static assets, health. Self-authed by
@@ -65,6 +65,7 @@ spec:
     - match: Host(`aiostreams.my-blue-car.work`)
       kind: Rule
       priority: 1
+      middlewares: [{ name: ratelimit-default }]   # public Stremio manifest/stream/proxy
       services: [{ name: aiostreams, port: 3000 }]
   tls: {}
 ---

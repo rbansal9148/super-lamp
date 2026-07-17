@@ -101,11 +101,14 @@ spec:
       kind: Rule
       priority: 100
       middlewares:
+        - name: ratelimit-auth
+          namespace: apps
         - name: authelia
           namespace: apps
       services: [{ name: comet, port: 2020 }]
     - match: Host(`comet.my-blue-car.work`)
       kind: Rule
+      middlewares: [{ name: ratelimit-default }]   # public Stremio addon endpoints
       services: [{ name: comet, port: 2020 }]
   tls: {}
 ---

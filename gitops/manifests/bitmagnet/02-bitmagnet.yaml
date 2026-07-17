@@ -90,7 +90,7 @@ spec:
   routes:
     - match: Host(`bitmagnet.my-blue-car.work`)
       kind: Rule
-      middlewares: [{ name: authelia }]
+      middlewares: [{ name: ratelimit-auth }, { name: authelia }]
       services: [{ name: bitmagnet, port: 3333 }]
   tls: {}
 ---

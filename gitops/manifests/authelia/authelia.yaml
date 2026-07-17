@@ -216,6 +216,7 @@ spec:
   routes:
     - match: Host(`auth.my-blue-car.work`)
       kind: Rule
+      middlewares: [{ name: ratelimit-default }]   # brute-force cap on the login portal (Authelia regulation is the primary control)
       services:
         - name: authelia
           port: 9091
@@ -238,6 +239,34 @@ spec:
       - Remote-Groups
       - Remote-Email
       - Remote-Name
+---
+# Rate-limit middlewares (apps ns). Keyed on the real client IP — the websecure entrypoint
+# trusts Cloudflare's ranges (observability/servicemonitors/traefik.yaml), so ClientHost
+# resolves to the visitor, not the CF edge. ratelimit-default guards the anonymous
+# addon/public surface; ratelimit-auth gives logged-in (Authelia or app-native) users more
+# headroom. Attach ratelimit-* FIRST in a route's middleware chain so floods are dropped
+# before the forward-auth hop.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: ratelimit-default
+  namespace: apps
+spec:
+  rateLimit:
+    average: 10
+    burst: 20
+    period: 1s
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: ratelimit-auth
+  namespace: apps
+spec:
+  rateLimit:
+    average: 60
+    burst: 120
+    period: 1s
 ---
 # Auth metrics (login success/fail, request duration) scraped by the OTel Target
 # Allocator (serviceMonitorSelector: {} → all namespaces) → pushed to VictoriaMetrics.

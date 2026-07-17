@@ -74,6 +74,6 @@ spec:
   routes:
     - match: Host(`searxng.my-blue-car.work`)
       kind: Rule
-      middlewares: [{ name: authelia }]
+      middlewares: [{ name: ratelimit-auth }, { name: authelia }]
       services: [{ name: searxng, port: 8080 }]
   tls: {}

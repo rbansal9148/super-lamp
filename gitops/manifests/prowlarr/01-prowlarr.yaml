@@ -129,7 +129,7 @@ spec:
   routes:
     - match: Host(`prowlarr.my-blue-car.work`)
       kind: Rule
-      middlewares: [{name: authelia}]
+      middlewares: [{name: ratelimit-auth}, {name: authelia}]
       services: [{name: prowlarr, port: 9696}]
   tls: {}
 ---

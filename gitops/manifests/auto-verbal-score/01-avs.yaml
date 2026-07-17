@@ -92,5 +92,6 @@ spec:
   routes:
     - match: Host(`avs-1245567de3019b59765cd681c2.my-blue-car.work`)   # obscured host = the ONLY access control (no Authelia)
       kind: Rule
+      middlewares: [{ name: ratelimit-default }]   # obscured host, no login → default tier
       services: [{ name: auto-verbal-score, port: 80 }]
   tls: {}   # wildcard *.my-blue-car.work default cert (TLSStore default)

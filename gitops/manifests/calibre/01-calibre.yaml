@@ -51,7 +51,7 @@ spec:
   routes:
     - match: Host(`calibre.my-blue-car.work`)
       kind: Rule
-      middlewares: [{ name: authelia }]
+      middlewares: [{ name: ratelimit-auth }, { name: authelia }]
       services: [{ name: calibre-web-automated, port: 8083 }]
   tls: {}
 ---
@@ -106,6 +106,6 @@ spec:
   routes:
     - match: Host(`shelfmark.my-blue-car.work`)
       kind: Rule
-      middlewares: [{ name: authelia }]
+      middlewares: [{ name: ratelimit-auth }, { name: authelia }]
       services: [{ name: shelfmark, port: 8084 }]
   tls: {}

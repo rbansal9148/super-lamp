@@ -84,5 +84,6 @@ spec:
   routes:
     - match: Host(`immich.my-blue-car.work`)
       kind: Rule
+      middlewares: [{ name: ratelimit-auth }]   # native login = authenticated user → higher tier
       services: [{ name: immich, port: 2283 }]
   tls: {}

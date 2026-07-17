@@ -94,6 +94,7 @@ spec:
       # aiostreams) reach it IN-CLUSTER as zilean:8181, so the public host only serves the
       # dashboard UI (Zilean__EnableDashboard=true) — no Stremio client hits it directly.
       middlewares:
+        - name: ratelimit-auth
         - name: authelia
       services:
         - name: zilean

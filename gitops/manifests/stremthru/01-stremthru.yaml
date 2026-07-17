@@ -135,6 +135,7 @@ spec:
   routes:
     - match: Host(`stremthru.my-blue-car.work`)
       kind: Rule
+      middlewares: [{name: ratelimit-default}]   # anonymous addon/store endpoint
       services: [{name: stremthru, port: 8080}]
   tls: {}
 ---

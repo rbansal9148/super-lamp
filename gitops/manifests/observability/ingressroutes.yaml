@@ -27,6 +27,7 @@ spec:
         - name: grafana
           port: 80
       middlewares:
+        - name: ratelimit-auth
         - name: authelia          # 2FA at the public edge (Grafana keeps its own login behind)
   # Serve the trusted wildcard *.my-blue-car.work default cert (TLSStore default), not the
   # former self-signed grafana-tls — its Certificate was removed (nothing else used it).
@@ -52,6 +53,22 @@ spec:
       - Remote-Email
       - Remote-Name
 ---
+# Rate-limit middleware (observability ns — Traefik v3 blocks cross-ns middleware refs, so
+# defined locally, mirroring apps/ratelimit-auth). Every observability UI is Authelia-gated,
+# so only the auth tier is needed here. Keyed on real client IP via the CF-trusted entrypoint.
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: ratelimit-auth
+  namespace: observability
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+spec:
+  rateLimit:
+    average: 60
+    burst: 120
+    period: 1s
+---
 apiVersion: traefik.io/v1alpha1
 kind: IngressRoute
 metadata:
@@ -68,6 +85,7 @@ spec:
         - name: vmsingle-obs
           port: 8428
       middlewares:
+        - name: ratelimit-auth
         - name: authelia
   # Trusted wildcard *.my-blue-car.work (TLSStore default), same as grafana. Previously a
   # self-signed vmui-tls cert, only because the old 2-label host vm.k8s.<domain> can't be
@@ -90,5 +108,6 @@ spec:
         - name: vlsingle-obs
           port: 9428
       middlewares:
+        - name: ratelimit-auth
         - name: authelia
   tls: {}
