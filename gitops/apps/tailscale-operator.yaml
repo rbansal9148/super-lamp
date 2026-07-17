@@ -12,7 +12,7 @@ spec:
   source:
     repoURL: https://pkgs.tailscale.com/helmcharts
     chart: tailscale-operator
-    targetRevision: 1.98.4            # operator app v1.98.4 (latest stable as of 2026-05-31)
+    targetRevision: 1.98.9            # operator app v1.98.9 (latest stable as of 2026-07-17)
     helm:
       values: |
         installCRDs: true
