@@ -53,6 +53,10 @@ struct Cli {
     /// Override the manifest directory (default: <repo>/gitops/manifests)
     #[arg(long)]
     manifest_dir: Option<PathBuf>,
+    /// Resolve one ref (`repo:tag` or `repo:tag@sha256:…`) to its current digest + version
+    /// label and exit. Used to pin a new semver tag, or read the version behind a digest.
+    #[arg(long)]
+    resolve: Option<String>,
 }
 
 #[derive(PartialEq)]
@@ -94,6 +98,27 @@ fn main() {
         .timeout(Duration::from_secs(25))
         .build()
         .expect("http client");
+
+    // One-off resolve mode: print `<ref>  version=…  digest=…` and exit. Accepts a bare tag
+    // (resolves the tag) or a `@sha256:` pin (resolves by that digest — reads the version a
+    // pinned digest already carries).
+    if let Some(refstr) = &cli.resolve {
+        let (name, pinned) = match refstr.split_once("@sha256:") {
+            Some((n, d)) => (n, Some(format!("sha256:{d}"))),
+            None => (refstr.as_str(), None),
+        };
+        let mut iref = registry::parse_ref(name);
+        if let Some(d) = pinned {
+            iref.tag = d;
+        }
+        let dig = registry::resolve_digest(&client, &iref).unwrap_or_else(|e| format!("ERR:{e}"));
+        let ver = registry::resolve_version(&client, &iref)
+            .ok()
+            .flatten()
+            .unwrap_or_else(|| "-".into());
+        println!("{refstr}\tversion={ver}\tdigest={dig}");
+        return;
+    }
 
     // Resolve every ref concurrently (IO-bound). thread::scope borrows `client` safely.
     let outcomes: Vec<Outcome> = thread::scope(|s| {

@@ -122,6 +122,94 @@ fn kv(s: &str, key: &str) -> Option<String> {
     Some(s[start..end].to_string())
 }
 
+fn accept_headers() -> HeaderMap {
+    let mut h = HeaderMap::new();
+    for a in ACCEPTS {
+        h.append(ACCEPT, HeaderValue::from_static(a));
+    }
+    h
+}
+
+/// GET `url` as JSON, following one anonymous auth challenge. `token` is cached across calls
+/// (same repo scope) so a manifest→child-manifest→config-blob walk authenticates once.
+fn get_json(
+    client: &Client,
+    url: &str,
+    repo: &str,
+    token: &mut Option<String>,
+) -> Result<serde_json::Value> {
+    let accept = accept_headers();
+    let mut req = client.get(url).headers(accept.clone());
+    if let Some(t) = token.as_deref() {
+        req = req.header(AUTHORIZATION, format!("Bearer {t}"));
+    }
+    let resp = req.send()?;
+    let resp = if resp.status().as_u16() == 401 {
+        let challenge = resp
+            .headers()
+            .get(WWW_AUTHENTICATE)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or_default()
+            .to_string();
+        let t = fetch_token(client, &challenge, repo)?;
+        let mut h = accept.clone();
+        h.insert(AUTHORIZATION, HeaderValue::from_str(&format!("Bearer {t}"))?);
+        let r = client.get(url).headers(h).send()?;
+        *token = Some(t);
+        r
+    } else {
+        resp
+    };
+    if !resp.status().is_success() {
+        return Err(anyhow!("HTTP {} for {}", resp.status().as_u16(), url));
+    }
+    Ok(resp.json()?)
+}
+
+/// Resolve the `org.opencontainers.image.version` label (fallback: `.revision`) for a ref.
+/// Walks index → arch manifest → config blob. Returns None when the image carries no label.
+pub fn resolve_version(client: &Client, r: &ImageRef) -> Result<Option<String>> {
+    let mut token: Option<String> = None;
+    let man_url = format!("https://{}/v2/{}/manifests/{}", r.api_host, r.repo, r.tag);
+    let body = get_json(client, &man_url, &r.repo, &mut token)?;
+
+    // A multi-arch index has `.manifests[]`; descend into one child (prefer arm64 — this
+    // cluster's arch — else the first). A single manifest carries `.config` directly.
+    let config_digest = if let Some(manifests) = body.get("manifests").and_then(|m| m.as_array()) {
+        let pick = manifests
+            .iter()
+            .find(|m| {
+                m.pointer("/platform/architecture").and_then(|a| a.as_str()) == Some("arm64")
+            })
+            .or_else(|| manifests.first())
+            .ok_or_else(|| anyhow!("empty manifest index"))?;
+        let child_dig = pick
+            .get("digest")
+            .and_then(|d| d.as_str())
+            .ok_or_else(|| anyhow!("index child has no digest"))?;
+        let child_url = format!("https://{}/v2/{}/manifests/{}", r.api_host, r.repo, child_dig);
+        let child = get_json(client, &child_url, &r.repo, &mut token)?;
+        child.pointer("/config/digest").and_then(|d| d.as_str()).map(String::from)
+    } else {
+        body.pointer("/config/digest").and_then(|d| d.as_str()).map(String::from)
+    };
+
+    let Some(cd) = config_digest else {
+        return Ok(None);
+    };
+    let blob_url = format!("https://{}/v2/{}/blobs/{}", r.api_host, r.repo, cd);
+    let cfg = get_json(client, &blob_url, &r.repo, &mut token)?;
+    let labels = cfg
+        .pointer("/config/Labels")
+        .or_else(|| cfg.pointer("/config/labels"));
+    let v = labels
+        .and_then(|l| l.get("org.opencontainers.image.version"))
+        .or_else(|| labels.and_then(|l| l.get("org.opencontainers.image.revision")))
+        .and_then(|v| v.as_str())
+        .map(String::from);
+    Ok(v)
+}
+
 const FLOATING: &[&str] = &[
     "latest", "nightly", "dev", "edge", "main", "master", "develop", "public", "stable",
     "rolling", "canary",
