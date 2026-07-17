@@ -17,7 +17,7 @@ spec:
       enableServiceLinks: false
       containers:
         - name: postgres
-          image: postgres:18.4@sha256:b913fd5699b8bd23fa4b06d72ecdd939fad43b80fb8651bac06caa0e6d135cac
+          image: postgres:18.4@sha256:32ca0af8e77bfb8c6610c488e4691f83f972a3e9e64d3b02facf3ab111ad5500
           # baseline hardening: drop ALL caps, re-add only the postgres entrypoint's needs
           # (CHOWN/DAC_OVERRIDE/FOWNER for PGDATA setup; SETUID/SETGID for gosu drop).
           securityContext: { runAsNonRoot: true, runAsUser: 999, runAsGroup: 999, allowPrivilegeEscalation: false, capabilities: { drop: [ALL], add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID] }, seccompProfile: { type: RuntimeDefault } }
@@ -78,7 +78,7 @@ spec:
           securityContext: {allowPrivilegeEscalation: false, capabilities: {drop: [ALL]}, runAsNonRoot: true, runAsUser: 65534, seccompProfile: {type: RuntimeDefault}}
       containers:
         - name: prowlarr
-          image: ghcr.io/hotio/prowlarr:nightly@sha256:7782828e050b44d28b6e9d015a7d8e719df45b533b8ef415e160d77a584214e6
+          image: ghcr.io/hotio/prowlarr:nightly@sha256:c1a3ffb116001200af3895d8ff782b7a0d90ce168db260a45d3a51ecb5c17fb0
           securityContext: { allowPrivilegeEscalation: false, capabilities: { drop: [ALL], add: [CHOWN, DAC_OVERRIDE, FOWNER, FSETID, KILL, SETGID, SETUID, SETPCAP] }, seccompProfile: { type: RuntimeDefault } }
           env:
             - {name: PUID, value: "1001"}
@@ -151,7 +151,7 @@ spec:
           restartPolicy: Never
           containers:
             - name: prune
-              image: postgres:18.4@sha256:b913fd5699b8bd23fa4b06d72ecdd939fad43b80fb8651bac06caa0e6d135cac
+              image: postgres:18.4@sha256:32ca0af8e77bfb8c6610c488e4691f83f972a3e9e64d3b02facf3ab111ad5500
               securityContext: { runAsNonRoot: true, runAsUser: 999, runAsGroup: 999, allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
               env:
                 - name: PGPASSWORD

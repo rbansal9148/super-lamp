@@ -12,7 +12,7 @@ spec:
       enableServiceLinks: false
       containers:
         - name: redis
-          image: redis:8.8.0@sha256:0b13f549ab871acafaa84b673c4e29bd7dce8d12526aaafe3b4ea3366c322daf
+          image: redis:8.8.0@sha256:234c902a2db49461a129e2d4aeff85b28cf20187ed274a67f6e50995fa713c7b
           securityContext: { runAsNonRoot: true, runAsUser: 999, runAsGroup: 999, allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           args: ["redis-server","--save","","--maxmemory","64mb","--maxmemory-policy","allkeys-lru"]
           ports: [{ containerPort: 6379 }]
@@ -43,7 +43,7 @@ spec:
       enableServiceLinks: false
       containers:
         - name: searxng
-          image: searxng/searxng:latest@sha256:af9aec5c8fe88767106e8043004a1232d43cabde22869e6355f3a63d26e41351
+          image: searxng/searxng:latest@sha256:252cfb5b348809167f5519970ca3457711e723afc76179a662b1c720cbbc1dd3
           # image ships user searxng 977:977 (app+data COPY --chown=977); entrypoint gates chown/ca-update on id==0 else warns+continues. proven: already runs root w/ drop:[ALL] healthy, doesn't write cache
           securityContext: { runAsNonRoot: true, runAsUser: 977, runAsGroup: 977, allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           env:
