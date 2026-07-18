@@ -33,6 +33,7 @@ spec:
             - {name: pgdata, mountPath: /var/lib/postgresql/data}
             - {name: dshm, mountPath: /dev/shm}
           readinessProbe: {exec: {command: ["pg_isready", "-U", "stremthru", "-d", "stremthru"]}, initialDelaySeconds: 10, periodSeconds: 10, timeoutSeconds: 3}
+          livenessProbe: {exec: {command: ["pg_isready", "-U", "stremthru", "-d", "stremthru"]}, initialDelaySeconds: 30, periodSeconds: 30, timeoutSeconds: 5}   # restart a wedged postmaster (readiness only de-endpoints)
         - name: postgres-exporter
           image: quay.io/prometheuscommunity/postgres-exporter:v0.20.1@sha256:ac5ec343104fae0e2d84a27bb8d69b38430a11910c5382cad85d478d2bab713e
           securityContext: { runAsNonRoot: true, runAsUser: 65534, runAsGroup: 65534, allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, readOnlyRootFilesystem: true, seccompProfile: { type: RuntimeDefault } }
@@ -72,7 +73,7 @@ spec:
           securityContext: { runAsNonRoot: true, runAsUser: 999, runAsGroup: 999, allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           args: ["redis-server", "--save", "", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
           ports: [{containerPort: 6379}]
-          resources: {requests: {memory: 32Mi, cpu: 10m}, limits: {memory: 320Mi, cpu: 300m}}
+          resources: {requests: {memory: 256Mi, cpu: 10m}, limits: {memory: 512Mi, cpu: 300m}}  # req=maxmemory 256mb, limit 2x (OOM-safe ratio; the 1.25x ceiling OOMKilled aiometadata-redis)
           readinessProbe: {exec: {command: ["redis-cli", "ping"]}, initialDelaySeconds: 5, periodSeconds: 10, timeoutSeconds: 3}
         - name: redis-exporter
           image: quay.io/oliver006/redis_exporter:v1.87.0@sha256:9ca6f929a8abc518d78158757922444f1cf807661a2238f44b28c3cd08a1b652
@@ -143,7 +144,7 @@ apiVersion: batch/v1
 kind: CronJob
 metadata: {name: stremthru-vacuum, namespace: apps}
 spec:
-  suspend: true   # disabled 2026-06-26: stremthru-postgres scaled to 0, vacuum would fail nightly
+  suspend: false   # re-enabled 2026-07-18: the 2026-06-26 scale-to-0 test was reverted same week; stremthru-postgres is 1/1
   schedule: "5 4 * * *"
   concurrencyPolicy: Forbid
   successfulJobsHistoryLimit: 1

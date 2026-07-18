@@ -38,6 +38,7 @@ spec:
             - {name: data, mountPath: /var/lib/postgresql/data}
             - {name: dshm, mountPath: /dev/shm}
           readinessProbe: {exec: {command: ["pg_isready", "-U", "aiostreams", "-d", "aiostreams"]}, initialDelaySeconds: 10, periodSeconds: 10, timeoutSeconds: 3}
+          livenessProbe: {exec: {command: ["pg_isready", "-U", "aiostreams", "-d", "aiostreams"]}, initialDelaySeconds: 30, periodSeconds: 30, timeoutSeconds: 5}   # restart a wedged postmaster (readiness only de-endpoints)
         - name: postgres-exporter
           image: quay.io/prometheuscommunity/postgres-exporter:v0.20.1@sha256:ac5ec343104fae0e2d84a27bb8d69b38430a11910c5382cad85d478d2bab713e
           securityContext: { runAsNonRoot: true, runAsUser: 65534, runAsGroup: 65534, allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, readOnlyRootFilesystem: true, seccompProfile: { type: RuntimeDefault } }
@@ -80,7 +81,7 @@ spec:
           securityContext: { runAsNonRoot: true, runAsUser: 999, runAsGroup: 999, allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
           args: ["redis-server", "--save", "", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
           ports: [{containerPort: 6379}]
-          resources: {requests: {memory: 16Mi, cpu: 10m}, limits: {memory: 160Mi, cpu: 200m}}
+          resources: {requests: {memory: 128Mi, cpu: 10m}, limits: {memory: 256Mi, cpu: 200m}}  # req=maxmemory 128mb, limit 2x: RSS runs ~1.5-2x maxmemory; the old 1.25x ceiling (160Mi) OOMKilled aiometadata-redis
           readinessProbe: {exec: {command: ["redis-cli", "ping"]}, initialDelaySeconds: 5, periodSeconds: 10, timeoutSeconds: 3}
         - name: redis-exporter
           image: quay.io/oliver006/redis_exporter:v1.87.0@sha256:9ca6f929a8abc518d78158757922444f1cf807661a2238f44b28c3cd08a1b652

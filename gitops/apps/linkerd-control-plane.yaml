@@ -91,7 +91,7 @@ spec:
           logLevel: warn,linkerd=warn,hickory=error
           resources:
             cpu: { request: 10m }
-            memory: { request: 20Mi, limit: 128Mi }
+            memory: { request: 12Mi, limit: 128Mi }   # measured avg 7.3Mi across 32 proxies (only 3 exceed 12Mi); frees ~320Mi node-wide across 40 meshed pods. limit unchanged
   destination: { server: https://kubernetes.default.svc, namespace: linkerd }
   syncPolicy:
     automated: { prune: true, selfHeal: true }

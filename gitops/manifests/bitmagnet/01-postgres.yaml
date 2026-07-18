@@ -31,6 +31,7 @@ spec:
             - {name: pgdata, mountPath: /var/lib/postgresql/data}
             - {name: dshm, mountPath: /dev/shm}
           readinessProbe: {exec: {command: ["pg_isready", "-U", "bitmagnet", "-d", "bitmagnet"]}, initialDelaySeconds: 15, periodSeconds: 10, timeoutSeconds: 3}
+          livenessProbe: {exec: {command: ["pg_isready", "-U", "bitmagnet", "-d", "bitmagnet"]}, initialDelaySeconds: 30, periodSeconds: 30, timeoutSeconds: 5}   # restart a wedged postmaster (readiness only de-endpoints)
         # metrics: scraped by observability via the db-exporters ServiceMonitor + db-metrics-ingress NetPol (9187 only)
         - name: postgres-exporter
           image: quay.io/prometheuscommunity/postgres-exporter:v0.20.1@sha256:ac5ec343104fae0e2d84a27bb8d69b38430a11910c5382cad85d478d2bab713e

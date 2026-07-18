@@ -55,6 +55,11 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 10
             timeoutSeconds: 3   # 1s default flaps the endpoint under load -> connection-refused blips
+          livenessProbe:
+            exec: {command: ["pg_isready", "-U", "syncio", "-d", "syncio"]}
+            initialDelaySeconds: 30
+            periodSeconds: 30
+            timeoutSeconds: 5   # generous: a tight liveness timeout would RESTART postgres under load
         - name: postgres-exporter
           image: quay.io/prometheuscommunity/postgres-exporter:v0.20.1@sha256:ac5ec343104fae0e2d84a27bb8d69b38430a11910c5382cad85d478d2bab713e
           securityContext: { runAsNonRoot: true, runAsUser: 65534, runAsGroup: 65534, allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, readOnlyRootFilesystem: true, seccompProfile: { type: RuntimeDefault } }

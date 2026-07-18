@@ -29,6 +29,7 @@ spec:
         - name: gluetun
           image: qmcgaw/gluetun@sha256:b0ee2135e6ba52ad3f102aae9663707cd1c9531485117067a380d3b2b6dd991d
           securityContext:
+            allowPrivilegeEscalation: false   # closes setuid-escalation; orthogonal to the cap-drop/seccomp that breaks /dev/net/tun
             capabilities:
               add: ["NET_ADMIN"]   # gluetun creates /dev/net/tun + manages the tunnel
           lifecycle:

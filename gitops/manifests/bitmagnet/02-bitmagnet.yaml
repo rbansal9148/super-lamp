@@ -28,6 +28,7 @@ spec:
           # break its /dev/net/tun access ("opening TUN device file: permission denied"). It is a
           # VPN gateway that legitimately needs NET_ADMIN + tun; the audit allowlists its caps.
           securityContext:
+            allowPrivilegeEscalation: false   # closes setuid-escalation; orthogonal to the cap-drop/seccomp that breaks /dev/net/tun
             capabilities: { add: ["NET_ADMIN"] }
           lifecycle:
             postStart:
@@ -50,6 +51,10 @@ spec:
             exec: { command: ["/gluetun-entrypoint","healthcheck"] }
             initialDelaySeconds: 20
             periodSeconds: 30
+          livenessProbe:                        # restart a wedged tunnel (bitmagnet has no other egress); mirrors gluetun/gluetun.yaml
+            exec: { command: ["/gluetun-entrypoint","healthcheck"] }
+            initialDelaySeconds: 45
+            periodSeconds: 60
         - name: bitmagnet
           image: ghcr.io/bitmagnet-io/bitmagnet:v0.10.1-beta.1@sha256:9673a7c74b8aaf3471e44425ee23a88eaad0b03892c06ace7210e8d33bab2117
           securityContext: { runAsNonRoot: true, runAsUser: 65532, runAsGroup: 65532, allowPrivilegeEscalation: false, capabilities: { drop: [ALL] }, seccompProfile: { type: RuntimeDefault } }
