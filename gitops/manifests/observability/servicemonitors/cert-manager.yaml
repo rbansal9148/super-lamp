@@ -4,8 +4,9 @@
 # lifetime; if the expiry timestamp drifts inside the alert window the renewal is
 # FAILING and the operator needs a push — see CertExpiringSoon in platform-alerts.yaml.
 #
-# The controller Service (cert-manager/cert-manager) already exposes :9402 named
-# `tcp-prometheus-servicemonitor` (verified: kubectl get svc -n cert-manager). No
+# The controller Service (cert-manager/cert-manager) exposes :9402 named
+# `http-metrics` as of chart v1.21.0 — renamed upstream from `tcp-prometheus-servicemonitor`
+# (≤v1.20) in cert-manager#8952 (verify: kubectl get svc -n cert-manager). No
 # Service to create — only this ServiceMonitor, discovered by the OTel Target
 # Allocator (serviceMonitorSelector: {}) and forwarded to VictoriaMetrics. Metric
 # keeps its Prometheus underscore name in VM (like KSM / `up`), NOT an OTLP dotted name.
@@ -29,6 +30,6 @@ spec:
       app.kubernetes.io/name: cert-manager
       app.kubernetes.io/component: controller
   endpoints:
-    - port: tcp-prometheus-servicemonitor
+    - port: http-metrics
       path: /metrics
       interval: 60s
