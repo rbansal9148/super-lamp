@@ -48,9 +48,9 @@ spec:
             - "-c"
             - "pg_stat_statements.track=top"
             - "-c"
-            - "shared_buffers=512MB"
+            - "shared_buffers=160MB"
             - "-c"
-            - "effective_cache_size=2GB"
+            - "effective_cache_size=480MB"
             - "-c"
             - "maintenance_work_mem=128MB"
             - "-c"
@@ -71,6 +71,10 @@ spec:
             - "log_parameter_max_length=0"
             - "-c"
             - "log_parameter_max_length_on_error=0"
+            - "-c"
+            - "idle_in_transaction_session_timeout=300000"
+            - "-c"
+            - "idle_session_timeout=900000"
           env:
             - {name: PGDATA, value: /var/lib/postgresql/data/pgdata}
             - {name: POSTGRES_USER, value: zilean}

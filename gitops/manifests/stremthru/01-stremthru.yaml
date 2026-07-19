@@ -20,7 +20,7 @@ spec:
           # baseline hardening: drop ALL caps, re-add only the postgres entrypoint's needs
           # (CHOWN/DAC_OVERRIDE/FOWNER for PGDATA setup; SETUID/SETGID for gosu drop).
           securityContext: { runAsNonRoot: true, runAsUser: 999, runAsGroup: 999, allowPrivilegeEscalation: false, capabilities: { drop: [ALL], add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID] }, seccompProfile: { type: RuntimeDefault } }
-          args: ["postgres", "-c", "shared_buffers=512MB", "-c", "effective_cache_size=1536MB", "-c", "maintenance_work_mem=256MB", "-c", "checkpoint_completion_target=0.9", "-c", "wal_buffers=16MB", "-c", "random_page_cost=1.1", "-c", "effective_io_concurrency=200", "-c", "work_mem=16MB", "-c", "max_connections=100", "-c", "log_min_duration_statement=1000"]
+          args: ["postgres", "-c", "shared_buffers=512MB", "-c", "effective_cache_size=1536MB", "-c", "maintenance_work_mem=256MB", "-c", "checkpoint_completion_target=0.9", "-c", "wal_buffers=16MB", "-c", "random_page_cost=1.1", "-c", "effective_io_concurrency=200", "-c", "work_mem=16MB", "-c", "max_connections=100", "-c", "log_min_duration_statement=1000", "-c", "idle_in_transaction_session_timeout=300000", "-c", "idle_session_timeout=900000"]
           env:
             - {name: PGDATA, value: /var/lib/postgresql/data/pgdata}
             - {name: POSTGRES_USER, value: stremthru}

@@ -27,6 +27,9 @@ spec:
           # branches are skipped under a direct-999 start. The added caps go dead but are kept
           # harmless for a hypothetical re-init. fsGroup:999 stays at pod level.
           securityContext: { runAsNonRoot: true, runAsUser: 999, runAsGroup: 999, allowPrivilegeEscalation: false, capabilities: { drop: [ALL], add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID] }, seccompProfile: { type: RuntimeDefault } }
+          # reap sessions left idle-in-transaction (holds locks, blocks autovacuum); matches comet/syncio.
+          # kept minimal on this special pgvector fork — no other server tuning to avoid disturbing the PG14 cluster.
+          args: ["postgres", "-c", "idle_in_transaction_session_timeout=300000"]
           env:
             - { name: POSTGRES_USER, value: postgres }
             - { name: POSTGRES_DB, value: immich }

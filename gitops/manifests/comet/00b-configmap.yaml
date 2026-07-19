@@ -62,7 +62,6 @@ data:
   METRICS_CACHE_TTL: '60'
   NYAA_ANIME_ONLY: 'False'
   NYAA_MAX_CONCURRENT_PAGES: '5'
-  PEERFLIX_URL: 'https://addon.peerflix.mov '
   PROWLARR_INDEXERS: '[]'
   PROWLARR_URL: http://prowlarr:9696
   PROXY_DEBRID_STREAM: 'False'

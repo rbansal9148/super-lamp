@@ -11,3 +11,7 @@ data:
   REDIS_HOSTNAME: immich-redis
   # service is named immich-ml (not immich's default immich-machine-learning) -> override
   IMMICH_MACHINE_LEARNING_URL: http://immich-ml:3003
+  # cap immich-ml's request thread pool (default = host core count, unaware of the cgroup CPU
+  # limit → oversubscription on this single-node box). 2 bounds concurrent inference on the
+  # sporadic upload workload. Read only by immich-ml (envFrom immich-config); server ignores it.
+  MACHINE_LEARNING_REQUEST_THREADS: "2"

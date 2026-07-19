@@ -95,8 +95,8 @@ data:
   DEFAULT_TORRENTIO_TIMEOUT: '3000'
   DISABLE_RATE_LIMITS: 'false'
   DISABLE_SELF_SCRAPING: 'true'
-  ENCRYPT_MEDIAFLOW_URLS: 'false'
-  ENCRYPT_STREMTHRU_URLS: 'false'
+  ENCRYPT_MEDIAFLOW_URLS: 'true'
+  ENCRYPT_STREMTHRU_URLS: 'true'
   FETCH_TRAKT_ALIASES: 'true'
   FORCE_PROXY_DISABLE_PROXIED_ADDONS: 'false'
   # DISABLED 2026-07-02: proxy streaming turned off — playback is no longer forced through the
