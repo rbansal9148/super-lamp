@@ -147,14 +147,11 @@ data:
       pool_connections: 50
       pool_maxsize: 20
       enable_http2: true
-      # Route all engine egress through gluetun's Mullvad exit (Singapore). The Oracle
-      # datacenter IP (161.118.165.53 / AS31898) is CAPTCHA'd by google/ddg/startpage;
-      # the Mullvad exit is not (probed 2026-07-21: ddg/startpage/google ok, brave still
-      # 429 on the shared VPN IP). Free — gluetun is already running. If h2-over-proxy
-      # misbehaves, set enable_http2: false above.
-      proxies:
-        all://:
-          - http://gluetun.apps.svc.cluster.local:8888
+      # NOTE: proxy is set PER-ENGINE (see &gluetun_proxy anchor on the google engine),
+      # not globally — only the scrape engines that the Oracle datacenter IP gets
+      # CAPTCHA'd on (google*/ddg/startpage*/brave*/mojeek) route through gluetun's
+      # Mullvad exit. API/torrent/media engines stay direct: they work on the datacenter
+      # IP and have per-IP rate limits we don't want to share on Mullvad's exit.
       # uncomment below section if you want to use a custom server certificate
       # see https://www.python-httpx.org/advanced/#changing-the-verification-defaults
       # and https://www.python-httpx.org/compatibility/#ssl-configuration
@@ -399,6 +396,11 @@ data:
         engine: duckduckgo
         shortcut: ddg
         weight: 1.0
+        # anchor: scrape engines blocked on the Oracle datacenter IP route via gluetun's
+        # Mullvad exit. Referenced by google*/startpage*/brave/mojeek below.
+        proxies: &gluetun_proxy
+          all://:
+            - http://gluetun.apps.svc.cluster.local:8888
 
       # - name: etymonline
       #   engine: xpath
@@ -443,12 +445,14 @@ data:
         engine: google
         shortcut: go
         weight: 1.2
+        proxies: *gluetun_proxy
         # additional_tests:
         #   android: *test_android
 
       - name: google images
         engine: google_images
         shortcut: goi
+        proxies: *gluetun_proxy
         # additional_tests:
         #   android: *test_android
         #   dali:
@@ -461,18 +465,21 @@ data:
       - name: google news
         engine: google_news
         shortcut: gon
+        proxies: *gluetun_proxy
         # additional_tests:
         #   android: *test_android
 
       - name: google videos
         engine: google_videos
         shortcut: gov
+        proxies: *gluetun_proxy
         # additional_tests:
         #   android: *test_android
 
       - name: google scholar
         engine: google_scholar
         shortcut: gos
+        proxies: *gluetun_proxy
 
       # - name: hoogle
       #   engine: xpath
@@ -689,6 +696,7 @@ data:
         startpage_categ: web
         categories: [general, web]
         weight: 0.8
+        proxies: *gluetun_proxy
         additional_tests:
           rosebud: *test_rosebud
 
@@ -697,12 +705,14 @@ data:
         startpage_categ: news
         categories: [news, web]
         shortcut: spn
+        proxies: *gluetun_proxy
 
       - name: startpage images
         engine: startpage
         startpage_categ: images
         categories: [images, web]
         shortcut: spi
+        proxies: *gluetun_proxy
 
       - name: solidtorrents
         engine: solidtorrents
@@ -873,6 +883,7 @@ data:
         brave_category: search
         weight: 1.5
         # brave_spellcheck: true
+        proxies: *gluetun_proxy   # brave.images/videos/news inherit via network: brave
 
       - name: brave.images
         engine: brave
@@ -914,6 +925,7 @@ data:
         shortcut: mj
         categories: [general, web]
         weight: 1.0
+        proxies: *gluetun_proxy
         timeout: 2.0
 
       - name: annas archive
