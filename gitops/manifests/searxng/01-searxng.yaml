@@ -1,5 +1,8 @@
-# searxng — metasearch. redis cache (ephemeral) + settings.yml (sealed, has secret_key)
-# mounted via subPath. NOT VPN-coupled (network_mode was commented in compose).
+# searxng — metasearch. redis cache (ephemeral) + settings.yml from a ConfigMap
+# (00-configmap.yaml, non-secret) mounted via subPath; server.secret_key injected
+# via SEARXNG_SECRET env from the searxng-secret SealedSecret. Egress is routed
+# through gluetun's Mullvad HTTP proxy (settings.yml outgoing.proxies) — the Oracle
+# datacenter IP is CAPTCHA-blocked by google/ddg/startpage.
 apiVersion: apps/v1
 kind: Deployment
 metadata: { name: searxng-redis, namespace: apps, labels: { app: searxng-redis } }
@@ -51,6 +54,8 @@ spec:
             - { name: UWSGI_WORKERS, value: "2" }
             - { name: UWSGI_THREADS, value: "2" }
             - { name: SEARXNG_LIMITER, value: "false" }
+            - name: SEARXNG_SECRET
+              valueFrom: { secretKeyRef: { name: searxng-secret, key: SEARXNG_SECRET } }
           ports: [{ containerPort: 8080, name: http }]
           resources: { requests: { memory: 96Mi, cpu: 25m }, limits: { memory: 512Mi, cpu: "1" } }
           volumeMounts:
@@ -59,7 +64,7 @@ spec:
           livenessProbe: { httpGet: { path: /healthz, port: 8080 }, initialDelaySeconds: 30, periodSeconds: 30, timeoutSeconds: 8, failureThreshold: 3 }
       volumes:
         - name: settings
-          secret: { secretName: searxng-settings }
+          configMap: { name: searxng-settings }
 ---
 apiVersion: v1
 kind: Service
