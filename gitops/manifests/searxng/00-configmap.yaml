@@ -141,8 +141,8 @@ data:
       # clamping per-engine timeouts >3.0 (openlibrary=5.0 → "engine timeout" in logs).
       request_timeout: 3.0
       max_request_timeout: 6.0
-      # residential proxy latency budget (added on top of the timeouts above)
-      extra_proxy_timeout: 5.0
+      # proxy latency budget (added on top of the timeouts above); schema requires int
+      extra_proxy_timeout: 5
       useragent_suffix: ""
       pool_connections: 50
       pool_maxsize: 20
