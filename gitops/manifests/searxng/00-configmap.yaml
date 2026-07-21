@@ -19,8 +19,9 @@ data:
       donation_url: false
       # mailto:contact@example.com
       contact_url: false
-      # record stats
-      enable_metrics: false
+      # record per-engine response-time + error-rate stats, visible at /stats (Authelia-gated).
+      # open_metrics below stays empty so nothing is exposed unauthenticated.
+      enable_metrics: true
       # expose stats in open metrics format at /metrics
       # leave empty to disable (no password set)
       # open_metrics: <password>
